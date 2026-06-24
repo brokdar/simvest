@@ -21,6 +21,7 @@ docker compose up --build   # run from repo root; data persisted in `simvest-dat
 
 ```bash
 npm run test          # vitest run (unit + integration under tests/unit, tests/integration)
+npm run test:watch    # vitest (watch mode)
 npm run test:e2e      # playwright test (tests/e2e/{cross,desktop,mobile} — separate Playwright projects)
 npm run test:e2e:ui   # playwright test --ui
 npm run import:excel  # tsx scripts/import-excel.ts — one-shot ingest of Depotentwicklung.xlsx
@@ -38,11 +39,13 @@ Drizzle migrations run automatically on first DB call — `ensureSeeded()` in `l
 
 **Calc layer.** `lib/calc.ts` is pure functions over DTOs — `aggregatePortfolios` (combined view with `id: 0`), `computeKPIs`, `historicalAnnualReturn`, `projectFuture`, `requiredMonthlyInvestment`, dividend aggregators, and the unified `evaluateGoal(goal, ctx)` evaluator that resolves any goal kind (`portfolio_value` / `annual_income` / `dividend_annual` / `dividend_monthly`) and scope (`combined` / `portfolio`) to a current/target/projected-year tuple. No I/O, no React. Views import these directly.
 
+**Import subsystem.** `lib/import/` parses broker exports into entries via a parser registry (`registry.ts`) — currently Trade Republic and Bondora (Go & Grow), plus a generic CSV path. The two-step flow is `POST /api/import/preview` (parse + dry-run) then `POST /api/import/commit`. Separately, `scripts/import-excel.ts` (`npm run import:excel`) is a one-shot CLI ingest of a `Depotentwicklung.xlsx`-style workbook.
+
 **Shared helpers.** Before writing a local helper, check: `lib/types.ts` (`ISIN_RE`, `resolveDefaultPortfolio`, `COMBINED_PORTFOLIO_ID`, `labelFor` — DTO boundary, client-safe), `lib/calc.ts` (`round2` for cents, plus projection/goal evaluators), `lib/dates.ts` (`todayISO`, `toISODate`, `fromISODate`), `components/ui/field-label.tsx` (the 12px/600/neutral-600 editor label used by every editor), `components/money-input.tsx` (the **only** money input — locale-aware text field with no spinner; pair with `useResolvedLocale()` from `components/use-resolved-locale.ts`).
 
 **Locale & money formatting.** `settings.locale` (`SettingsDTO.locale`, BCP-47 or `null` = auto) is the user override for number formatting. `useResolvedLocale()` resolves it against the browser, and `<LocaleSync>` (mounted inside `DataProvider`) syncs the resolved value into `lib/format.ts` so `fmtEUR / fmtPct / fmtNum` automatically pick up the user's choice — call sites need no changes. Never hardcode `"de-DE"` or call `.toLocaleString("de-DE", …)` in components.
 
-**Routes.** `app/(dashboard)/` is a route group with one shared shell (`layout.tsx` → `Sidebar` + `HeaderShell`). Sub-routes are `/`, `/chart`, `/entries`, `/holdings`, `/dividends`, `/planning`, `/settings`; each is a thin page that renders one view from `components/views/*`. Legacy `/goals` and `/simulation` 301 to `/planning` via `next.config.mjs` redirects. `HeaderShell` is context-aware via `usePathname` and dispatches `simvest:new-entry` / `simvest:new-goal` / `simvest:new-holding` / `simvest:new-dividend` window events for editors to listen on.
+**Routes.** `app/(dashboard)/` is a route group with one shared shell (`layout.tsx` → `Sidebar` + `HeaderShell`). Sub-routes are `/`, `/chart`, `/entries`, `/holdings`, `/income`, `/planning`, `/settings`; each is a thin page that renders one view from `components/views/*`. Legacy `/goals` and `/simulation` 301 to `/planning`, and `/dividends` 301s to `/income`, via `next.config.mjs` redirects. `HeaderShell` is context-aware via `usePathname` and signals editors through the `EditorIntentProvider` context (`components/providers/editor-intent.tsx`): it calls `useEditorIntentBus().requestNew(kind)` and the active view subscribes via `useEditorIntent(kind, handler)`. Editor `kind`s are `entry | goal | holding | dividend`. (This replaced the old `window.dispatchEvent("simvest:new-*")` scheme — there are no `simvest:` window events anymore.)
 
 **Goals model.** Goals are multi-scope (`combined` or scoped to a single portfolio) and multi-kind (`portfolio_value`, `annual_income`, `dividend_annual`, `dividend_monthly`). The unified `evaluateGoal` is the single source of truth for goal math — used by the Planning page, chart overlays, the overview goal-progress section, and goal tiles. SWR per-goal-with-default and yield per-goal-with-trailing-12m-default keep goal math user-controllable without polluting global Settings. The 4% SWR is no longer hardcoded anywhere.
 
