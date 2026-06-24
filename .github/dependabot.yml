@@ -6,7 +6,34 @@
 
 version: 2
 updates:
- - package-ecosystem: "devcontainers"
-   directory: "/"
-   schedule:
-     interval: weekly
+  - package-ecosystem: "devcontainers"
+    directory: "/"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: "npm"
+    directory: "/simvest"
+    schedule:
+      interval: weekly
+    groups:
+      next-ecosystem:
+        patterns:
+          - "next"
+          - "react"
+          - "react-dom"
+          - "@types/react*"
+      drizzle:
+        patterns:
+          - "drizzle-*"
+          - "better-sqlite3"
+          - "@types/better-sqlite3"
+      test-tools:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+          - "@playwright/test"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: weekly

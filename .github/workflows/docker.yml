@@ -1,0 +1,38 @@
+name: Docker
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  docker:
+    name: Docker Build & Smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t simvest:ci ./simvest
+
+      - name: Start container
+        run: docker run -d -p 3000:3000 --name simvest-ci simvest:ci
+
+      - name: Wait for health check
+        run: |
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:3000/api/health; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Waiting... attempt $i/20"
+            sleep 3
+          done
+          echo "Health check timed out"
+          docker logs simvest-ci
+          exit 1
+
+      - name: Stop container
+        if: always()
+        run: docker stop simvest-ci && docker rm simvest-ci
