@@ -1,0 +1,8 @@
+"datetime","date","account_type","category","type","asset_class","name","symbol","shares","price","amount","fee","tax","currency","original_amount","original_currency","fx_rate","description","transaction_id","counterparty_name","counterparty_iban","payment_reference","mcc_code"
+"2023-01-10T09:00:00.000Z","2023-01-10","DEFAULT","CASH","CUSTOMER_INBOUND","","Tester","","","","500.000000","","","EUR","","","","Deposit","fix-deposit-1","Tester","DE000","",""
+"2023-02-10T09:00:00.000Z","2023-02-10","DEFAULT","CASH","CUSTOMER_INBOUND","","Tester","","","","700.000000","","","EUR","","","","Deposit","fix-deposit-2","Tester","DE000","",""
+"2023-03-15T10:00:00.000Z","2023-03-15","DEFAULT","CASH","DIVIDEND","STOCK","Apple","US0378331005","5.0000000000","","3.770000","","-0.570000","EUR","3.47","USD","1.086300","","fix-div-1","","","",""
+"2023-04-30T10:00:00.000Z","2023-04-30","DEFAULT","CASH","INTEREST_PAYMENT","","","","","","1.250000","","","EUR","","","","Interest","fix-int-1","","","",""
+"2023-05-01T11:00:00.000Z","2023-05-01","DEFAULT","TRADING","BUY","STOCK","Apple","US0378331005","2.0000000000","100.000000","-200.00","-1.00","","EUR","","","","","fix-buy-1","","","",""
+"2023-06-10T09:00:00.000Z","2023-06-10","DEFAULT","CASH","CUSTOMER_INBOUND","","Tester","","","","300.000000","","","EUR","","","","Deposit","fix-deposit-3","Tester","DE000","",""
+"2023-09-15T10:00:00.000Z","2023-09-15","DEFAULT","CASH","DIVIDEND","STOCK","Microsoft","US5949181045","3.0000000000","","2.140000","","-0.320000","EUR","2.30","USD","1.075","","fix-div-2","","","",""

@@ -1,0 +1,18 @@
+# Claude Code session state (ephemeral, not project config)
+.claude/sessions/
+.claude/scheduled_tasks.lock
+.claude/session-rules.md
+
+# Sample / personal data files at repo root (anchored — does not affect subdirs)
+/*.xlsx
+/*.xls
+/*.tsv
+/*.csv
+/*.CSV
+
+# Playwright MCP cache
+.playwright-mcp/
+
+# Documentations
+/docs/
+/data/

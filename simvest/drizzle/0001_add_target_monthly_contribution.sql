@@ -1,0 +1,1 @@
+ALTER TABLE `portfolios` ADD `target_monthly_contribution` real DEFAULT 0 NOT NULL;

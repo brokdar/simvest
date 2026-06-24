@@ -1,0 +1,47 @@
+minimum_prek_version = "0.3.11"
+
+default_stages = ["pre-commit"]
+default_install_hook_types = ["pre-commit"]
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "prettier-check"
+name = "Prettier format check"
+language = "system"
+entry = "cd simvest && npx prettier --check \"**/*.{ts,tsx,css,json,md}\""
+shell = "bash"
+pass_filenames = false
+files = { glob = "simvest/**/*.{ts,tsx,css,json,md}" }
+priority = 0
+
+[[repos.hooks]]
+id = "eslint"
+name = "ESLint"
+language = "system"
+entry = "cd simvest && npx eslint --max-warnings=0 ."
+shell = "bash"
+pass_filenames = false
+files = { glob = "simvest/**/*.{ts,tsx}" }
+priority = 10
+
+[[repos.hooks]]
+id = "typecheck"
+name = "TypeScript type check"
+language = "system"
+entry = "cd simvest && npm run typecheck"
+shell = "bash"
+pass_filenames = false
+files = { glob = "simvest/**/*.{ts,tsx}" }
+priority = 20
+
+[[repos.hooks]]
+id = "test"
+name = "Vitest unit tests"
+language = "system"
+entry = "cd simvest && npm run test"
+shell = "bash"
+pass_filenames = false
+files = { glob = "simvest/**/*.{ts,tsx}" }
+priority = 30

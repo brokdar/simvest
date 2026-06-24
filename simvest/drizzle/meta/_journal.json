@@ -1,0 +1,83 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1778681071748,
+      "tag": "0000_init",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1778681100315,
+      "tag": "0001_add_target_monthly_contribution",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1779149000000,
+      "tag": "0002_add_holdings_dividends",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1779234000000,
+      "tag": "0003_entry_day_and_default",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1779580000000,
+      "tag": "0004_drop_entries_dividends",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1779700000000,
+      "tag": "0005_portfolio_starting_value",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1779900000000,
+      "tag": "0006_goals_expansion",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1779995000000,
+      "tag": "0007_drop_goals_annual_income",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1780500000000,
+      "tag": "0008_broker_import",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1781000000000,
+      "tag": "0009_entry_value_nullable",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1781500000000,
+      "tag": "0010_settings_locale",
+      "breakpoints": true
+    }
+  ]
+}

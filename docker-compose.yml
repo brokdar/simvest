@@ -1,0 +1,26 @@
+services:
+  app:
+    build:
+      context: ./simvest
+      dockerfile: Dockerfile
+    image: simvest:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - simvest-data:/app/data
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=/app/data/simvest.db
+      - NODE_OPTIONS=--max-old-space-size=256
+    mem_limit: 400m
+    memswap_limit: 400m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  simvest-data:
