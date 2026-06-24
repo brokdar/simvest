@@ -1143,6 +1143,41 @@ input[type="range"].slider::-moz-range-thumb {
   }
   .topbar-right {
     gap: 6px;
+    flex-shrink: 0;
+  }
+  /* At iPhone width the topbar only gets ~290px beside the 64px sidebar rail,
+     and the crumb + 180px switcher + bell + full-width action button overflow
+     it — the "New entry" / "Record dividend" action used to sit off the right
+     edge, unreachable. Tighten the chrome and collapse the action to its icon
+     (its label is redundant with the page <h1>) so everything fits on-screen.
+     The accessible name is preserved via aria-label on the button. */
+  .topbar {
+    padding: 0 10px;
+  }
+  .topbar-left {
+    min-width: 0;
+    gap: 8px;
+  }
+  .topbar-action {
+    width: 36px;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .topbar-action .btn-label {
+    display: none;
+  }
+  /* Let a long portfolio name ellipsize inside the fixed 180px switcher
+     rather than widening it. */
+  .pf-dd-label {
+    min-width: 0;
+  }
+  .pf-dd-name,
+  .pf-dd-sub {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .pf-dd-trigger {
     min-width: 180px;

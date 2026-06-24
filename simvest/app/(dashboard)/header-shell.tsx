@@ -73,12 +73,14 @@ function HeaderActionButton({
   const button = (
     <button
       type="button"
-      className={`btn btn-${descriptor.variant}`}
+      className={`btn btn-${descriptor.variant} topbar-action`}
       data-testid={descriptor.testId}
+      aria-label={descriptor.label}
       disabled={isDisabled}
       onClick={onTrigger}
     >
-      <Icon name="plus" size={15} /> {descriptor.label}
+      <Icon name="plus" size={15} />{" "}
+      <span className="btn-label">{descriptor.label}</span>
     </button>
   )
   if (!descriptor.disabledReason) return button
