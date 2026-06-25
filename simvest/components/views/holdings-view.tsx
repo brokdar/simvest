@@ -102,6 +102,21 @@ export function HoldingsView() {
     return out
   }, [incomeEvents, basis, asOf])
 
+  // Interest events are stored with holdingId === null by design (crowdlending
+  // / Go & Grow), so they can't key to a holding row. Surface them as a
+  // portfolio-level trailing-12m figure instead of silently dropping the income
+  // to "—" (issue #13 Bug 3). Per-holding interest attribution is out of scope.
+  const interestByPortfolio = useMemo(() => {
+    const out = new Map<number, number>()
+    for (const p of portfolios) {
+      out.set(
+        p.id,
+        trailing12mIncome(incomeEvents, p.id, "interest", basis, asOf)
+      )
+    }
+    return out
+  }, [portfolios, incomeEvents, basis, asOf])
+
   return (
     <div className="view">
       <div
@@ -159,6 +174,7 @@ export function HoldingsView() {
               holdings={ph}
               dividendsByHolding={dividendsByHolding}
               trailing12ByHolding={trailing12ByHolding}
+              portfolioInterest={interestByPortfolio.get(p.id) ?? 0}
               onEdit={(h) => {
                 setShowAdd(false)
                 setEditing(h)
@@ -203,6 +219,7 @@ function PortfolioGroup({
   holdings,
   dividendsByHolding,
   trailing12ByHolding,
+  portfolioInterest,
   onEdit,
   onDelete,
 }: {
@@ -210,6 +227,7 @@ function PortfolioGroup({
   holdings: HoldingDTO[]
   dividendsByHolding: Map<number, number>
   trailing12ByHolding: Map<number, number>
+  portfolioInterest: number
   onEdit: (h: HoldingDTO) => void
   onDelete: (h: HoldingDTO) => void
 }) {
@@ -359,6 +377,30 @@ function PortfolioGroup({
               </tr>
             )
           })}
+          {portfolioInterest > 0 && (
+            <tr data-testid={`portfolio-interest-row-${portfolio.id}`}>
+              <td style={{ paddingLeft: 18, color: "var(--neutral-800)" }}>
+                <span style={{ fontWeight: 600 }}>Interest</span>
+                <div className="muted small">Not linked to a holding</div>
+              </td>
+              <td
+                className="mono small"
+                style={{ color: "var(--neutral-500)" }}
+              >
+                <span className="muted">—</span>
+              </td>
+              <td>
+                <span className="muted small">Crowdlending / cash</span>
+              </td>
+              <td className="num mono">
+                <span className="muted">—</span>
+              </td>
+              <td className="num mono">
+                <span className="pos">{fmtEUR(portfolioInterest)}</span>
+              </td>
+              <td aria-hidden="true"></td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
