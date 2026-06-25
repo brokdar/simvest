@@ -117,6 +117,15 @@ export function HoldingsView() {
     return out
   }, [portfolios, incomeEvents, basis, asOf])
 
+  // A pure crowdlending / Go & Grow portfolio carries interest income but no
+  // holding rows (interest events have holdingId === null and the importer
+  // creates no holdings). Track that so such a portfolio still renders a group
+  // — and isn't swallowed by the "No holdings yet" empty state below.
+  const hasInterest = useMemo(
+    () => [...interestByPortfolio.values()].some((v) => v > 0),
+    [interestByPortfolio]
+  )
+
   return (
     <div className="view">
       <div
@@ -157,7 +166,7 @@ export function HoldingsView() {
         <div className="card card-pad muted">
           Create a portfolio first before adding holdings.
         </div>
-      ) : holdings.length === 0 ? (
+      ) : holdings.length === 0 && !hasInterest ? (
         <div className="card card-pad muted">
           No holdings yet. Click{" "}
           <strong style={{ color: "var(--neutral-800)" }}>Add holding</strong>{" "}
@@ -166,7 +175,11 @@ export function HoldingsView() {
       ) : (
         portfolios.map((p) => {
           const ph = grouped.get(p.id) ?? []
-          if (!ph.length) return null
+          const interest = interestByPortfolio.get(p.id) ?? 0
+          // Render the group when the portfolio has holdings OR interest income;
+          // a pure-interest portfolio (Go & Grow) has no holding rows but must
+          // still surface its interest (issue #13 Bug 3).
+          if (!ph.length && interest <= 0) return null
           return (
             <PortfolioGroup
               key={p.id}
@@ -174,7 +187,7 @@ export function HoldingsView() {
               holdings={ph}
               dividendsByHolding={dividendsByHolding}
               trailing12ByHolding={trailing12ByHolding}
-              portfolioInterest={interestByPortfolio.get(p.id) ?? 0}
+              portfolioInterest={interest}
               onEdit={(h) => {
                 setShowAdd(false)
                 setEditing(h)
