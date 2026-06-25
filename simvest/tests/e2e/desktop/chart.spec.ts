@@ -483,3 +483,17 @@ test("E2E-D-CHART-014 — empty portfolio shows empty state but the switcher sta
 
   resetDb()
 })
+
+test("E2E-D-CHART-015 — Nominal/real inflation toggle defaults off and switches on", async ({
+  page,
+}) => {
+  await page.goto("/chart")
+  const toggle = page.locator('[data-testid="chart-inflation-adjusted"]')
+  await expect(toggle).toBeVisible()
+  // Default is nominal money — toggle starts unchecked.
+  await expect(toggle).not.toBeChecked()
+  await toggle.check()
+  await expect(toggle).toBeChecked()
+  // Chart keeps rendering after deflating future points.
+  await expect(page.locator('[data-testid="growth-chart-svg"]')).toBeVisible()
+})

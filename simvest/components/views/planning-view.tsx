@@ -905,9 +905,17 @@ function AssumptionsPanel({
 
       <div style={{ marginTop: 10 }}>
         <Stat
-          label="Historical return (your data)"
+          label={
+            evaluation.expectedReturnSource === "assumed"
+              ? "Expected return (assumed)"
+              : "Historical return (your data)"
+          }
           value={fmtPct(evaluation.expectedReturn, 1) + "/yr"}
-          sub="used as the expected scenario in the trajectory"
+          sub={
+            evaluation.expectedReturnSource === "assumed"
+              ? "7% fallback — too little history to derive from your data"
+              : "used as the expected scenario in the trajectory"
+          }
         />
       </div>
     </div>

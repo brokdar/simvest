@@ -5,6 +5,7 @@ import {
   computeKPIs,
   incomeByMonth,
   historicalAnnualReturn,
+  historicalAnnualReturnWithSource,
   latestKnownValue,
   projectFuture,
   requiredMonthlyInvestment,
@@ -341,6 +342,46 @@ describe("historicalAnnualReturn", () => {
     const expected = (Math.pow(1.006, 12) - 1) * 100
     const result = historicalAnnualReturn(entries)
     expect(result).toBeCloseTo(expected, 2)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// historicalAnnualReturnWithSource
+// ---------------------------------------------------------------------------
+
+describe("historicalAnnualReturnWithSource", () => {
+  it("UNIT-CALC-019a — fewer than 6 entries is flagged assumed (value 7)", () => {
+    const fiveEntries = [
+      entry(2024, 1, 1000, 1000),
+      entry(2024, 2, 0, 1010),
+      entry(2024, 3, 0, 1020),
+      entry(2024, 4, 0, 1030),
+      entry(2024, 5, 0, 1040),
+    ]
+    const result = historicalAnnualReturnWithSource(fiveEntries)
+    expect(result.source).toBe("assumed")
+    expect(result.value).toBe(7)
+  })
+
+  it("UNIT-CALC-019b — enough real return history is flagged derived", () => {
+    const result = historicalAnnualReturnWithSource(pureGrowthPortfolio.entries)
+    expect(result.source).toBe("derived")
+    expect(result.value).toBeCloseTo(12.42, 0)
+  })
+
+  it("UNIT-CALC-019c — all monthly returns unusable is flagged assumed", () => {
+    const entries: EntryDTO[] = Array.from({ length: 6 }, (_, i) =>
+      entry(2024, i + 1, 0, 0)
+    )
+    const result = historicalAnnualReturnWithSource(entries)
+    expect(result.source).toBe("assumed")
+  })
+
+  it("UNIT-CALC-019d — value matches historicalAnnualReturn for the same input", () => {
+    const entries = pureGrowthPortfolio.entries
+    expect(historicalAnnualReturnWithSource(entries).value).toBe(
+      historicalAnnualReturn(entries)
+    )
   })
 })
 

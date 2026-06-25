@@ -290,8 +290,24 @@ export function computeKPIs(portfolio: PortfolioDTO): KPIs {
 const DEFAULT_ANNUAL_RETURN_PCT = 7
 const DEFAULT_MONTHLY_RETURN_FRACTION = 0.006
 
-export function historicalAnnualReturn(entries: EntryDTO[]): number {
-  if (entries.length < 6) return DEFAULT_ANNUAL_RETURN_PCT
+/** Whether a return figure was estimated from actuals or fell back to the 7%
+ * long-run assumption — lets the UI honestly label "Derived" vs "Assumed". */
+export type ReturnEstimate = {
+  value: number
+  source: "derived" | "assumed"
+}
+
+/**
+ * Annualized historical return plus its provenance. `assumed` when the record
+ * is too thin to estimate from actuals — fewer than 6 entries, or no month has
+ * both endpoints with a positive effective base; `derived` otherwise.
+ */
+export function historicalAnnualReturnWithSource(
+  entries: EntryDTO[]
+): ReturnEstimate {
+  if (entries.length < 6) {
+    return { value: DEFAULT_ANNUAL_RETURN_PCT, source: "assumed" }
+  }
   let sumR = 0
   let count = 0
   for (let i = 1; i < entries.length; i++) {
@@ -308,7 +324,14 @@ export function historicalAnnualReturn(entries: EntryDTO[]): number {
     count++
   }
   const monthly = count ? sumR / count : DEFAULT_MONTHLY_RETURN_FRACTION
-  return (Math.pow(1 + monthly, 12) - 1) * 100
+  return {
+    value: (Math.pow(1 + monthly, 12) - 1) * 100,
+    source: count ? "derived" : "assumed",
+  }
+}
+
+export function historicalAnnualReturn(entries: EntryDTO[]): number {
+  return historicalAnnualReturnWithSource(entries).value
 }
 
 export type ProjectionPoint = {
@@ -551,6 +574,9 @@ export type GoalEvaluation = {
   onTrack: boolean
   requiredMonthly: number
   expectedReturn: number
+  /** Whether `expectedReturn` was derived from the scope's return history or
+   * fell back to the 7% assumption. */
+  expectedReturnSource: "derived" | "assumed"
   monthlySaving: number
   scopedKpiValue: number
   swrUsed?: number
@@ -592,7 +618,8 @@ export function evaluateGoal(
       : aggregatePortfolios(ctx.portfolios)
 
   const K = computeKPIs(scoped)
-  const expectedReturn = historicalAnnualReturn(scoped.entries)
+  const expected = historicalAnnualReturnWithSource(scoped.entries)
+  const expectedReturn = expected.value
   const years = Math.max(goal.targetYear - currentYear, 1 / 12)
   const scopedPortfolioId =
     goal.scope === "portfolio" ? (goal.portfolioId ?? undefined) : undefined
@@ -710,6 +737,7 @@ export function evaluateGoal(
     onTrack,
     requiredMonthly,
     expectedReturn,
+    expectedReturnSource: expected.source,
     monthlySaving: ctx.monthlySaving,
     scopedKpiValue: K.value,
     swrUsed,

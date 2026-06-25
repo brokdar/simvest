@@ -4,8 +4,10 @@ import {
   estimatedYield,
   evaluateGoal,
   historicalAnnualReturn,
+  historicalAnnualReturnWithSource,
   type GoalEvaluation,
   type KPIs,
+  type ReturnEstimate,
   type YieldEstimate,
 } from "./calc"
 import type {
@@ -61,6 +63,11 @@ export type GoalEvaluator = {
    * `kpis`; entries come from the resolved portfolio.
    */
   historicalReturn(scope: EvaluatorScope): number
+  /**
+   * Trailing annual return % plus whether it was derived from actuals or fell
+   * back to the 7% assumption — lets the UI honestly label the figure.
+   */
+  historicalReturnWithSource(scope: EvaluatorScope): ReturnEstimate
 }
 
 function resolveScopedPortfolio(
@@ -111,6 +118,11 @@ export function createGoalEvaluator(ctx: GoalEvaluatorContext): GoalEvaluator {
     },
     historicalReturn(scope) {
       return historicalAnnualReturn(
+        resolveScopedPortfolio(ctx.portfolios, scope).entries
+      )
+    },
+    historicalReturnWithSource(scope) {
+      return historicalAnnualReturnWithSource(
         resolveScopedPortfolio(ctx.portfolios, scope).entries
       )
     },

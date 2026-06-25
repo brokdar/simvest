@@ -17,7 +17,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { CsvExportButton } from "@/components/csv-export-button"
 import { trailing12mIncome } from "@/lib/calc"
+import { toCsv, type CsvColumn } from "@/lib/export/to-csv"
 import { fmtEUR } from "@/lib/format"
 import {
   INCOME_HOLDING_PARAM,
@@ -126,6 +128,20 @@ export function HoldingsView() {
     [interestByPortfolio]
   )
 
+  const holdingCsvColumns: CsvColumn<HoldingDTO>[] = [
+    { header: "name", value: (h) => h.name },
+    { header: "type", value: (h) => TYPE_LABELS[h.type] },
+    { header: "isin", value: (h) => h.isin },
+    {
+      header: "totalDividends",
+      value: (h) => dividendsByHolding.get(h.id) ?? 0,
+    },
+    {
+      header: "trailing12mIncome",
+      value: (h) => trailing12ByHolding.get(h.id) ?? 0,
+    },
+  ]
+
   return (
     <div className="view">
       <div
@@ -149,17 +165,25 @@ export function HoldingsView() {
             cash dividends linked to each ticker
           </div>
         </div>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => {
-            setEditing(null)
-            setShowAdd(true)
-          }}
-          data-testid="btn-add-holding"
-        >
-          <Icon name="plus" size={15} /> Add holding
-        </button>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <CsvExportButton
+            filename="simvest-holdings.csv"
+            buildCsv={() => toCsv(holdingCsvColumns, holdings)}
+            testId="btn-export-holdings"
+            disabled={holdings.length === 0}
+          />
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              setEditing(null)
+              setShowAdd(true)
+            }}
+            data-testid="btn-add-holding"
+          >
+            <Icon name="plus" size={15} /> Add holding
+          </button>
+        </div>
       </div>
 
       {portfolios.length === 0 ? (

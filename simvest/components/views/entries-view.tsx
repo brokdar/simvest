@@ -13,8 +13,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { CsvExportButton } from "@/components/csv-export-button"
 import { incomeByMonth } from "@/lib/calc"
-import { COMBINED_PORTFOLIO_ID } from "@/lib/types"
+import { toCsv, type CsvColumn } from "@/lib/export/to-csv"
+import { COMBINED_PORTFOLIO_ID, type EntryDTO } from "@/lib/types"
 import { ImportFlow } from "@/components/import/import-flow"
 import { PasteImportFlow } from "@/components/import/paste-import-flow"
 
@@ -59,6 +61,16 @@ export function EntriesView() {
 
   useEditorIntent("entry", enterEditModeWithDraft)
 
+  const entryCsvColumns: CsvColumn<EntryDTO>[] = [
+    { header: "year", value: (e) => e.year },
+    { header: "month", value: (e) => e.month },
+    { header: "day", value: (e) => e.day },
+    { header: "label", value: (e) => e.label },
+    { header: "invested", value: (e) => e.invested },
+    { header: "value", value: (e) => e.value },
+    { header: "note", value: (e) => e.note },
+  ]
+
   return (
     <div className="view">
       <div
@@ -82,6 +94,11 @@ export function EntriesView() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <CsvExportButton
+            filename="simvest-entries.csv"
+            buildCsv={() => toCsv(entryCsvColumns, active.entries)}
+            testId="btn-export-entries"
+          />
           <Tooltip>
             <TooltipTrigger asChild>
               <span tabIndex={isCombined ? 0 : undefined}>

@@ -412,3 +412,33 @@ test("E2E-D-OV-016 — Goal CTA navigates to /planning and opens the goal editor
   // The query is stripped once consumed so a refresh doesn't reopen.
   await expect(page).toHaveURL(/\/planning$/)
 })
+
+test("E2E-D-OV-017 — Goal items disclose on-track verdict and projected reach year", async ({
+  page,
+}) => {
+  await page.goto("/")
+  await page.waitForSelector('[data-testid="goal-progress-section"]')
+
+  const status = page.locator('[data-testid="goal-status"]').first()
+  await expect(status).toBeVisible()
+  // Verdict is conveyed in text (not color alone): "On track"/"Behind", plus the
+  // projected reach year or "not within 40y" when never reached.
+  const text = await status.textContent()
+  expect(text).toMatch(/(On track|Behind) · (reaches \d{4}|not within 40y)/)
+})
+
+test("E2E-D-OV-018 — Dividend KPI shows a 12m run-rate with a yield whose source is disclosed", async ({
+  page,
+}) => {
+  await page.goto("/")
+  await page.waitForSelector('[data-testid="kpi-dividends"]')
+
+  const label = page.locator('[data-testid="kpi-dividends"] .label')
+  await expect(label).toHaveText(/run-rate/i)
+
+  // "X% yield (override|derived|fallback) · €… since inception"
+  const sub = page.locator('[data-testid="kpi-dividends-sub"]')
+  await expect(sub).toHaveText(
+    /%\s+yield\s+\((override|derived|fallback)\).*since inception/i
+  )
+})

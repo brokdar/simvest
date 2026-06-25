@@ -300,6 +300,25 @@ describe("createGoalEvaluator", () => {
     expect(r).toBeLessThan(15)
   })
 
+  it("UNIT-GOAL-EVAL-023a — historicalReturnWithSource flags a thin record as assumed", () => {
+    const portfolios = [
+      makePortfolio(1, [
+        { year: 2024, month: 1, invested: 1000, value: 1000 },
+        { year: 2024, month: 2, invested: 0, value: 1010 },
+      ]),
+    ]
+    const ev = createGoalEvaluator({
+      portfolios,
+      incomeEvents: [],
+      settings: makeSettings(),
+      monthlySaving: () => 0,
+    })
+
+    const r = ev.historicalReturnWithSource(1)
+    expect(r.source).toBe("assumed")
+    expect(r.value).toBe(ev.historicalReturn(1))
+  })
+
   it("UNIT-GOAL-EVAL-030 — annual_income inflatedTargetValue exceeds targetValue when inflation > 0 and years > 0", () => {
     // Contract guarded by issue #13 Bug 1: the Planning "Inflated income" tile
     // must read evaluation.inflatedTargetValue, which compounds the nominal
