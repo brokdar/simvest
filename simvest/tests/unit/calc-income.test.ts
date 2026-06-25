@@ -165,6 +165,32 @@ describe("trailingYoYDelta", () => {
   })
 })
 
+describe("trailing12mIncome — interest inclusion", () => {
+  it("UNIT-CALC-INC-020 — surfaces trailing-12m interest for a portfolio with only interest events", () => {
+    // Issue #13 Bug 3: interest events are stored with holdingId === null, so
+    // they can't key to a holding row, but a portfolio-level trailing figure
+    // must still surface them rather than dropping income to "—".
+    const now = new Date("2026-05-20T00:00:00Z")
+    const events: IncomeEventDTO[] = [
+      interest(1, "2026-03-15", 4), // within 12 mo
+      interest(2, "2025-11-01", 6), // within 12 mo
+      interest(3, "2024-08-01", 99), // older than 12 mo — excluded
+    ]
+    const trailing = trailing12mIncome(events, 1, "interest", "gross", now)
+    expect(trailing).toBe(10)
+  })
+
+  it("UNIT-CALC-INC-021 — interest trailing figure is scoped to the portfolio", () => {
+    const now = new Date("2026-05-20T00:00:00Z")
+    const events: IncomeEventDTO[] = [
+      { ...interest(1, "2026-03-15", 4), portfolioId: 1 },
+      { ...interest(2, "2026-03-15", 7), portfolioId: 2 },
+    ]
+    expect(trailing12mIncome(events, 1, "interest", "gross", now)).toBe(4)
+    expect(trailing12mIncome(events, 2, "interest", "gross", now)).toBe(7)
+  })
+})
+
 describe("bucketEventsForSparkline", () => {
   it("UNIT-CALC-INC-011 — returns requested length, latest bucket = current month", () => {
     const now = new Date("2026-05-15T00:00:00Z")

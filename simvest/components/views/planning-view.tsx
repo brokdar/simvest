@@ -706,12 +706,8 @@ function KpiTiles({
           />
           <KpiTile
             label="Inflated income"
-            value={`${fmtEUR(evaluation.targetValue * Math.pow(1 + 0, 0), { compact: true })}/yr`}
-            sub={`nominal ${fmtEUR(
-              evaluation.portfolioTargetValue *
-                ((evaluation.swrUsed ?? 4) / 100),
-              { decimals: 0 }
-            )}/yr in target year`}
+            value={`${fmtEUR(evaluation.inflatedTargetValue, { compact: true })}/yr`}
+            sub={`nominal ${fmtEUR(evaluation.targetValue, { decimals: 0 })}/yr today`}
             testId="kpi-inflated"
           />
         </>

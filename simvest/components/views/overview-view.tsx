@@ -55,8 +55,11 @@ export function OverviewView() {
     combinedStale,
   } = useData()
   const evaluator = useGoalEvaluator()
-  const totalMonthlySaving = effectiveMonthlySaving(COMBINED_PORTFOLIO_ID)
   const active = activePortfolio
+  // Scope the saving figure to the active portfolio so the subtitle matches
+  // the active-scoped KPIs beside it (issue #13 Bug 2). When the combined
+  // portfolio is active, effectiveMonthlySaving sums across all portfolios.
+  const monthlySaving = effectiveMonthlySaving(active.id)
   const kpi = useMemo(() => evaluator.kpis(active.id), [evaluator, active.id])
   const histReturn = useMemo(
     () => evaluator.historicalReturn(active.id),
@@ -162,7 +165,7 @@ export function OverviewView() {
             {lastEntry
               ? labelFor(lastEntry.year, lastEntry.month, { fullYear: true })
               : "—"}{" "}
-            · {fmtEUR(totalMonthlySaving, { decimals: 0 })}/month saving plan
+            · {fmtEUR(monthlySaving, { decimals: 0 })}/month saving plan
           </div>
         </div>
       </div>
@@ -225,7 +228,13 @@ export function OverviewView() {
         <div className="kpi" data-testid="kpi-dividends">
           <div className="label">Dividends received</div>
           <div className="value mono">{fmtEUR(dividendsReceived)}</div>
-          <div className="delta muted">Cash only · since inception</div>
+          <div className="delta muted">
+            Cash dividends ·{" "}
+            {active.id === COMBINED_PORTFOLIO_ID
+              ? "all portfolios"
+              : "this portfolio"}{" "}
+            · since inception
+          </div>
         </div>
       </div>
 

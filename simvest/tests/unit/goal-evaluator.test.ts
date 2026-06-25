@@ -299,4 +299,50 @@ describe("createGoalEvaluator", () => {
     expect(r).toBeGreaterThan(10)
     expect(r).toBeLessThan(15)
   })
+
+  it("UNIT-GOAL-EVAL-030 — annual_income inflatedTargetValue exceeds targetValue when inflation > 0 and years > 0", () => {
+    // Contract guarded by issue #13 Bug 1: the Planning "Inflated income" tile
+    // must read evaluation.inflatedTargetValue, which compounds the nominal
+    // target by inflation over the years to target.
+    const portfolios = [
+      makePortfolio(1, [
+        { year: 2024, month: 1, invested: 100000, value: 100000 },
+      ]),
+    ]
+    const ev = createGoalEvaluator({
+      portfolios,
+      incomeEvents: [],
+      settings: makeSettings({ inflation: 2 }),
+      monthlySaving: () => 0,
+    })
+    const targetYear = new Date().getFullYear() + 10
+    const result = ev.evaluate(
+      makeGoal({ kind: "annual_income", target: 40000, targetYear, swr: 4 })
+    )
+
+    expect(result.targetValue).toBe(40000)
+    expect(result.inflatedTargetValue).toBeGreaterThan(result.targetValue)
+    // 40000 * 1.02^10 ≈ 48759.79
+    expect(result.inflatedTargetValue).toBeCloseTo(40000 * 1.02 ** 10, 1)
+  })
+
+  it("UNIT-GOAL-EVAL-031 — annual_income inflatedTargetValue equals targetValue when inflation is 0", () => {
+    const portfolios = [
+      makePortfolio(1, [
+        { year: 2024, month: 1, invested: 100000, value: 100000 },
+      ]),
+    ]
+    const ev = createGoalEvaluator({
+      portfolios,
+      incomeEvents: [],
+      settings: makeSettings({ inflation: 0 }),
+      monthlySaving: () => 0,
+    })
+    const targetYear = new Date().getFullYear() + 10
+    const result = ev.evaluate(
+      makeGoal({ kind: "annual_income", target: 40000, targetYear, swr: 4 })
+    )
+
+    expect(result.inflatedTargetValue).toBe(result.targetValue)
+  })
 })
