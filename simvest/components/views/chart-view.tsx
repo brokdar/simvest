@@ -31,10 +31,10 @@ export function ChartView() {
     combinedStale,
   } = useData()
   const { updateSettings, updatePortfolio } = useDataActions()
-  // `inflationAdjusted` was wired through to GrowthChart options earlier but
-  // never surfaced as a UI toggle — keep `showDividends` and drop the dead
-  // half of the state object.
   const [showDividends, setShowDividends] = useState(true)
+  // GrowthChart already deflates future points by settings.inflation when this
+  // is on; default off so the chart shows nominal money unless asked.
+  const [inflationAdjusted, setInflationAdjusted] = useState(false)
 
   const evaluator = useGoalEvaluator()
   const active = activePortfolio
@@ -42,7 +42,7 @@ export function ChartView() {
   const isCombined = selectedPortfolio === COMBINED_PORTFOLIO_ID
   const monthlySaving = effectiveMonthlySaving(selectedPortfolio)
   const histReturn = useMemo(
-    () => evaluator.historicalReturn(active.id),
+    () => evaluator.historicalReturnWithSource(active.id),
     [evaluator, active.id]
   )
   const dividendIndex = useMemo(
@@ -93,7 +93,7 @@ export function ChartView() {
         startValue,
         monthlySaving,
         years: settings.horizonYears,
-        annualReturn: histReturn,
+        annualReturn: histReturn.value,
       }),
       conservative: projectFuture({
         startValue,
@@ -108,7 +108,7 @@ export function ChartView() {
         annualReturn: settings.optimisticReturn,
       }),
     }
-  }, [last, startValue, monthlySaving, settings, histReturn])
+  }, [last, startValue, monthlySaving, settings, histReturn.value])
 
   if (!last) {
     return (
@@ -178,6 +178,23 @@ export function ChartView() {
               />
               <span>Show dividends</span>
             </label>
+            <label
+              style={{
+                display: "flex",
+                gap: 6,
+                alignItems: "center",
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={inflationAdjusted}
+                onChange={(e) => setInflationAdjusted(e.target.checked)}
+                data-testid="chart-inflation-adjusted"
+              />
+              <span>Inflation-adjusted (real)</span>
+            </label>
           </div>
           <div className="legend">
             <div className="it">
@@ -227,7 +244,7 @@ export function ChartView() {
           projection={projection}
           monthlySaving={settings.monthlySaving}
           inflation={settings.inflation}
-          options={{ showDividends, inflationAdjusted: false }}
+          options={{ showDividends, inflationAdjusted }}
           goalLines={goalLines}
           height={440}
           dividendsByMonth={dividendIndex}
@@ -255,7 +272,9 @@ export function ChartView() {
           </div>
           <div data-testid="stat-base">
             <Stat
-              label={`Base @ ${fmtPct(histReturn, 1)} hist.`}
+              label={`Base @ ${fmtPct(histReturn.value, 1)} ${
+                histReturn.source === "assumed" ? "assumed" : "hist."
+              }`}
               value={fmtEUR(endBase, { compact: true })}
               sub={
                 fmtPct((endBase / startValue - 1) * 100, 0, true) + " vs today"
@@ -286,7 +305,7 @@ export function ChartView() {
         />
         <ScenarioCard
           label="Base (historical)"
-          pct={histReturn}
+          pct={histReturn.value}
           endValue={endBase}
           endInvested={projection.base.at(-1)?.invested ?? 0}
           startValue={startValue}
@@ -404,7 +423,7 @@ export function ChartView() {
             settings={settings}
             goals={scopedGoals}
             goalEvals={goalEvals}
-            histReturn={histReturn}
+            histReturn={histReturn.value}
           />
         </div>
       </div>

@@ -5,13 +5,13 @@ import Link from "next/link"
 import { useData, useGoalEvaluator } from "@/components/providers/data-provider"
 import { CombinedDataNotice } from "@/components/combined-data-notice"
 import { Sparkline } from "@/components/sparkline"
-import { ProgressRing } from "@/components/progress-ring"
 import { Stat } from "@/components/slider-row"
+import { GoalProgressStrip } from "@/components/goal-progress-strip"
 import { OverviewChart } from "@/components/charts/overview-chart"
-import { lastValuedEntry, totalIncome } from "@/lib/calc"
+import { lastValuedEntry, totalIncome, trailing12mIncome } from "@/lib/calc"
 import { formatEntryDate } from "@/lib/dates"
 import { fmtEUR, fmtPct } from "@/lib/format"
-import { COMBINED_PORTFOLIO_ID, labelFor, type GoalDTO } from "@/lib/types"
+import { COMBINED_PORTFOLIO_ID, labelFor } from "@/lib/types"
 
 function signClass(n: number): "pos" | "neg" | "muted" {
   if (n > 0) return "pos"
@@ -28,19 +28,6 @@ function signArrow(n: number): "↑" | "↓" | "" {
   if (n > 0) return "↑"
   if (n < 0) return "↓"
   return ""
-}
-
-function goalLineFor(g: GoalDTO): string {
-  switch (g.kind) {
-    case "portfolio_value":
-      return `Reach ${fmtEUR(g.target, { compact: true })}`
-    case "annual_income":
-      return `${fmtEUR(g.target)}/yr income`
-    case "dividend_annual":
-      return `${fmtEUR(g.target)}/yr dividends`
-    case "dividend_monthly":
-      return `${fmtEUR(g.target)}/mo dividends`
-  }
 }
 
 export function OverviewView() {
@@ -62,14 +49,27 @@ export function OverviewView() {
   const monthlySaving = effectiveMonthlySaving(active.id)
   const kpi = useMemo(() => evaluator.kpis(active.id), [evaluator, active.id])
   const histReturn = useMemo(
-    () => evaluator.historicalReturn(active.id),
+    () => evaluator.historicalReturnWithSource(active.id),
     [evaluator, active.id]
+  )
+  // Forward-looking dividend signal: trailing-12m income as a run-rate, plus a
+  // yield whose provenance (override / derived / fallback) we disclose. The
+  // since-inception total is demoted to a sub-line.
+  const dividendRunRate = trailing12mIncome(
+    incomeEvents,
+    active.id,
+    "dividend",
+    settings.dividendBasis
   )
   const dividendsReceived = totalIncome(
     incomeEvents,
     active.id,
     "dividend",
     settings.dividendBasis
+  )
+  const dividendYield = useMemo(
+    () => evaluator.estimateYield({ scope: active.id }),
+    [evaluator, active.id]
   )
 
   // Build value + cumulative invested series, best/worst MoM delta in a single
@@ -226,14 +226,14 @@ export function OverviewView() {
           </div>
         </div>
         <div className="kpi" data-testid="kpi-dividends">
-          <div className="label">Dividends received</div>
-          <div className="value mono">{fmtEUR(dividendsReceived)}</div>
-          <div className="delta muted">
-            Cash dividends ·{" "}
+          <div className="label">Dividend run-rate (12m)</div>
+          <div className="value mono">{fmtEUR(dividendRunRate)}</div>
+          <div className="delta muted" data-testid="kpi-dividends-sub">
             {active.id === COMBINED_PORTFOLIO_ID
-              ? "all portfolios"
-              : "this portfolio"}{" "}
-            · since inception
+              ? "All portfolios"
+              : "This portfolio"}{" "}
+            · {fmtPct(dividendYield.value, 2)} yield ({dividendYield.source}) ·{" "}
+            {fmtEUR(dividendsReceived)} since inception
           </div>
         </div>
       </div>
@@ -289,8 +289,12 @@ export function OverviewView() {
           <div className="grid-3 grid" data-testid="derived-stats">
             <Stat
               label="Historical return (annualized)"
-              value={fmtPct(histReturn, 2)}
-              sub="Derived from monthly data"
+              value={fmtPct(histReturn.value, 2)}
+              sub={
+                histReturn.source === "assumed"
+                  ? "Assumed (no return history)"
+                  : "Derived from monthly data"
+              }
             />
             <Stat
               label="Best month"
@@ -308,24 +312,10 @@ export function OverviewView() {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div className="card card-pad" data-testid="goal-progress-section">
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 10,
-              }}
-            >
-              <h2 className="card-title">Goal progress</h2>
-              <span
-                className={`chip ${goals.length > 0 ? "primary" : ""}`}
-                data-testid="goal-progress-chip"
-              >
-                {goals.length}&nbsp;active
-              </span>
-            </div>
-            {goals.length === 0 ? (
+          <GoalProgressStrip
+            goals={goals}
+            goalEvals={goalEvals}
+            emptyState={
               <div className="empty-state" data-testid="goal-progress-empty">
                 <div className="empty-title">No goals yet</div>
                 <div className="empty-sub">
@@ -344,51 +334,8 @@ export function OverviewView() {
                   Set a goal
                 </Link>
               </div>
-            ) : null}
-            {goals.map((g) => {
-              const ev = goalEvals[g.id]
-              const pct = Math.min(1, Math.max(0, ev?.pct ?? 0))
-              return (
-                <div
-                  key={g.id}
-                  data-testid="goal-item"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    padding: "12px 0",
-                    borderTop: "1px solid var(--border)",
-                  }}
-                >
-                  <ProgressRing pct={pct} color={g.color} />
-                  <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "baseline",
-                      }}
-                    >
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>
-                        {g.name}
-                      </div>
-                      <div
-                        className="mono small"
-                        style={{ fontWeight: 600 }}
-                        data-testid="goal-pct"
-                      >
-                        {(pct * 100).toFixed(1)}%
-                      </div>
-                    </div>
-                    <div className="muted small">
-                      {goalLineFor(g)} · target {g.targetYear} · needs{" "}
-                      {fmtEUR(ev?.portfolioTargetValue ?? 0, { compact: true })}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+            }
+          />
 
           {showSplit ? (
             <div className="card card-pad" data-testid="portfolio-split">

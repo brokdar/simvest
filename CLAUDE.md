@@ -27,6 +27,8 @@ npm run test:e2e:ui   # playwright test --ui
 npm run import:excel  # tsx scripts/import-excel.ts — one-shot ingest of Depotentwicklung.xlsx
 ```
 
+**No component-test layer.** Vitest runs in the `node` environment (no jsdom/@testing-library), so React components are not unit-tested. Put pure logic in `tests/unit` (vitest) and verify UI wiring/rendering through Playwright e2e (`tests/e2e/{desktop,mobile}`). For warm e2e iteration after one cold run, target a single spec: `E2E_SKIP_BUILD=1 npx playwright test <spec> --project=chromium-desktop -g "<test-id>"`.
+
 Drizzle migrations run automatically on first DB call — `ensureSeeded()` in `lib/db/seed.ts` invokes `migrate(db, { migrationsFolder: "./drizzle" })`. Add new schema changes via `drizzle-kit generate` (or by hand-writing the next-numbered `.sql` file and a matching entry in `drizzle/meta/_journal.json`).
 
 ## Architecture
@@ -37,7 +39,7 @@ Drizzle migrations run automatically on first DB call — `ensureSeeded()` in `l
 
 **Database boot.** `lib/db/index.ts` opens `better-sqlite3` with WAL + foreign keys on, resolves `DATABASE_URL` (default `./data/simvest.db`, `file:` prefix tolerated), and memoizes the client on `globalThis` in dev to survive HMR. `ensureSeeded()` in `lib/db/seed.ts` runs Drizzle migrations, then inserts a default `settings` row if missing. The app does not seed demo portfolios or goals — fresh installs start empty. Every query in `queries.ts` awaits `ensureSeeded()` first.
 
-**Calc layer.** `lib/calc.ts` is pure functions over DTOs — `aggregatePortfolios` (combined view with `id: 0`), `computeKPIs`, `historicalAnnualReturn`, `projectFuture`, `requiredMonthlyInvestment`, dividend aggregators, and the unified `evaluateGoal(goal, ctx)` evaluator that resolves any goal kind (`portfolio_value` / `annual_income` / `dividend_annual` / `dividend_monthly`) and scope (`combined` / `portfolio`) to a current/target/projected-year tuple. No I/O, no React. Views import these directly.
+**Calc layer.** `lib/calc.ts` is pure functions over DTOs — `aggregatePortfolios` (combined view with `id: 0`), `computeKPIs`, `historicalAnnualReturnWithSource`, `projectFuture`, `requiredMonthlyInvestment`, dividend aggregators, and the unified `evaluateGoal(goal, ctx)` evaluator that resolves any goal kind (`portfolio_value` / `annual_income` / `dividend_annual` / `dividend_monthly`) and scope (`combined` / `portfolio`) to a current/target/projected-year tuple. No I/O, no React. Views import these directly.
 
 **Import subsystem.** `lib/import/` parses broker exports into entries via a parser registry (`registry.ts`) — currently Trade Republic and Bondora (Go & Grow), plus a generic CSV path. The two-step flow is `POST /api/import/preview` (parse + dry-run) then `POST /api/import/commit`. Separately, `scripts/import-excel.ts` (`npm run import:excel`) is a one-shot CLI ingest of a `Depotentwicklung.xlsx`-style workbook.
 

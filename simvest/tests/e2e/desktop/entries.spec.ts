@@ -6,6 +6,7 @@
  * becomes an input; a sticky footer offers Save all / Cancel. The legacy
  * EntryEditor dialog and BulkEntryPanel are gone.
  */
+import * as fs from "node:fs/promises"
 import { test, expect } from "../fixtures"
 import { preselectPortfolio } from "../helpers"
 
@@ -585,4 +586,24 @@ test("E2E-D-ENTRIES-EDIT-011 — Inline calculator in Invested: 200+300+421 → 
   // After blur the field is rewritten with the formatted sum (921.00 in
   // en-US, 921,00 in de-DE).
   await expect(invested).toHaveValue(/^921[.,]00$/)
+})
+
+test("E2E-D-ENTRIES-006 — Export downloads a CSV of the scoped entries with the expected header", async ({
+  page,
+}, testInfo) => {
+  await preselectPortfolio(page, 1)
+  await page.goto("/entries")
+
+  const downloadPromise = page.waitForEvent("download")
+  await page.getByTestId("btn-export-entries").click()
+  const download = await downloadPromise
+
+  expect(download.suggestedFilename()).toBe("simvest-entries.csv")
+  const savedPath = testInfo.outputPath("entries.csv")
+  await download.saveAs(savedPath)
+  const raw = await fs.readFile(savedPath, "utf8")
+  const lines = raw.split("\n")
+  expect(lines[0]).toBe("year,month,day,label,invested,value,note")
+  // Seed has 60 monthly entries for portfolio 1 → header + body rows.
+  expect(lines.length).toBeGreaterThan(1)
 })

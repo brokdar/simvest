@@ -273,7 +273,7 @@ describe("createGoalEvaluator", () => {
     expect(ev.kpis(COMBINED_PORTFOLIO_ID).value).toBe(17500)
   })
 
-  it("UNIT-GOAL-EVAL-023 — historicalReturn(scope) returns annualized return for the scope", () => {
+  it("UNIT-GOAL-EVAL-023 — historicalReturnWithSource(scope) returns annualized return for the scope", () => {
     // 1% per month growth on flat 10k invested → ~12.7% annualized.
     const portfolios = [
       makePortfolio(
@@ -294,10 +294,29 @@ describe("createGoalEvaluator", () => {
       monthlySaving: () => 0,
     })
 
-    const r = ev.historicalReturn(1)
+    const r = ev.historicalReturnWithSource(1).value
     expect(Number.isFinite(r)).toBe(true)
     expect(r).toBeGreaterThan(10)
     expect(r).toBeLessThan(15)
+  })
+
+  it("UNIT-GOAL-EVAL-023a — historicalReturnWithSource flags a thin record as assumed", () => {
+    const portfolios = [
+      makePortfolio(1, [
+        { year: 2024, month: 1, invested: 1000, value: 1000 },
+        { year: 2024, month: 2, invested: 0, value: 1010 },
+      ]),
+    ]
+    const ev = createGoalEvaluator({
+      portfolios,
+      incomeEvents: [],
+      settings: makeSettings(),
+      monthlySaving: () => 0,
+    })
+
+    const r = ev.historicalReturnWithSource(1)
+    expect(r.source).toBe("assumed")
+    expect(r.value).toBe(7)
   })
 
   it("UNIT-GOAL-EVAL-030 — annual_income inflatedTargetValue exceeds targetValue when inflation > 0 and years > 0", () => {
