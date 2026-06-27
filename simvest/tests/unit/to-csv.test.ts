@@ -45,4 +45,28 @@ describe("toCsv", () => {
     ]
     expect(toCsv(c, [{ v: null }])).toBe("v\n")
   })
+
+  it("UNIT-CSV-008 — neutralizes a string field that begins with a formula trigger", () => {
+    const rows = [
+      { name: "=1+1", amount: 1, note: "" },
+      { name: "+CMD", amount: 1, note: "" },
+      { name: "-2+3", amount: 1, note: "" },
+      { name: "@SUM", amount: 1, note: "" },
+    ]
+    const csv = toCsv(cols, rows).split("\n").slice(1)
+    expect(csv[0]).toBe("'=1+1,1,")
+    expect(csv[1]).toBe("'+CMD,1,")
+    expect(csv[2]).toBe("'-2+3,1,")
+    expect(csv[3]).toBe("'@SUM,1,")
+  })
+
+  it("UNIT-CSV-009 — does not prefix numeric fields, so negative numbers stay intact", () => {
+    const csv = toCsv(cols, [{ name: "x", amount: -100.5, note: "" }])
+    expect(csv).toBe("name,amount,note\nx,-100.5,")
+  })
+
+  it("UNIT-CSV-010 — quotes a neutralized field that also contains a comma", () => {
+    const csv = toCsv(cols, [{ name: "=1,2", amount: 1, note: "" }])
+    expect(csv).toBe('name,amount,note\n"\'=1,2",1,')
+  })
 })

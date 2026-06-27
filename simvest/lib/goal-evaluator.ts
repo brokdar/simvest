@@ -3,7 +3,6 @@ import {
   computeKPIs,
   estimatedYield,
   evaluateGoal,
-  historicalAnnualReturn,
   historicalAnnualReturnWithSource,
   type GoalEvaluation,
   type KPIs,
@@ -59,13 +58,9 @@ export type GoalEvaluator = {
    */
   kpis(scope: EvaluatorScope): KPIs
   /**
-   * Trailing annual return % for the given scope. Same scope-resolution as
-   * `kpis`; entries come from the resolved portfolio.
-   */
-  historicalReturn(scope: EvaluatorScope): number
-  /**
    * Trailing annual return % plus whether it was derived from actuals or fell
-   * back to the 7% assumption — lets the UI honestly label the figure.
+   * back to the 7% assumption — lets the UI honestly label the figure. Same
+   * scope-resolution as `kpis`; entries come from the resolved portfolio.
    */
   historicalReturnWithSource(scope: EvaluatorScope): ReturnEstimate
 }
@@ -115,11 +110,6 @@ export function createGoalEvaluator(ctx: GoalEvaluatorContext): GoalEvaluator {
     },
     kpis(scope) {
       return computeKPIs(resolveScopedPortfolio(ctx.portfolios, scope))
-    },
-    historicalReturn(scope) {
-      return historicalAnnualReturn(
-        resolveScopedPortfolio(ctx.portfolios, scope).entries
-      )
     },
     historicalReturnWithSource(scope) {
       return historicalAnnualReturnWithSource(

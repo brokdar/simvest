@@ -229,7 +229,10 @@ export function OverviewView() {
           <div className="label">Dividend run-rate (12m)</div>
           <div className="value mono">{fmtEUR(dividendRunRate)}</div>
           <div className="delta muted" data-testid="kpi-dividends-sub">
-            {fmtPct(dividendYield.value, 2)} yield ({dividendYield.source}) ·{" "}
+            {active.id === COMBINED_PORTFOLIO_ID
+              ? "All portfolios"
+              : "This portfolio"}{" "}
+            · {fmtPct(dividendYield.value, 2)} yield ({dividendYield.source}) ·{" "}
             {fmtEUR(dividendsReceived)} since inception
           </div>
         </div>

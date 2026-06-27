@@ -4,7 +4,6 @@ import {
   aggregatePortfoliosWithCoverage,
   computeKPIs,
   incomeByMonth,
-  historicalAnnualReturn,
   historicalAnnualReturnWithSource,
   latestKnownValue,
   projectFuture,
@@ -304,7 +303,7 @@ describe("computeKPIs", () => {
 // historicalAnnualReturn
 // ---------------------------------------------------------------------------
 
-describe("historicalAnnualReturn", () => {
+describe("historicalAnnualReturnWithSource — value", () => {
   it("UNIT-CALC-016 — fewer than 6 entries returns 7", () => {
     const fiveEntries = [
       entry(2024, 1, 1000, 1000),
@@ -313,12 +312,12 @@ describe("historicalAnnualReturn", () => {
       entry(2024, 4, 0, 1030),
       entry(2024, 5, 0, 1040),
     ]
-    expect(historicalAnnualReturn(fiveEntries)).toBe(7)
+    expect(historicalAnnualReturnWithSource(fiveEntries).value).toBe(7)
   })
 
   it("UNIT-CALC-017 — exactly 6 entries computes from data (~12.42)", () => {
-    const result = historicalAnnualReturn(pureGrowthPortfolio.entries)
-    expect(result).toBeCloseTo(12.42, 0)
+    const result = historicalAnnualReturnWithSource(pureGrowthPortfolio.entries)
+    expect(result.value).toBeCloseTo(12.42, 0)
   })
 
   it("UNIT-CALC-018 — skips periods where effective value is zero or negative — result is finite", () => {
@@ -330,18 +329,17 @@ describe("historicalAnnualReturn", () => {
       entry(2024, 5, 0, 1010),
       entry(2024, 6, 0, 1020),
     ]
-    const result = historicalAnnualReturn(entries)
+    const result = historicalAnnualReturnWithSource(entries).value
     expect(isFinite(result)).toBe(true)
     expect(isNaN(result)).toBe(false)
   })
 
-  it("UNIT-CALC-019 — all entries have zero effective value returns fallback (~7.44)", () => {
+  it("UNIT-CALC-019 — all entries have zero effective value returns the flat 7% fallback", () => {
     const entries: EntryDTO[] = Array.from({ length: 6 }, (_, i) =>
       entry(2024, i + 1, 0, 0)
     )
-    const expected = (Math.pow(1.006, 12) - 1) * 100
-    const result = historicalAnnualReturn(entries)
-    expect(result).toBeCloseTo(expected, 2)
+    const result = historicalAnnualReturnWithSource(entries).value
+    expect(result).toBe(7)
   })
 })
 
@@ -369,19 +367,14 @@ describe("historicalAnnualReturnWithSource", () => {
     expect(result.value).toBeCloseTo(12.42, 0)
   })
 
-  it("UNIT-CALC-019c — all monthly returns unusable is flagged assumed", () => {
+  it("UNIT-CALC-019c — all monthly returns unusable is flagged assumed (value 7, matching the label)", () => {
     const entries: EntryDTO[] = Array.from({ length: 6 }, (_, i) =>
       entry(2024, i + 1, 0, 0)
     )
     const result = historicalAnnualReturnWithSource(entries)
     expect(result.source).toBe("assumed")
-  })
-
-  it("UNIT-CALC-019d — value matches historicalAnnualReturn for the same input", () => {
-    const entries = pureGrowthPortfolio.entries
-    expect(historicalAnnualReturnWithSource(entries).value).toBe(
-      historicalAnnualReturn(entries)
-    )
+    // Both assumed branches must agree with the "7% fallback" label the UI shows.
+    expect(result.value).toBe(7)
   })
 })
 
@@ -874,7 +867,7 @@ describe("aggregatePortfolios — carry-forward & coverage", () => {
   })
 })
 
-describe("historicalAnnualReturn — null value handling", () => {
+describe("historicalAnnualReturnWithSource — null value handling", () => {
   it("UNIT-CALC-048 — skips month pairs where either endpoint is null", () => {
     // Six clean months establish a return; inserting a null between two
     // valid endpoints just removes one data point — should not crash.
@@ -886,7 +879,7 @@ describe("historicalAnnualReturn — null value handling", () => {
       entry(2024, 5, 100, 1460),
       entry(2024, 6, 100, 1590),
     ]
-    const r = historicalAnnualReturn(es)
+    const r = historicalAnnualReturnWithSource(es).value
     expect(Number.isFinite(r)).toBe(true)
   })
 })

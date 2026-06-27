@@ -12,7 +12,16 @@ export type CsvColumn<T> = {
 
 function escapeField(raw: string | number | null | undefined): string {
   if (raw == null) return ""
-  const s = typeof raw === "number" ? String(round2(raw)) : raw
+  // Numbers are produced by us via `round2` — always safe, never a formula.
+  if (typeof raw === "number") return String(round2(raw))
+  let s = raw
+  // Neutralize spreadsheet formula injection: a string cell beginning with
+  // `= + - @` (or a leading tab/CR) is evaluated by Excel/Sheets. Prefixing a
+  // single quote forces it to be read as text. Applied to strings only, so
+  // numeric fields like `-100.5` are unaffected.
+  if (/^[=+\-@\t\r]/.test(s)) {
+    s = `'${s}`
+  }
   // RFC-4180: wrap in double quotes and double interior quotes when the field
   // contains a comma, a quote, or a line break.
   if (/[",\r\n]/.test(s)) {

@@ -436,9 +436,10 @@ test("E2E-D-OV-018 — Dividend KPI shows a 12m run-rate with a yield whose sour
   const label = page.locator('[data-testid="kpi-dividends"] .label')
   await expect(label).toHaveText(/run-rate/i)
 
-  // "X% yield (override|derived|fallback) · €… since inception"
+  // "All portfolios · X% yield (override|derived|fallback) · €… since inception"
+  // — the scope cue (all portfolios / this portfolio) must stay disclosed.
   const sub = page.locator('[data-testid="kpi-dividends-sub"]')
   await expect(sub).toHaveText(
-    /%\s+yield\s+\((override|derived|fallback)\).*since inception/i
+    /(all portfolios|this portfolio).*%\s+yield\s+\((override|derived|fallback)\).*since inception/i
   )
 })
