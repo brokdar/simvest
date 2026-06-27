@@ -1,3 +1,4 @@
+import * as fs from "node:fs/promises"
 import { test, expect } from "../fixtures"
 import { preselectPortfolio } from "../helpers"
 
@@ -296,4 +297,33 @@ test("E2E-D-INC-019 — Create a holding inline from the Record dividend form", 
 
   // The new holding and its dividend now appear in the income view.
   await expect(page.getByText(name).first()).toBeVisible()
+})
+
+test("E2E-D-INC-022 — Dividend goal-progress strip is hidden when no dividend goals exist", async ({
+  page,
+}) => {
+  await page.goto("/income")
+  await page.waitForSelector('[data-testid="income-subtitle"]')
+  // Seed has only annual_income goals — the dividend strip must not render
+  // (empty state = hidden, not an error).
+  await expect(
+    page.locator('[data-testid="income-goal-progress"]')
+  ).toHaveCount(0)
+})
+
+test("E2E-D-INC-023 — Export downloads a CSV of the scoped income events with the expected header", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/income")
+  await page.waitForSelector('[data-testid="income-subtitle"]')
+
+  const downloadPromise = page.waitForEvent("download")
+  await page.getByTestId("btn-export-income").click()
+  const download = await downloadPromise
+
+  expect(download.suggestedFilename()).toBe("simvest-income.csv")
+  const savedPath = testInfo.outputPath("income.csv")
+  await download.saveAs(savedPath)
+  const raw = await fs.readFile(savedPath, "utf8")
+  expect(raw.split("\n")[0]).toBe("paidDate,kind,holdingName,amount,tax,note")
 })

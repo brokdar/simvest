@@ -10,12 +10,15 @@ import { Icon } from "@/components/icon"
 import { DonutBySource } from "@/components/charts/donut-by-source"
 import { IncomeCalendarHeatmap } from "@/components/charts/income-calendar-heatmap"
 import { MonthlyPayoutsChart } from "@/components/charts/monthly-payouts-chart"
+import { GoalProgressStrip } from "@/components/goal-progress-strip"
 import { KpiRow } from "@/components/views/income/kpi-row"
 import { PerHoldingTable } from "@/components/views/income/per-holding-table"
 import { RecentPayoutsTable } from "@/components/views/income/recent-payouts-table"
 import { useIncomeSearchParams } from "@/components/views/income/use-income-search-params"
 import { SegControl } from "@/components/ui/seg-control"
+import { CsvExportButton } from "@/components/csv-export-button"
 import { eventAmount, totalIncome } from "@/lib/calc"
+import { toCsv, type CsvColumn } from "@/lib/export/to-csv"
 import { fmtEUR } from "@/lib/format"
 import {
   COMBINED_PORTFOLIO_ID,
@@ -31,9 +34,28 @@ export function IncomeView() {
     holdings,
     incomeEvents,
     activePortfolio,
+    goals,
+    goalEvals,
     settings,
     today,
   } = useData()
+  // Close the record→plan loop where income lives: show progress for dividend
+  // goals only. Hidden entirely when there are none.
+  const dividendGoals = useMemo(
+    () =>
+      goals.filter(
+        (g) => g.kind === "dividend_annual" || g.kind === "dividend_monthly"
+      ),
+    [goals]
+  )
+  const incomeCsvColumns: CsvColumn<IncomeEventDTO>[] = [
+    { header: "paidDate", value: (e) => e.paidDate },
+    { header: "kind", value: (e) => e.kind },
+    { header: "holdingName", value: (e) => e.holdingName },
+    { header: "amount", value: (e) => e.amount },
+    { header: "tax", value: (e) => e.tax },
+    { header: "note", value: (e) => e.note },
+  ]
   // Single Date instance per render so memo deps stay stable.
   const asOf = useMemo(() => new Date(today), [today])
   const {
@@ -149,6 +171,11 @@ export function IncomeView() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <CsvExportButton
+            filename="simvest-income.csv"
+            buildCsv={() => toCsv(incomeCsvColumns, scopedEvents)}
+            testId="btn-export-income"
+          />
           <button
             type="button"
             className="btn btn-secondary"
@@ -270,6 +297,13 @@ export function IncomeView() {
             basis={basis}
             totalScoped={totalScoped}
             asOf={asOf}
+          />
+
+          <GoalProgressStrip
+            goals={dividendGoals}
+            goalEvals={goalEvals}
+            title="Dividend goal progress"
+            testId="income-goal-progress"
           />
 
           <div className="overview-grid">

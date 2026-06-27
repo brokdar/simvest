@@ -283,15 +283,29 @@ export function computeKPIs(portfolio: PortfolioDTO): KPIs {
   return { value, invested, gain, gainPct, cagr }
 }
 
-// Defaults used when the data record is too thin to estimate a return from
-// actuals. Both express a roughly 7%/yr long-run equity assumption — the
-// short-record fallback is annual (returned directly); the per-month fallback
-// applies inside the averaging loop and gets compounded with `Math.pow(…, 12)`.
+// Flat 7%/yr long-run equity assumption, returned directly whenever the record
+// is too thin to estimate a return from actuals (short record or no usable
+// month) so the figure always matches the "7% fallback" label the UI shows.
 const DEFAULT_ANNUAL_RETURN_PCT = 7
-const DEFAULT_MONTHLY_RETURN_FRACTION = 0.006
 
-export function historicalAnnualReturn(entries: EntryDTO[]): number {
-  if (entries.length < 6) return DEFAULT_ANNUAL_RETURN_PCT
+/** Whether a return figure was estimated from actuals or fell back to the 7%
+ * long-run assumption — lets the UI honestly label "Derived" vs "Assumed". */
+export type ReturnEstimate = {
+  value: number
+  source: "derived" | "assumed"
+}
+
+/**
+ * Annualized historical return plus its provenance. `assumed` when the record
+ * is too thin to estimate from actuals — fewer than 6 entries, or no month has
+ * both endpoints with a positive effective base; `derived` otherwise.
+ */
+export function historicalAnnualReturnWithSource(
+  entries: EntryDTO[]
+): ReturnEstimate {
+  if (entries.length < 6) {
+    return { value: DEFAULT_ANNUAL_RETURN_PCT, source: "assumed" }
+  }
   let sumR = 0
   let count = 0
   for (let i = 1; i < entries.length; i++) {
@@ -307,8 +321,16 @@ export function historicalAnnualReturn(entries: EntryDTO[]): number {
     sumR += r
     count++
   }
-  const monthly = count ? sumR / count : DEFAULT_MONTHLY_RETURN_FRACTION
-  return (Math.pow(1 + monthly, 12) - 1) * 100
+  // No usable month — fall back to the same flat 7% assumption the
+  // short-record branch uses, so every "assumed" figure matches its label.
+  if (count === 0) {
+    return { value: DEFAULT_ANNUAL_RETURN_PCT, source: "assumed" }
+  }
+  const monthly = sumR / count
+  return {
+    value: (Math.pow(1 + monthly, 12) - 1) * 100,
+    source: "derived",
+  }
 }
 
 export type ProjectionPoint = {
@@ -551,6 +573,9 @@ export type GoalEvaluation = {
   onTrack: boolean
   requiredMonthly: number
   expectedReturn: number
+  /** Whether `expectedReturn` was derived from the scope's return history or
+   * fell back to the 7% assumption. */
+  expectedReturnSource: "derived" | "assumed"
   monthlySaving: number
   scopedKpiValue: number
   swrUsed?: number
@@ -574,8 +599,9 @@ const MAX_PROJECTION_MONTHS = 40 * 12
  * chart overlays, and solver workspace.
  *
  * Resolves scope first (combined vs single portfolio), uses scope-local
- * `historicalAnnualReturn` so per-portfolio goals don't inherit combined
- * volatility, and clamps `years` to avoid division cliffs on overdue goals.
+ * `historicalAnnualReturnWithSource` so per-portfolio goals don't inherit
+ * combined volatility, and clamps `years` to avoid division cliffs on overdue
+ * goals.
  */
 export function evaluateGoal(
   goal: GoalDTO,
@@ -592,7 +618,8 @@ export function evaluateGoal(
       : aggregatePortfolios(ctx.portfolios)
 
   const K = computeKPIs(scoped)
-  const expectedReturn = historicalAnnualReturn(scoped.entries)
+  const expected = historicalAnnualReturnWithSource(scoped.entries)
+  const expectedReturn = expected.value
   const years = Math.max(goal.targetYear - currentYear, 1 / 12)
   const scopedPortfolioId =
     goal.scope === "portfolio" ? (goal.portfolioId ?? undefined) : undefined
@@ -710,6 +737,7 @@ export function evaluateGoal(
     onTrack,
     requiredMonthly,
     expectedReturn,
+    expectedReturnSource: expected.source,
     monthlySaving: ctx.monthlySaving,
     scopedKpiValue: K.value,
     swrUsed,
