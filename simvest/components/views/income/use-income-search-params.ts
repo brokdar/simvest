@@ -5,12 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { INCOME_HOLDING_PARAM } from "@/lib/types"
 
 export type IncomeSortKey =
-  | "name"
-  | "received"
-  | "lastPaid"
-  | "count"
-  | "cadence"
-  | "share"
+  "name" | "received" | "lastPaid" | "count" | "cadence" | "share"
 
 export type IncomeSortDir = "asc" | "desc"
 

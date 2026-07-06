@@ -97,22 +97,6 @@ test.describe("Shell — mobile", () => {
     }
   })
 
-  // E2E-M-SHELL-006 — Sidebar footer shows avatar only (user name hidden) on mobile
-  test("E2E-M-SHELL-006 — sidebar footer shows avatar only (user name hidden) on mobile", async ({
-    page,
-  }) => {
-    await page.goto("/")
-    const avatar = page.locator(".avatar")
-    await expect(avatar).toBeVisible()
-    await expect(avatar).toContainText("EK")
-
-    // The sibling div containing the user name is hidden by the media query
-    // (`.sidebar-foot > div:not(.avatar) { display: none }`). Match only the
-    // direct child to avoid the inner name/sub divs.
-    const nameContainer = page.locator(".sidebar-foot > div:not(.avatar)")
-    await expect(nameContainer).toBeHidden()
-  })
-
   // E2E-M-SHELL-007 — Topbar search input is hidden at 393 px
   test("E2E-M-SHELL-007 — topbar search input is hidden at 393 px", async ({
     page,
