@@ -5,7 +5,8 @@
  * narrow seam so the rules live in one place per resource.
  */
 export type ValidationResult<T> =
-  { ok: true; data: T } | { ok: false; error: string }
+  | { ok: true; data: T }
+  | { ok: false; error: string }
 
 export function ok<T>(data: T): ValidationResult<T> {
   return { ok: true, data }

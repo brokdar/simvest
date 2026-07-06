@@ -38,7 +38,8 @@ export function getSeparators(locale: string): Separators {
 }
 
 export type ParseResult =
-  { ok: true; value: number } | { ok: false; error: string }
+  | { ok: true; value: number }
+  | { ok: false; error: string }
 
 export function parseMoney(
   raw: string,

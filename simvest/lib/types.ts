@@ -23,7 +23,10 @@ export type PortfolioDTO = {
 }
 
 export type GoalKind =
-  "portfolio_value" | "annual_income" | "dividend_annual" | "dividend_monthly"
+  | "portfolio_value"
+  | "annual_income"
+  | "dividend_annual"
+  | "dividend_monthly"
 
 export type GoalScope = "combined" | "portfolio"
 
@@ -173,7 +176,11 @@ export type IncomeSliceDTO = {
 }
 
 export type IncomeCadence =
-  "monthly" | "quarterly" | "semi-annual" | "annual" | "irregular"
+  | "monthly"
+  | "quarterly"
+  | "semi-annual"
+  | "annual"
+  | "irregular"
 
 export const CADENCE_LABEL: Record<IncomeCadence, string> = {
   monthly: "Monthly",

@@ -73,7 +73,8 @@ type Context = {
 }
 
 type LoadResult =
-  { ok: true; ctx: Context } | { ok: false; status: number; error: string }
+  | { ok: true; ctx: Context }
+  | { ok: false; status: number; error: string }
 
 type ParseCacheEntry = { parsed: BrokerParseResult; expiresAt: number }
 
