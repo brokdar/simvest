@@ -111,18 +111,6 @@ export function Sidebar() {
           })}
         </nav>
       ))}
-
-      <div className="sidebar-foot">
-        <div className="avatar" aria-label="User avatar: Elena Kovac">
-          EK
-        </div>
-        <div style={{ lineHeight: 1.2 }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>Elena Kovac</div>
-          <div style={{ fontSize: 11, color: "var(--neutral-400)" }}>
-            Personal · EUR
-          </div>
-        </div>
-      </div>
     </aside>
   )
 }

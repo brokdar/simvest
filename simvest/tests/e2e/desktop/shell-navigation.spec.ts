@@ -186,15 +186,14 @@ test.describe("Shell navigation — desktop", () => {
     await expect(page.locator('[role="dialog"]')).toBeVisible()
   })
 
-  // E2E-D-NAV-011 — Brand logo and user avatar are visible in the sidebar
-  test("E2E-D-NAV-011 — brand logo and user avatar are visible in the sidebar", async ({
+  // E2E-D-NAV-011 — Brand logo is visible in the sidebar
+  test("E2E-D-NAV-011 — brand logo is visible in the sidebar", async ({
     page,
   }) => {
     await page.goto("/")
     const sidebar = page.getByTestId("sidebar")
     await expect(sidebar).toBeVisible()
     await expect(sidebar).toContainText("Simvest")
-    await expect(sidebar.locator(".avatar")).toContainText("EK")
   })
 
   // E2E-D-NAV-012 — Direct navigation to /chart from URL bar sets correct active item

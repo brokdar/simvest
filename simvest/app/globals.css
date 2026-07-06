@@ -288,26 +288,6 @@ h4 {
   place-items: center;
   color: currentColor;
 }
-.sidebar-foot {
-  margin-top: auto;
-  padding: 12px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.avatar {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #334155, #1e40af);
-  display: grid;
-  place-items: center;
-  color: #fff;
-  font-weight: 700;
-  font-size: 11px;
-}
-
 /* ---- Main ---- */
 .main {
   min-width: 0;
@@ -1104,13 +1084,6 @@ input[type="range"].slider::-moz-range-thumb {
   .nav-item .ico svg {
     width: 20px;
     height: 20px;
-  }
-  .sidebar-foot > div:not(.avatar) {
-    display: none;
-  }
-  .sidebar-foot {
-    justify-content: center;
-    padding: 10px 0;
   }
 }
 @media (max-width: 860px) {
