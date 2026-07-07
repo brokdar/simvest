@@ -160,19 +160,30 @@ export function MonthlyPayoutsChart({
       ? colors.colorFor(highlightedHoldingId)
       : "var(--primary)"
 
-  const hoverBucket = hoverIdx !== null ? buckets[hoverIdx] : null
+  // Index of the selected month (the persistent pin), or -1. On touch there's
+  // no hover, so the tooltip falls back to this — a tap both filters the ledger
+  // AND reveals the month's breakdown; tapping it again deselects and dismisses.
+  // Keyboard users get the same persistent readout via focus/Enter. Plain value
+  // (no useMemo) so the React Compiler can memoize the component.
+  const selectedIdx =
+    selectedMonth === null
+      ? -1
+      : buckets.findIndex((b) => b.key === selectedMonth)
+  // Hover (mouse/keyboard) wins; otherwise the selected month drives the readout.
+  const activeIdx = hoverIdx ?? (selectedIdx >= 0 ? selectedIdx : null)
+  const activeBucket = activeIdx !== null ? buckets[activeIdx] : null
 
-  // Tooltip follows the hovered bar's x (clamped inside the chart) and sits
+  // Tooltip follows the active bar's x (clamped inside the chart) and sits
   // above the bar top when there's room, else hangs below it — so it reads as
   // attached to what you're pointing at instead of floating at the top.
   // Derived inline rather than memoized: it's consumed in the same render and
   // depends only on `x()`/`yBar()` (pure layout fns), so there's no identity
   // worth preserving and no deps list to keep honest.
   const tooltip = (() => {
-    if (hoverIdx === null) return null
-    const total = segmented[hoverIdx]?.total ?? 0
+    if (activeIdx === null) return null
+    const total = segmented[activeIdx]?.total ?? 0
     const barTopPx = yBar(total)
-    const rawLeft = x(hoverIdx) - TOOLTIP_WIDTH / 2
+    const rawLeft = x(activeIdx) - TOOLTIP_WIDTH / 2
     const left = Math.max(
       8,
       Math.min(Math.max(8, W - TOOLTIP_WIDTH - 8), rawLeft)
@@ -257,11 +268,11 @@ export function MonthlyPayoutsChart({
           </text>
         ))}
 
-        {/* Hover guide line — connects the tooltip to the hovered month. */}
-        {hoverIdx !== null && (
+        {/* Guide line — connects the tooltip to the active (hovered/selected) month. */}
+        {activeIdx !== null && (
           <line
-            x1={x(hoverIdx)}
-            x2={x(hoverIdx)}
+            x1={x(activeIdx)}
+            x2={x(activeIdx)}
             y1={pad.t}
             y2={baseY}
             stroke="var(--primary)"
@@ -393,7 +404,13 @@ export function MonthlyPayoutsChart({
             data-testid={`income-bar-hit-${b.key}`}
             className="focus-ring-svg"
             style={{ touchAction: "manipulation", cursor: "pointer" }}
-            onMouseEnter={() => setHoverIdx(i)}
+            // Only a real mouse sets the transient hover. On touch the synthetic
+            // pointerenter would otherwise pin `hoverIdx` (no matching leave),
+            // keeping the tooltip stuck open after a tap-to-deselect — so touch
+            // taps drive the readout through `selectedMonth` instead.
+            onPointerEnter={(e) => {
+              if (e.pointerType === "mouse") setHoverIdx(i)
+            }}
             onFocus={() => setHoverIdx(i)}
             onBlur={() => setHoverIdx(null)}
             onClick={() =>
@@ -414,20 +431,20 @@ export function MonthlyPayoutsChart({
         ))}
       </svg>
 
-      {hoverBucket && tooltip && (
+      {activeBucket && tooltip && (
         <MonthDetailTooltip
           testId="income-monthly-detail"
           left={tooltip.left}
           top={tooltip.top}
           placement={tooltip.placement}
           width={TOOLTIP_WIDTH}
-          year={hoverBucket.year}
-          month={hoverBucket.month}
+          year={activeBucket.year}
+          month={activeBucket.month}
           basis={basis}
           events={filterEventsByMonth(
             events,
-            hoverBucket.year,
-            hoverBucket.month
+            activeBucket.year,
+            activeBucket.month
           )}
         />
       )}

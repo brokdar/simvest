@@ -195,4 +195,60 @@ test.describe("Income — mobile", () => {
     )
     expect(pageOverflow).toBe(false)
   })
+
+  // E2E-M-INC-006 — Touch users can reach the monthly-payouts breakdown: on
+  // desktop it's a hover tooltip, so on mobile tapping a month must both select
+  // it AND surface the per-month detail card, clamped inside the viewport.
+  test("E2E-M-INC-006 — tapping a payouts-chart month shows its breakdown on-screen", async ({
+    page,
+  }) => {
+    await page.goto("/income")
+    await page.locator('[data-testid="income-monthly-chart"]').waitFor()
+
+    // The detail card only shows once a month is tapped (no hover on touch).
+    const detail = page.locator('[data-testid="income-monthly-detail"]')
+    await expect(detail).toBeHidden()
+
+    await page.locator('[data-testid^="income-bar-hit-"]').first().tap()
+    await expect(detail).toBeVisible()
+
+    const viewport = page.viewportSize()
+    const vw = viewport?.width ?? 393
+    const box = await detail.boundingBox()
+    expect(box?.x ?? -1).toBeGreaterThanOrEqual(0)
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(vw + 1)
+  })
+
+  // E2E-M-INC-007 — Same for the calendar heatmap: the per-month detail popover
+  // is hover-only on desktop, so tapping a cell must surface it on touch, and it
+  // must sit within the viewport even though the cell lives in a scroll track.
+  test("E2E-M-INC-007 — tapping a heatmap cell shows its detail popover on-screen", async ({
+    page,
+  }) => {
+    await page.goto("/income")
+    await page.locator('[data-testid="income-heatmap"]').waitFor()
+
+    const popover = page.locator('[data-testid="income-heatmap-detail"]')
+    await expect(popover).toBeHidden()
+
+    // Tap a cell that actually has a payout (empty cells label "No payouts…").
+    const cellId = await page
+      .locator('[data-testid^="income-heatmap-cell-"]')
+      .evaluateAll((els) => {
+        const withData = els.find(
+          (e) => !(e.getAttribute("aria-label") ?? "").startsWith("No payouts")
+        )
+        return withData?.getAttribute("data-testid") ?? null
+      })
+    if (!cellId) test.skip(true, "no heatmap cell with a payout seeded")
+
+    await page.locator(`[data-testid="${cellId}"]`).tap()
+    await expect(popover).toBeVisible()
+
+    const viewport = page.viewportSize()
+    const vw = viewport?.width ?? 393
+    const box = await popover.boundingBox()
+    expect(box?.x ?? -1).toBeGreaterThanOrEqual(0)
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(vw + 1)
+  })
 })
