@@ -1333,7 +1333,8 @@ input[type="range"].slider::-moz-range-thumb {
      Input if it's ever used) past that threshold on small screens only —
      desktop keeps the tighter 13px sizing. */
   .input-bare,
-  [data-slot="input"] {
+  [data-slot="input"],
+  .settings-day-input {
     font-size: 16px;
   }
 }
@@ -1786,6 +1787,142 @@ input[type="range"].slider::-moz-range-thumb {
   }
 }
 
+/* ---- Settings: portfolio rows + preference rows ----
+   The portfolio row was two independent inline-style grids stacked on top
+   of each other: "auto 1fr minmax(90px, 200px) auto" for name/contribution/
+   delete, then "auto 1fr auto auto auto" for the starting-balance summary +
+   Export/Edit underneath. At ~390px the 1fr name track collapsed to ~2
+   characters, and neither grid could reflow (inline styles aren't reachable
+   from a media query). They're now one grid (so the row's pieces can be
+   freely repositioned — Delete moves down to join Export/Edit as a single
+   actions line on mobile) with named areas for desktop and `order`-based
+   flex reflow below 640px, following the same "same DOM, CSS repositions
+   it" approach as the entries/holdings mobile card layouts. */
+.settings-portfolio-row {
+  display: grid;
+  grid-template-columns: auto 1fr minmax(90px, 200px) auto;
+  grid-template-areas:
+    "swatch name contrib delete"
+    ".      summary export edit";
+  column-gap: 12px;
+  row-gap: 8px;
+  align-items: center;
+}
+.settings-pf-swatch {
+  grid-area: swatch;
+}
+.settings-pf-name {
+  grid-area: name;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.settings-pf-contrib {
+  grid-area: contrib;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.settings-pf-summary {
+  grid-area: summary;
+  min-width: 0;
+}
+.settings-pf-export {
+  grid-area: export;
+  justify-self: end;
+}
+.settings-pf-edit {
+  grid-area: edit;
+  justify-self: end;
+}
+.settings-pf-delete {
+  grid-area: delete;
+  justify-self: end;
+}
+
+/* Shared by the Default-day and Number-format preference rows: a
+   description column that used to fight a fixed-width right column
+   (minWidth: 180 select, or a non-wrapping segmented control) for space,
+   squeezing the description into a sliver at phone width. */
+.settings-pref-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+.settings-pref-control {
+  min-width: 180px;
+}
+.settings-daypicker-group {
+  display: inline-flex;
+}
+.settings-day-input {
+  width: 44px;
+  padding: 2px 6px;
+}
+
+@media (max-width: 640px) {
+  /* Portfolio row: swatch+name share a line, then contribution, then the
+     starting-balance summary each get a full-width line, then Export/Edit/
+     Delete become one actions line — three equal, tappable buttons instead
+     of a 200px-floored grid column collapsing the name input. */
+  .settings-portfolio-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 10px;
+  }
+  .settings-pf-swatch {
+    order: 1;
+    flex: 0 0 auto;
+  }
+  .settings-pf-name {
+    order: 2;
+    flex: 1 1 calc(100% - 44px);
+    min-width: 0;
+  }
+  .settings-pf-contrib {
+    order: 3;
+    flex: 1 1 100%;
+  }
+  .settings-pf-summary {
+    order: 4;
+    flex: 1 1 100%;
+  }
+  .settings-pf-export {
+    order: 5;
+    flex: 1 1 0;
+  }
+  .settings-pf-edit {
+    order: 6;
+    flex: 1 1 0;
+    justify-content: center;
+  }
+  .settings-pf-delete {
+    order: 7;
+    flex: 1 1 0;
+  }
+
+  /* Preference rows: description first, control below at full width. */
+  .settings-pref-row {
+    grid-template-columns: 1fr;
+  }
+  .settings-pref-control {
+    min-width: 0;
+    width: 100%;
+  }
+  /* Segmented day-picker: allow the three segments (First / Last / Custom)
+     to wrap onto more than one line rather than clipping off the card's
+     right edge. */
+  .settings-daypicker-group {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+}
+
 /* ---- Coarse-pointer touch targets ----
    Raise interactive controls to a >=44px effective hit area on touch
    devices without changing mouse/trackpad sizing. min-height/min-width
@@ -1849,6 +1986,34 @@ input[type="range"].slider::-moz-range-thumb {
   input[type="range"].slider::-moz-range-thumb {
     width: 26px;
     height: 26px;
+  }
+  /* Settings: default-day segmented control + its custom-day number input. */
+  .settings-segment-btn {
+    min-height: 44px;
+  }
+  .settings-day-input {
+    min-height: 44px;
+    width: 52px;
+  }
+  /* Portfolio color-picker trigger: bump the tappable box to 44px without
+     enlarging the visible 28px swatch, by growing the padding box only
+     (box-sizing:content-box + background-clip:content-box is the same
+     trick the range slider thumb above uses). */
+  .settings-color-trigger {
+    box-sizing: content-box;
+    width: 28px;
+    height: 28px;
+    padding: 8px;
+    background-clip: content-box;
+  }
+  /* Palette swatches keep their compact 22px visual (six of them sit in one
+     popover row) but get the same padded hit area. */
+  .settings-palette-swatch {
+    box-sizing: content-box;
+    width: 22px;
+    height: 22px;
+    padding: 11px;
+    background-clip: content-box;
   }
 }
 

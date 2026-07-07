@@ -301,7 +301,10 @@ test.describe("Views — mobile", () => {
 
   // E2E-M-VIEWS-014 — Settings portfolio rows reflow at mobile width
   // README finding: portfolio row grid "auto 1fr 200px auto" has a 200px column that is too wide on mobile
-  test.fixme("E2E-M-VIEWS-014 — settings portfolio row grid does not overflow at mobile width (README finding #14 — settings row layout bug)", async ({
+  // Fixed: the row is now `.settings-portfolio-row` (globals.css), which
+  // switches to a flex column stack below 640px — see settings-mobile.spec.ts
+  // for the detailed reflow assertions (name input width, actions reachable).
+  test("E2E-M-VIEWS-014 — settings portfolio row grid does not overflow at mobile width (README finding #14 — settings row layout bug)", async ({
     page,
   }) => {
     await page.goto("/settings")
@@ -314,14 +317,12 @@ test.describe("Views — mobile", () => {
     )
     expect(pageOverflow).toBe(false)
 
-    // The portfolio row uses gridTemplateColumns: "auto 1fr 200px auto" (inline style)
-    // At 293px content width this is too tight — this test documents the layout bug
+    // The portfolio row no longer uses a fixed 200px-floored grid column at
+    // mobile width — it's a flex-wrap stack (see .settings-portfolio-row).
     const rowCols = await page.evaluate(() => {
       const row = document.querySelector('[data-testid^="portfolio-row-"]')
       return row ? window.getComputedStyle(row).gridTemplateColumns : ""
     })
-    // The 200px column should have been reduced to fit mobile; this is the bug
-    // This assertion will fail until the row is made responsive
     expect(rowCols).not.toContain("200px")
   })
 
