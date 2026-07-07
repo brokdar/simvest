@@ -274,8 +274,11 @@ test.describe("Accessibility — cross-cutting", () => {
     // Assert a <table> element is present
     await expect(page.locator("table")).toBeVisible()
 
-    // Assert <thead> is present
-    await expect(page.locator("table thead")).toBeVisible()
+    // Assert <thead> is present in the DOM. It's semantically present on both
+    // platforms, but visually hidden on mobile (max-width: 640px) where each
+    // row re-flows into a card that carries its own per-cell labels — so assert
+    // attachment (the structure) rather than visual display.
+    await expect(page.locator("table thead")).toBeAttached()
 
     // Assert <thead> contains <th> elements (not just <td>)
     const ths = page.locator("table thead th")

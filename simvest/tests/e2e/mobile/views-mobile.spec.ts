@@ -1,4 +1,5 @@
 import { test, expect } from "../fixtures"
+import { preselectPortfolio } from "../helpers"
 
 test.describe("Views — mobile", () => {
   test.beforeEach(({}, testInfo) => {
@@ -126,32 +127,41 @@ test.describe("Views — mobile", () => {
     expect(columnCount).toBe(1)
   })
 
-  // E2E-M-VIEWS-007 — Entries table is scrollable horizontally within its card (overflow finding)
-  // README finding: the entries table has 7 columns and overflows on mobile (clipped by overflow:hidden)
-  test.fixme("E2E-M-VIEWS-007 — entries table does not overflow the page (README finding #7 — table overflow bug)", async ({
+  // E2E-M-VIEWS-007 — Entries re-flow to stacked cards on mobile (fixes the
+  // README finding #7 overflow bug: the 6-column table was clipped by the
+  // card's overflow, so the Actions column was unreachable). The card layout
+  // keeps every cell — including actions — within the viewport.
+  test("E2E-M-VIEWS-007 — entries render as stacked cards with no clipped columns on mobile", async ({
     page,
   }) => {
+    await preselectPortfolio(page, 1)
     await page.goto("/entries")
+    await page.waitForSelector('[data-testid="entries-table"]')
 
-    // The entries table card wraps the table with overflow: hidden, so the
-    // page-level scroll should not be horizontal — but the table itself may be clipped
-    const pageOverflow = await page.evaluate(
-      () =>
-        document.documentElement.scrollWidth >
-        document.documentElement.clientWidth
-    )
-    expect(pageOverflow).toBe(false)
-
-    // Table card has overflow: hidden — table content may be partially invisible
-    const cardOverflow = await page.evaluate(() => {
-      const card = document.querySelector('[data-testid="entries-table"]')
-      return card ? window.getComputedStyle(card).overflow : ""
+    // Header row is hidden in card mode — each cell carries its own label.
+    const theadDisplay = await page.evaluate(() => {
+      const thead = document.querySelector(".entries-table thead")
+      return thead ? window.getComputedStyle(thead).display : ""
     })
-    expect(cardOverflow).toBe("hidden")
+    expect(theadDisplay).toBe("none")
 
-    // First column "Month" must be visible
-    const firstHeader = page.locator(".table thead tr th").first()
-    await expect(firstHeader).toBeVisible()
+    // Rows re-flow to flex cards instead of table rows.
+    const rowDisplay = await page.evaluate(() => {
+      const tr = document.querySelector(".entries-table tbody tr")
+      return tr ? window.getComputedStyle(tr).display : ""
+    })
+    expect(rowDisplay).toBe("flex")
+
+    // The card (and therefore every column, including Actions) fits the
+    // viewport — nothing is clipped off the right edge.
+    const viewport = page.viewportSize()
+    const viewportWidth = viewport?.width ?? 393
+    const box = await page
+      .locator('[data-testid="entries-table"]')
+      .boundingBox()
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(
+      viewportWidth + 1
+    )
   })
 
   // Companion test that verifies what CAN be asserted currently (page-level overflow is hidden)

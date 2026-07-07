@@ -860,6 +860,12 @@ input[type="range"].slider::-moz-range-thumb {
 .table th.num {
   text-align: right;
 }
+/* Date column indent — replaces the per-cell inline paddingLeft:20 the entries
+   grid used to carry (moved to CSS so the mobile card layout can reset it). */
+.table th.th-date,
+.table td.td-date {
+  padding-left: 20px;
+}
 
 .tag {
   display: inline-flex;
@@ -1299,6 +1305,120 @@ input[type="range"].slider::-moz-range-thumb {
   .input-bare,
   [data-slot="input"] {
     font-size: 16px;
+  }
+}
+
+/* ---- Entries grid: stacked-card layout on phones ----
+   The 6-column editable table can't fit ~390px — every column past "Portfolio
+   value" (including the entire edit/delete Actions column) was clipped by the
+   card's overflow, so entries couldn't be edited or deleted on mobile. Rather
+   than fork the state logic, we keep the SAME <table> DOM (preserving every
+   data-testid and the inline-edit controller that drives it) and re-flow each
+   row into a card with display rules. Each <td> becomes a labelled block via
+   its data-label; the date is the card header. */
+@media (max-width: 640px) {
+  .entries-table thead {
+    display: none;
+  }
+  .entries-table,
+  .entries-table tbody {
+    display: block;
+  }
+  .entries-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 6px 14px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .entries-table tr:hover td {
+    background: transparent;
+  }
+  .entries-table td {
+    display: block;
+    padding: 0;
+    border: none;
+  }
+  .entries-table td.num {
+    text-align: left;
+  }
+  /* Card line order (td source order is date, invested, value, delta, note,
+     actions — but we want the actions button up on the header line, not
+     trailing at the bottom, so `order` re-flows them into:
+       line 1  date + actions       line 3  M/M Δ
+       line 2  invested + value      line 4  note                             */
+  /* Date is the card's header line. The `calc(100% - 96px)` basis makes it take
+     the whole first line in read mode (where td-actions is hidden) while still
+     leaving room for the edit-mode action buttons beside it on the right. */
+  .entries-table td.td-date {
+    order: 1;
+    flex: 1 1 calc(100% - 96px);
+    padding-left: 0;
+    font-size: 14px;
+    align-self: center;
+  }
+  .entries-table td.td-actions {
+    order: 2;
+    flex: 0 0 auto;
+    margin-left: auto;
+    align-self: center;
+  }
+  .entries-table td.td-actions:empty {
+    display: none;
+  }
+  /* Invested + Portfolio value share the second line, side by side. */
+  .entries-table td.td-invested,
+  .entries-table td.td-value {
+    order: 3;
+    flex: 1 1 40%;
+    min-width: 0;
+  }
+  .entries-table td.td-delta,
+  .entries-table td.td-note {
+    order: 4;
+    flex: 1 1 100%;
+  }
+  /* Read-mode rows render "—" for an absent note; hide that whole block so the
+     card doesn't carry an empty labelled row. Edit-mode always has an input. */
+  .entries-table td.td-note[data-empty="true"] {
+    display: none;
+  }
+  .entries-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 1px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--neutral-400);
+  }
+  /* Inline validation error spans the full card width below the fields. */
+  .entries-table tr.row-error {
+    display: block;
+    padding: 0 16px 10px;
+    border: none;
+  }
+  .entries-table tr.row-error td {
+    padding: 0;
+  }
+
+  /* Page + grid action button rows: two per line, filling the width, instead
+     of an awkward wrap at iPhone width. */
+  .entries-header-actions,
+  .entries-grid-actions {
+    width: 100%;
+  }
+  .entries-header-actions > *,
+  .entries-grid-actions > * {
+    flex: 1 1 calc(50% - 6px);
+    display: flex;
+  }
+  .entries-header-actions .btn,
+  .entries-grid-actions .btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 
