@@ -20,7 +20,9 @@ test.describe("Income — mobile", () => {
     await preselectPortfolio(page, 1)
     await page.goto("/income")
 
-    await page.locator('[data-testid="btn-add-dividend"]').tap()
+    // The in-page "Record dividend" button is hidden on phones (de-duped
+    // against the topbar +); the topbar action opens the same editor.
+    await page.locator('[data-testid="action-new-dividend"]').tap()
     const dialog = page.locator('[data-testid="dividend-editor-dialog"]')
     await expect(dialog).toBeVisible()
 
@@ -88,5 +90,109 @@ test.describe("Income — mobile", () => {
     // Tap again toggles the filter off.
     await nameButton.tap()
     await expect(chart).not.toHaveAttribute("data-highlighted-source", /.+/)
+  })
+
+  // E2E-M-INC-003 — The Per-Holding + Recent-Payouts tables re-flow into
+  // stacked cards (thead hidden, rows flex) and fit the viewport with no
+  // column clipped off the right edge.
+  test("E2E-M-INC-003 — income tables render as stacked cards within the viewport", async ({
+    page,
+  }) => {
+    await preselectPortfolio(page, 1)
+    await page.goto("/income")
+    await page.locator('[data-testid="income-per-holding-table"]').waitFor()
+
+    const viewport = page.viewportSize()
+    const vw = viewport?.width ?? 393
+
+    for (const cls of [".per-holding-table", ".recent-payouts-table"]) {
+      const theadDisplay = await page.evaluate((sel) => {
+        const thead = document.querySelector(`${sel} thead`)
+        return thead ? window.getComputedStyle(thead).display : ""
+      }, cls)
+      expect(theadDisplay).toBe("none")
+
+      const rowDisplay = await page.evaluate((sel) => {
+        const tr = document.querySelector(`${sel} tbody tr`)
+        return tr ? window.getComputedStyle(tr).display : ""
+      }, cls)
+      expect(rowDisplay).toBe("flex")
+
+      const box = await page.locator(cls).first().boundingBox()
+      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(vw + 1)
+    }
+  })
+
+  // E2E-M-INC-004 — A payout's edit/delete actions are reachable and fully
+  // on-screen in card mode — before the re-flow the Actions column was clipped
+  // off the right edge, so payouts could not be edited or deleted on mobile.
+  test("E2E-M-INC-004 — recent-payout row actions are reachable within the viewport", async ({
+    page,
+  }) => {
+    await preselectPortfolio(page, 1)
+    await page.goto("/income")
+    await page.locator('[data-testid="income-recent-table"]').waitFor()
+
+    const firstRow = page.locator('[data-testid^="income-row-"]').first()
+    const editBtn = firstRow.locator('button[aria-label="Edit income event"]')
+    await expect(editBtn).toBeVisible()
+
+    const viewport = page.viewportSize()
+    const vw = viewport?.width ?? 393
+
+    const editBox = await editBtn.boundingBox()
+    expect(editBox).not.toBeNull()
+    expect((editBox?.x ?? 0) + (editBox?.width ?? 0)).toBeLessThanOrEqual(
+      vw + 1
+    )
+    // Coarse-pointer target, and full contrast (not the desktop quiet opacity).
+    expect(editBox?.height ?? 0).toBeGreaterThanOrEqual(40)
+    const actionsOpacity = await editBtn.evaluate(
+      (el) => window.getComputedStyle(el.parentElement!).opacity
+    )
+    expect(Number(actionsOpacity)).toBe(1)
+
+    const deleteBox = await firstRow
+      .locator('button[aria-label="Delete income event"]')
+      .boundingBox()
+    expect(deleteBox).not.toBeNull()
+    expect((deleteBox?.x ?? 0) + (deleteBox?.width ?? 0)).toBeLessThanOrEqual(
+      vw + 1
+    )
+  })
+
+  // E2E-M-INC-005 — The heatmap stays usable on mobile: its scroll track keeps
+  // cells at a legible/tappable width (so it overflows its own scroller rather
+  // than crushing to ~10px cells), and that scroll is contained — the document
+  // itself does not gain a horizontal scrollbar.
+  test("E2E-M-INC-005 — heatmap scrolls horizontally with tappable cells, no page overflow", async ({
+    page,
+  }) => {
+    await preselectPortfolio(page, 1)
+    await page.goto("/income")
+    await page.locator('[data-testid="income-heatmap"]').waitFor()
+
+    // The track overflows its scroll container (min-width forces a scroller)
+    // rather than collapsing the month cells.
+    const overflows = await page.evaluate(() => {
+      const scroll = document.querySelector(
+        '[data-testid="income-heatmap"] .heatmap-scroll'
+      )
+      return scroll ? scroll.scrollWidth > scroll.clientWidth + 1 : false
+    })
+    expect(overflows).toBe(true)
+
+    // A month cell keeps a tappable width (min ~28px), not a crushed ~10px.
+    const cell = page.locator('[data-testid^="income-heatmap-cell-"]').first()
+    const cellBox = await cell.boundingBox()
+    expect(cellBox?.width ?? 0).toBeGreaterThanOrEqual(28)
+
+    // The page itself does not scroll horizontally — the overflow is contained.
+    const pageOverflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth
+    )
+    expect(pageOverflow).toBe(false)
   })
 })

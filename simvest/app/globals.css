@@ -1536,6 +1536,215 @@ input[type="range"].slider::-moz-range-thumb {
   }
 }
 
+/* ---- Income /income surfaces: stacked-card + scroll layouts on phones ----
+   The Income page carries three clipped data surfaces at ~390px:
+   the 7-column Per-Holding table, the 6-column Recent-Payouts ledger (whose
+   edit/delete actions fell off the right edge, so payouts couldn't be managed
+   on mobile), and the 14-column calendar heatmap. The two tables re-flow into
+   cards with the same <table> DOM + data-testids used by the entries/holdings
+   patterns above; the heatmap scrolls horizontally inside a min-width track. */
+@media (max-width: 640px) {
+  /* --- Per-Holding table --- */
+  /* Visually hide the sort header row rather than `display: none` it: the
+     sort buttons stay in the accessibility tree and remain keyboard-operable
+     on mobile (E2E-X-A11Y-INC-002 focuses one and toggles it with Enter). */
+  .per-holding-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  .per-holding-table,
+  .per-holding-table tbody {
+    display: block;
+  }
+  .per-holding-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .per-holding-table tr:hover td {
+    background: transparent;
+  }
+  .per-holding-table td {
+    display: block;
+    padding: 0;
+    border: none;
+  }
+  .per-holding-table td.num {
+    text-align: left;
+  }
+  /* Header line: holding name (grows, truncates) + Share as a compact chip on
+     the right. calc reserves room for the chip so it stays on the same line. */
+  .per-holding-table td.td-ph-name {
+    order: 1;
+    flex: 1 1 calc(100% - 84px);
+    min-width: 0;
+    padding-left: 0;
+    font-size: 14px;
+  }
+  .per-holding-table td.td-ph-name button {
+    max-width: 100% !important;
+  }
+  .per-holding-table td.td-ph-share {
+    order: 2;
+    flex: 0 0 auto;
+    margin-left: auto;
+    text-align: right;
+  }
+  /* Drop the desktop progress bar and render Share as a plain chip in the
+     header — the bar is absolutely positioned for the table cell and has no
+     meaning stacked in a card. */
+  .per-holding-table td.td-ph-share .ph-share-bar {
+    display: none;
+  }
+  .per-holding-table td.td-ph-share .ph-share-value {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: 999px;
+    background: var(--secondary-50);
+    border: 1px solid var(--border);
+    font-size: 11.5px;
+    color: var(--neutral-600);
+  }
+  /* Body: labelled rows, two per line. */
+  .per-holding-table td.td-ph-received,
+  .per-holding-table td.td-ph-lastpaid,
+  .per-holding-table td.td-ph-count,
+  .per-holding-table td.td-ph-cadence {
+    flex: 1 1 40%;
+    min-width: 0;
+  }
+  .per-holding-table td.td-ph-received {
+    order: 3;
+  }
+  .per-holding-table td.td-ph-lastpaid {
+    order: 4;
+  }
+  .per-holding-table td.td-ph-count {
+    order: 5;
+  }
+  .per-holding-table td.td-ph-cadence {
+    order: 6;
+  }
+  /* The 24-mo sparkline is a fixed-width decorative trend; hide it on the card
+     to keep each row compact — Count/Cadence/Last paid already convey rhythm. */
+  .per-holding-table td.td-ph-spark {
+    display: none;
+  }
+  .per-holding-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 1px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--neutral-400);
+  }
+
+  /* --- Recent-Payouts ledger --- */
+  .recent-payouts-table thead {
+    display: none;
+  }
+  .recent-payouts-table,
+  .recent-payouts-table tbody {
+    display: block;
+  }
+  .recent-payouts-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .recent-payouts-table tr:hover td {
+    background: transparent;
+  }
+  .recent-payouts-table td {
+    display: block;
+    padding: 0;
+    border: none;
+  }
+  .recent-payouts-table td.num {
+    text-align: left;
+  }
+  /* Header line: paid date + kind chip + edit/delete actions (pushed right). */
+  .recent-payouts-table td.td-rp-date {
+    order: 1;
+    flex: 0 0 auto;
+    padding-left: 0;
+    font-size: 14px;
+  }
+  .recent-payouts-table td.td-rp-kind {
+    order: 2;
+    flex: 0 0 auto;
+  }
+  .recent-payouts-table td.td-rp-actions {
+    order: 3;
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+  /* Body: source, then amount (prominent), then note (hidden when empty). */
+  .recent-payouts-table td.td-rp-source {
+    order: 4;
+    flex: 1 1 100%;
+  }
+  .recent-payouts-table td.td-rp-amount {
+    order: 5;
+    flex: 1 1 100%;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .recent-payouts-table td.td-rp-note {
+    order: 6;
+    flex: 1 1 100%;
+  }
+  .recent-payouts-table td.td-rp-note[data-empty="true"] {
+    display: none;
+  }
+  .recent-payouts-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 1px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--neutral-400);
+  }
+
+  /* --- Calendar heatmap: horizontal scroll track --- */
+  .heatmap-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+  }
+  .heatmap-track {
+    min-width: 560px;
+  }
+
+  /* De-dupe the record affordances: the topbar + (action-new-dividend) already
+     opens the dividend editor on /income, so the redundant in-page "Record
+     dividend" button is hidden on phones. "Record interest" stays (the topbar
+     + covers dividends only) and the empty-state CTA is unaffected. */
+  .income-dividend-action {
+    display: none;
+  }
+}
+
 /* ---- Coarse-pointer touch targets ----
    Raise interactive controls to a >=44px effective hit area on touch
    devices without changing mouse/trackpad sizing. min-height/min-width

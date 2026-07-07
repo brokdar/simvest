@@ -105,7 +105,7 @@ export function PerHoldingTable({
       style={{ padding: 0, overflow: "hidden" }}
       data-testid="income-per-holding-table"
     >
-      <table className="table">
+      <table className="per-holding-table table">
         <thead>
           <tr>
             <Th
@@ -165,7 +165,10 @@ export function PerHoldingTable({
                   background: isHighlighted ? "var(--primary-50)" : undefined,
                 }}
               >
-                <td style={{ paddingLeft: 18, minWidth: 0 }}>
+                <td
+                  className="td-ph-name"
+                  style={{ paddingLeft: 18, minWidth: 0 }}
+                >
                   <button
                     type="button"
                     onClick={() => onRowSelect(r.id)}
@@ -192,19 +195,27 @@ export function PerHoldingTable({
                     {r.name}
                   </button>
                 </td>
-                <td className="num mono">{fmtEUR(r.received)}</td>
-                <td className="small">
+                <td className="num mono td-ph-received" data-label="Received">
+                  {fmtEUR(r.received)}
+                </td>
+                <td className="small td-ph-lastpaid" data-label="Last paid">
                   {date
                     ? formatEntryDate(date.year, date.month, date.day)
                     : "—"}
                 </td>
-                <td className="num mono">{r.count}</td>
-                <td>
+                <td className="num mono td-ph-count" data-label="Count">
+                  {r.count}
+                </td>
+                <td className="td-ph-cadence" data-label="Cadence">
                   <span className="chip">{CADENCE_LABEL[r.cadence]}</span>
                 </td>
-                <td className="num mono" style={{ position: "relative" }}>
+                <td
+                  className="num mono td-ph-share"
+                  style={{ position: "relative" }}
+                >
                   <div
                     aria-hidden="true"
+                    className="ph-share-bar"
                     style={{
                       position: "absolute",
                       left: 18,
@@ -224,11 +235,14 @@ export function PerHoldingTable({
                       }}
                     />
                   </div>
-                  <span style={{ position: "relative" }}>
+                  <span
+                    className="ph-share-value"
+                    style={{ position: "relative" }}
+                  >
                     {fmtPct(r.pct, 1)}
                   </span>
                 </td>
-                <td>
+                <td className="td-ph-spark">
                   <Sparkline data={r.spark} />
                 </td>
               </tr>
