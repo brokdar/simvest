@@ -349,8 +349,8 @@ test.describe("Navigation — mobile", () => {
 
     await expect(toggle).toHaveAttribute("aria-label", "Open navigation menu")
     await expect(toggle).toHaveAttribute("aria-expanded", "false")
+    await expect(toggle).toHaveAttribute("aria-controls", /.+/)
     const controls = await toggle.getAttribute("aria-controls")
-    expect(controls).toBeTruthy()
 
     await toggle.tap()
     const drawer = page.getByTestId("mobile-drawer")
