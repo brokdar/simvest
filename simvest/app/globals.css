@@ -205,17 +205,20 @@ h4 {
   display: grid;
   grid-template-columns: 248px 1fr;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 .sidebar {
   background: var(--surface);
   border-right: 1px solid var(--border);
   padding: 20px 14px;
+  padding-left: calc(14px + env(safe-area-inset-left));
   display: flex;
   flex-direction: column;
   gap: 4px;
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
 }
 .brand {
   display: flex;
@@ -294,7 +297,9 @@ h4 {
 }
 .topbar {
   height: 64px;
+  height: calc(64px + env(safe-area-inset-top));
   padding: 0 28px;
+  padding-top: env(safe-area-inset-top);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -324,13 +329,27 @@ h4 {
 }
 
 .view {
-  padding: 24px 28px 48px;
+  padding: 24px 28px calc(48px + env(safe-area-inset-bottom));
   max-width: 1440px;
   margin: 0 auto;
 }
 .view h1.title {
   font-size: 26px;
   letter-spacing: -0.02em;
+}
+
+/* ---- Touch interaction defaults ----
+   Kill the ~300ms double-tap-zoom delay on interactive elements and
+   suppress the mobile Safari/Chrome tap-highlight flash. Pointer-agnostic
+   (no-op for mouse/trackpad input), so this applies unconditionally. */
+a,
+button,
+input,
+select,
+textarea,
+[role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ---- Generic UI ---- */
@@ -346,10 +365,10 @@ h4 {
   border: 1px solid transparent;
   cursor: pointer;
   transition:
-    background-color,
-    border-color,
-    color,
-    opacity,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease,
     box-shadow 0.15s ease;
   font-family: inherit;
 }
@@ -697,7 +716,15 @@ input[type="range"].slider {
     var(--primary) var(--fill, 50%),
     var(--secondary-100) var(--fill, 50%)
   );
+  touch-action: manipulation;
+  user-select: none;
+}
+input[type="range"].slider:focus {
   outline: none;
+}
+input[type="range"].slider:focus-visible {
+  outline: 2px solid var(--primary-100);
+  outline-offset: 2px;
 }
 input[type="range"].slider::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -1056,6 +1083,7 @@ input[type="range"].slider::-moz-range-thumb {
   }
   .sidebar {
     padding: 12px 8px;
+    padding-left: calc(8px + env(safe-area-inset-left));
   }
   .brand {
     justify-content: center;
@@ -1097,7 +1125,7 @@ input[type="range"].slider::-moz-range-thumb {
     grid-template-columns: repeat(2, 1fr);
   }
   .view {
-    padding: 20px 18px 36px;
+    padding: 20px 18px calc(36px + env(safe-area-inset-bottom));
   }
   .topbar {
     padding: 0 18px;
@@ -1161,6 +1189,80 @@ input[type="range"].slider::-moz-range-thumb {
   }
   .view h1.title {
     font-size: 22px;
+  }
+  /* iOS Safari zooms the viewport on focus of any text input under 16px.
+     Bump the app's text inputs (MoneyInput's .input-bare, and ShadCN's
+     Input if it's ever used) past that threshold on small screens only —
+     desktop keeps the tighter 13px sizing. */
+  .input-bare,
+  [data-slot="input"] {
+    font-size: 16px;
+  }
+}
+
+/* ---- Coarse-pointer touch targets ----
+   Raise interactive controls to a >=44px effective hit area on touch
+   devices without changing mouse/trackpad sizing. min-height/min-width
+   clamp up from the existing (smaller) height/width — desktop is
+   unaffected since this whole block is gated on `pointer: coarse`. */
+@media (pointer: coarse) {
+  .btn {
+    min-height: 44px;
+  }
+  .btn-sm {
+    min-height: 44px;
+  }
+  .btn-icon {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .seg button {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .seg-control-option {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* Only chips that act as links/buttons need a bigger hit area —
+     plain display chips (spans) stay at their compact size. */
+  a.chip,
+  button.chip {
+    min-height: 44px;
+    padding: 0 14px;
+  }
+  .pf-dd-trigger {
+    min-height: 44px;
+  }
+  .topbar-action {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .nav-item {
+    min-height: 44px;
+  }
+  /* Range slider: keep the visual track thin but pad the hit box out to
+     44px via a transparent margin. box-sizing:content-box (overriding the
+     global border-box) plus background-clip:content-box keeps the
+     gradient track confined to the small content box while the padding
+     adds tappable dead space around it. */
+  input[type="range"].slider {
+    box-sizing: content-box;
+    height: 8px;
+    padding: 18px 0;
+    background-clip: content-box;
+  }
+  input[type="range"].slider::-webkit-slider-thumb {
+    width: 26px;
+    height: 26px;
+  }
+  input[type="range"].slider::-moz-range-thumb {
+    width: 26px;
+    height: 26px;
   }
 }
 
