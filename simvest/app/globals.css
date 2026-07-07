@@ -1745,6 +1745,47 @@ input[type="range"].slider::-moz-range-thumb {
   }
 }
 
+/* ---- Planning workspace: responsive grids ----
+   The workspace body was a fixed `minmax(260px, 360px) 1fr` two-column grid
+   and the KPI row a fixed `repeat(3, 1fr)` — both inline styles, so a media
+   query couldn't touch them. At ~390px the assumptions column alone claimed
+   ≥260px, pushing the trajectory chart (the page's main output) off-screen
+   entirely, and the third KPI tile clipped mid-word. Both now live in classes
+   so they can collapse below 640px. */
+.planning-body {
+  display: grid;
+  grid-template-columns: minmax(260px, 360px) 1fr;
+  gap: 18px;
+  margin-top: 16px;
+}
+.planning-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+@media (max-width: 640px) {
+  .planning-body {
+    grid-template-columns: 1fr;
+  }
+  /* Reorder to chart-first: KPI tiles above already answer "am I on track",
+     so the trajectory chart — the visual the user is here to read — follows
+     immediately, with the sliders that tune it below for those who want to
+     adjust assumptions. */
+  .planning-chart-col {
+    order: 1;
+  }
+  .planning-assumptions {
+    order: 2;
+    margin-top: 18px;
+  }
+  /* Three ~90px tiles clipped values like "€1,234.56/mo" mid-word. Values here
+     run wider than the entries/holdings/income card fields, so each tile gets
+     the full row rather than sharing three narrow columns. */
+  .planning-kpis {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ---- Coarse-pointer touch targets ----
    Raise interactive controls to a >=44px effective hit area on touch
    devices without changing mouse/trackpad sizing. min-height/min-width

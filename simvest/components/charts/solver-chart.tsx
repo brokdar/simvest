@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { fmtEUR, fmtPct } from "@/lib/format"
 import { niceTicks } from "@/lib/charts/scales"
 import type { ProjectionPoint } from "@/lib/calc"
@@ -28,9 +28,29 @@ export function SolverChart({
     months: number
   } | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
-  const W = 1000
-  const H = 360
-  const pad = { l: 88, r: 24, t: 24, b: 44 }
+  const plotRef = useRef<HTMLDivElement | null>(null)
+  // Measure the actual plot width so the viewBox uses real pixel coordinates
+  // rather than a fixed 1000-unit box squished by preserveAspectRatio="none"
+  // — that distorted the lines and warped the axis text at phone widths.
+  // Mirrors the fix in entries-bar-chart.tsx.
+  const [W, setW] = useState(720)
+  useEffect(() => {
+    if (!plotRef.current) return
+    const ro = new ResizeObserver((ents) => {
+      for (const e of ents) setW(Math.max(240, Math.floor(e.contentRect.width)))
+    })
+    ro.observe(plotRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  const narrow = W < 560
+  // A fixed 360px height on a ~260px-wide phone would read as a very tall,
+  // cramped chart. Shrink the height (and the gutters it no longer needs to
+  // clear) for narrow widths instead of stretching the same box.
+  const H = narrow ? 260 : 360
+  const pad = narrow
+    ? { l: 60, r: 14, t: 20, b: 34 }
+    : { l: 88, r: 24, t: 24, b: 44 }
   const iw = W - pad.l - pad.r
   const ih = H - pad.t - pad.b
 
@@ -125,16 +145,15 @@ export function SolverChart({
   const targetLabelY = targetLabelBelow ? targetY + 16 : targetY - 8
 
   return (
-    <div style={{ position: "relative", width: "100%" }}>
+    <div ref={plotRef} style={{ position: "relative", width: "100%" }}>
       <svg
         ref={svgRef}
         role="img"
         aria-label="Projection chart showing conservative, expected, and optimistic portfolio growth"
         viewBox={`0 0 ${W} ${H}`}
-        width="100%"
+        width={W}
         height={H}
-        preserveAspectRatio="none"
-        style={{ display: "block", cursor: "crosshair" }}
+        style={{ display: "block", maxWidth: "100%", cursor: "crosshair" }}
         onMouseMove={onMove}
         onMouseLeave={() => setHover(null)}
         onTouchMove={(e) => {
@@ -310,7 +329,7 @@ export function SolverChart({
             x={pad.l - 12}
             y={y(t) + 4}
             textAnchor="end"
-            fontSize="11"
+            fontSize={narrow ? "10" : "11"}
             fill="var(--neutral-400)"
             fontFamily="var(--font-body)"
           >
@@ -324,7 +343,7 @@ export function SolverChart({
             x={x(t.m)}
             y={pad.t + ih + 22}
             textAnchor="middle"
-            fontSize="11"
+            fontSize={narrow ? "10" : "11"}
             fill="var(--neutral-400)"
             fontFamily="var(--font-body)"
           >
