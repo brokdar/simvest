@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { fmtEUR } from "@/lib/format"
 import { niceTicks } from "@/lib/charts/scales"
 import { entryTimestamp } from "@/lib/dates"
@@ -27,6 +27,20 @@ export function EntriesBarChart({
   const [windowMonths, setWindowMonths] = useState(36)
   const [hover, setHover] = useState<Hover | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
+  const plotRef = useRef<HTMLDivElement | null>(null)
+  // Measure the actual plot width so the SVG uses real pixel coordinates rather
+  // than a fixed 1000-unit viewBox squished by preserveAspectRatio="none" —
+  // that distorted bars and overlapped x-labels badly at ~350px. Narrow start
+  // avoids a horizontal scroll on the mobile first paint (mirrors OverviewChart).
+  const [W, setW] = useState(720)
+  useEffect(() => {
+    if (!plotRef.current) return
+    const ro = new ResizeObserver((ents) => {
+      for (const e of ents) setW(Math.max(240, Math.floor(e.contentRect.width)))
+    })
+    ro.observe(plotRef.current)
+    return () => ro.disconnect()
+  }, [])
 
   if (!entries.length) {
     return (
@@ -36,9 +50,14 @@ export function EntriesBarChart({
     )
   }
 
-  const W = 1000
   const H = 280
-  const pad = { l: 88, r: 88, t: 24, b: 44 }
+  const narrow = W < 560
+  // Axis tick labels below €10k aren't abbreviated by fmtEUR (compact only
+  // kicks in at ≥10k), so the left (invested) axis can show a full signed
+  // "±€8,000" (~66px measured at 11px). The narrow left gutter must clear that
+  // widest label — a tighter gutter clips the sign/€ off the SVG's left edge;
+  // the right axis always abbreviates (k/M) so it fits a smaller gutter.
+  const pad = { l: narrow ? 80 : 88, r: narrow ? 60 : 88, t: 24, b: 44 }
   const visible = entries.slice(-Math.min(windowMonths, entries.length))
   const n = visible.length
   const iw = W - pad.l - pad.r
@@ -224,16 +243,20 @@ export function EntriesBarChart({
         </div>
       </div>
 
-      <div style={{ width: "100%", position: "relative" }}>
+      <div ref={plotRef} style={{ width: "100%", position: "relative" }}>
         <svg
           ref={svgRef}
           role="img"
           aria-label="Monthly investment and portfolio value bar chart"
           viewBox={`0 0 ${W} ${H}`}
-          width="100%"
+          width={W}
           height={H}
-          preserveAspectRatio="none"
-          style={{ display: "block", cursor: "crosshair" }}
+          style={{
+            display: "block",
+            maxWidth: "100%",
+            cursor: "crosshair",
+            touchAction: "pan-y",
+          }}
           onMouseMove={onMove}
           onMouseLeave={() => setHover(null)}
           onTouchMove={(e) => {
@@ -368,7 +391,7 @@ export function EntriesBarChart({
                 x={x(i)}
                 y={pad.t + ih + 22}
                 textAnchor="middle"
-                fontSize="11"
+                fontSize={narrow ? "10" : "11"}
                 fill="var(--neutral-400)"
                 fontFamily="var(--font-body)"
               >
@@ -377,30 +400,34 @@ export function EntriesBarChart({
             ) : null
           )}
 
-          <text
-            x={pad.l - 12}
-            y={pad.t - 10}
-            textAnchor="end"
-            fontSize="10"
-            fill="var(--neutral-400)"
-            fontFamily="var(--font-body)"
-            letterSpacing="0.08em"
-            fontWeight="600"
-          >
-            INVESTED
-          </text>
-          <text
-            x={W - pad.r + 12}
-            y={pad.t - 10}
-            textAnchor="start"
-            fontSize="10"
-            fill="var(--neutral-400)"
-            fontFamily="var(--font-body)"
-            letterSpacing="0.08em"
-            fontWeight="600"
-          >
-            VALUE
-          </text>
+          {!narrow && (
+            <>
+              <text
+                x={pad.l - 12}
+                y={pad.t - 10}
+                textAnchor="end"
+                fontSize="10"
+                fill="var(--neutral-400)"
+                fontFamily="var(--font-body)"
+                letterSpacing="0.08em"
+                fontWeight="600"
+              >
+                INVESTED
+              </text>
+              <text
+                x={W - pad.r + 12}
+                y={pad.t - 10}
+                textAnchor="start"
+                fontSize="10"
+                fill="var(--neutral-400)"
+                fontFamily="var(--font-body)"
+                letterSpacing="0.08em"
+                fontWeight="600"
+              >
+                VALUE
+              </text>
+            </>
+          )}
         </svg>
 
         {hover &&

@@ -176,7 +176,10 @@ export function EditableEntriesTable({
             ? "Editing — make changes, then Save all"
             : "Read-only — click Edit table to make changes"}
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div
+          className="entries-grid-actions"
+          style={{ display: "flex", gap: 8 }}
+        >
           {editMode && (
             <button
               type="button"
@@ -242,10 +245,10 @@ export function EditableEntriesTable({
         data-testid="entries-table"
         data-edit-mode={editMode ? "true" : "false"}
       >
-        <table className="table">
+        <table className="entries-table table">
           <thead>
             <tr>
-              <th style={{ paddingLeft: 20 }}>Date</th>
+              <th className="th-date">Date</th>
               <th className="num">Invested</th>
               <th className="num">Portfolio value</th>
               <th className="num">M/M Δ</th>

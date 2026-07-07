@@ -93,7 +93,10 @@ export function EntriesView() {
             Inline-editable history · {active.entries.length} records
           </div>
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div
+          className="entries-header-actions"
+          style={{ display: "flex", gap: 10, flexWrap: "wrap" }}
+        >
           <CsvExportButton
             filename="simvest-entries.csv"
             buildCsv={() => toCsv(entryCsvColumns, active.entries)}

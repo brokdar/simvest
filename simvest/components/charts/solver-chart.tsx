@@ -1,9 +1,14 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { fmtEUR, fmtPct } from "@/lib/format"
 import { niceTicks } from "@/lib/charts/scales"
+import { useChartTouch } from "@/components/charts/use-chart-touch"
 import type { ProjectionPoint } from "@/lib/calc"
+
+// Conservative tooltip half-width used to keep it inside the plot on a narrow
+// chart. The real tooltip can be wider, but this prevents edge overflow.
+const TOOLTIP_HALF_WIDTH = 96
 
 export function SolverChart({
   projections,
@@ -20,17 +25,33 @@ export function SolverChart({
   portfolioTarget: number
   horizon: number
 }) {
-  const [hover, setHover] = useState<{
-    i: number
-    cons: number
-    exp: number
-    opt: number
-    months: number
-  } | null>(null)
+  // Index of the point currently shown in the tooltip (mouse, touch, or pinned
+  // after a touch lift), or null. The hover payload is derived from it.
+  const [activeIdx, setActiveIdx] = useState<number | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
-  const W = 1000
-  const H = 360
-  const pad = { l: 88, r: 24, t: 24, b: 44 }
+  const plotRef = useRef<HTMLDivElement | null>(null)
+  // Measure the actual plot width so the viewBox uses real pixel coordinates
+  // rather than a fixed 1000-unit box squished by preserveAspectRatio="none"
+  // — that distorted the lines and warped the axis text at phone widths.
+  // Mirrors the fix in entries-bar-chart.tsx.
+  const [W, setW] = useState(720)
+  useEffect(() => {
+    if (!plotRef.current) return
+    const ro = new ResizeObserver((ents) => {
+      for (const e of ents) setW(Math.max(240, Math.floor(e.contentRect.width)))
+    })
+    ro.observe(plotRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  const narrow = W < 560
+  // A fixed 360px height on a ~260px-wide phone would read as a very tall,
+  // cramped chart. Shrink the height (and the gutters it no longer needs to
+  // clear) for narrow widths instead of stretching the same box.
+  const H = narrow ? 260 : 360
+  const pad = narrow
+    ? { l: 60, r: 14, t: 20, b: 34 }
+    : { l: 88, r: 24, t: 24, b: 44 }
   const iw = W - pad.l - pad.r
   const ih = H - pad.t - pad.b
 
@@ -78,28 +99,64 @@ export function SolverChart({
     xTicks.push({ m: horizon * 12, label: `+${horizon}y` })
   }
 
-  const onMove = (ev: React.MouseEvent<SVGSVGElement>) => {
-    const svg = svgRef.current
-    if (!svg) return
-    const rect = svg.getBoundingClientRect()
+  // Nearest projection index for a client X (accounting for the SVG being
+  // scaled to fit its container), or null when the pointer is outside the plot.
+  // Plain functions/values (not useCallback/useMemo) so the React Compiler can
+  // memoize them — a manual dep list here can't be preserved past the local
+  // `pad`/scale helpers and gets the whole component's compilation skipped.
+  const resolveIndex = (clientX: number, _clientY: number, rect: DOMRect) => {
     const scale = W / rect.width
-    const mx = (ev.clientX - rect.left) * scale
-    if (mx < pad.l || mx > W - pad.r) {
-      setHover(null)
-      return
-    }
-    const i = Math.max(
-      0,
-      Math.min(n - 1, Math.round(((mx - pad.l) / iw) * n) - 1)
-    )
-    setHover({
-      i,
-      cons: projections.cons[i].value,
-      exp: projections.exp[i].value,
-      opt: projections.opt[i].value,
-      months: i + 1,
-    })
+    const mx = (clientX - rect.left) * scale
+    if (mx < pad.l || mx > W - pad.r) return null
+    return Math.max(0, Math.min(n - 1, Math.round(((mx - pad.l) / iw) * n) - 1))
   }
+
+  const hover =
+    activeIdx === null || activeIdx < 0 || activeIdx >= n
+      ? null
+      : {
+          i: activeIdx,
+          cons: projections.cons[activeIdx].value,
+          exp: projections.exp[activeIdx].value,
+          opt: projections.opt[activeIdx].value,
+          months: activeIdx + 1,
+        }
+
+  const onMouseMove = (ev: React.MouseEvent<SVGSVGElement>) => {
+    setActiveIdx(
+      resolveIndex(
+        ev.clientX,
+        ev.clientY,
+        ev.currentTarget.getBoundingClientRect()
+      )
+    )
+  }
+
+  const { onTouchStart, onTouchMove, onTouchEnd } = useChartTouch({
+    resolveIndex,
+    activeIndex: activeIdx,
+    setActiveIndex: setActiveIdx,
+    containerRef: plotRef,
+  })
+
+  // Screen-reader announcement of the settled active point — parity with the
+  // overview chart's live region. Debounced via a string dep (stable by value)
+  // with the only setState inside the timer, so no synchronous effect cascade.
+  const ariaSummary = hover
+    ? `+${(hover.months / 12).toFixed(1)} years: Optimistic ${fmtEUR(
+        hover.opt,
+        {
+          compact: true,
+        }
+      )}, Expected ${fmtEUR(hover.exp, {
+        compact: true,
+      })}, Conservative ${fmtEUR(hover.cons, { compact: true })}`
+    : ""
+  const [announce, setAnnounce] = useState("")
+  useEffect(() => {
+    const t = setTimeout(() => setAnnounce(ariaSummary), 250)
+    return () => clearTimeout(t)
+  }, [ariaSummary])
 
   const targetY = y(portfolioTarget)
   const targetReachedExp = projections.exp.findIndex(
@@ -125,26 +182,28 @@ export function SolverChart({
   const targetLabelY = targetLabelBelow ? targetY + 16 : targetY - 8
 
   return (
-    <div style={{ position: "relative", width: "100%" }}>
+    <div ref={plotRef} style={{ position: "relative", width: "100%" }}>
       <svg
         ref={svgRef}
         role="img"
         aria-label="Projection chart showing conservative, expected, and optimistic portfolio growth"
         viewBox={`0 0 ${W} ${H}`}
-        width="100%"
+        width={W}
         height={H}
-        preserveAspectRatio="none"
-        style={{ display: "block", cursor: "crosshair" }}
-        onMouseMove={onMove}
-        onMouseLeave={() => setHover(null)}
-        onTouchMove={(e) => {
-          const t = e.touches[0]
-          onMove({
-            clientX: t.clientX,
-            clientY: t.clientY,
-          } as unknown as React.MouseEvent<SVGSVGElement>)
+        // pan-y keeps vertical page scroll while a horizontal drag scrubs the
+        // chart; no preventDefault needed. Mirrors the overview chart.
+        style={{
+          display: "block",
+          maxWidth: "100%",
+          cursor: "crosshair",
+          touchAction: "pan-y",
         }}
-        onTouchEnd={() => setHover(null)}
+        onMouseMove={onMouseMove}
+        onMouseLeave={() => setActiveIdx(null)}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={() => setActiveIdx(null)}
         data-testid="solver-chart-svg"
       >
         {yScale.ticks.map((t, i) => (
@@ -310,7 +369,7 @@ export function SolverChart({
             x={pad.l - 12}
             y={y(t) + 4}
             textAnchor="end"
-            fontSize="11"
+            fontSize={narrow ? "10" : "11"}
             fill="var(--neutral-400)"
             fontFamily="var(--font-body)"
           >
@@ -324,7 +383,7 @@ export function SolverChart({
             x={x(t.m)}
             y={pad.t + ih + 22}
             textAnchor="middle"
-            fontSize="11"
+            fontSize={narrow ? "10" : "11"}
             fill="var(--neutral-400)"
             fontFamily="var(--font-body)"
           >
@@ -333,18 +392,29 @@ export function SolverChart({
         ))}
       </svg>
 
+      {/* SR-only live announcement of the settled active point. The visual
+          tooltip below is decorative (aria-hidden). */}
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {announce}
+      </div>
+
       {hover &&
         (() => {
-          const leftPct = (x(hover.i + 1) / W) * 100
-          const right = leftPct > 65
+          // Clamp the tooltip inside the plot so long rows don't overflow the
+          // narrow chart; center it on the point unless that would clip an edge.
+          const cx = x(hover.i + 1)
+          const left = Math.max(
+            TOOLTIP_HALF_WIDTH,
+            Math.min(W - TOOLTIP_HALF_WIDTH, cx)
+          )
           return (
             <div
               className="chart-tooltip"
+              aria-hidden="true"
               style={{
-                left: `${leftPct}%`,
+                left,
                 top: 24,
-                transform: right ? "translate(-100%, 0)" : "none",
-                marginLeft: right ? -8 : 8,
+                transform: "translate(-50%, 0)",
               }}
             >
               <div className="tt-h">

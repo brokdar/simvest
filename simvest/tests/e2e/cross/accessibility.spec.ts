@@ -187,31 +187,38 @@ test.describe("Accessibility — cross-cutting", () => {
     page,
   }) => {
     await page.goto("/")
-    await expect(page.locator('[data-testid="sidebar"]')).toBeVisible()
 
-    // Assert sidebar element tag is <aside>
-    const tag = await page.evaluate(() => {
-      const sidebar = document.querySelector('[data-testid="sidebar"]')
-      return sidebar?.tagName.toLowerCase()
-    })
-    expect(tag).toBe("aside")
+    // Desktop renders the nav in the sidebar <aside>; mobile (<=640px) removes
+    // the rail and puts the same nav in the hamburger drawer. Assert against
+    // whichever container the current viewport actually shows.
+    const toggle = page.getByTestId("nav-toggle")
+    const isMobile = await toggle.isVisible()
 
-    // Assert nav links are <a> elements (Next.js Link renders as <a>)
-    const navLinks = page.locator('[data-testid^="nav-"]')
+    let container
+    if (isMobile) {
+      await toggle.click()
+      container = page.getByTestId("mobile-drawer")
+      await expect(container).toBeVisible()
+    } else {
+      container = page.getByTestId("sidebar")
+      await expect(container).toBeVisible()
+      // Assert sidebar element tag is <aside>
+      const tag = await container.evaluate((el) => el.tagName.toLowerCase())
+      expect(tag).toBe("aside")
+    }
+
+    // Nav links (scoped to the visible container) are <a> elements — Next.js
+    // Link renders as <a> — and must NOT carry a title attribute, which would
+    // duplicate the visible label and be announced twice by screen readers.
+    const navLinks = container.locator('[data-testid^="nav-"]')
     const count = await navLinks.count()
     expect(count).toBeGreaterThan(0)
 
     for (let i = 0; i < count; i++) {
-      const linkTag = await navLinks
-        .nth(i)
-        .evaluate((el) => el.tagName.toLowerCase())
+      const link = navLinks.nth(i)
+      const linkTag = await link.evaluate((el) => el.tagName.toLowerCase())
       expect(linkTag).toBe("a")
-    }
-
-    // Nav links must NOT have a title attribute — it duplicates visible text
-    // and causes screen readers to announce the label twice (review fix).
-    for (let i = 0; i < count; i++) {
-      const titleAttr = await navLinks.nth(i).getAttribute("title")
+      const titleAttr = await link.getAttribute("title")
       expect(titleAttr).toBeNull()
     }
   })
@@ -267,8 +274,11 @@ test.describe("Accessibility — cross-cutting", () => {
     // Assert a <table> element is present
     await expect(page.locator("table")).toBeVisible()
 
-    // Assert <thead> is present
-    await expect(page.locator("table thead")).toBeVisible()
+    // Assert <thead> is present in the DOM. It's semantically present on both
+    // platforms, but visually hidden on mobile (max-width: 640px) where each
+    // row re-flows into a card that carries its own per-cell labels — so assert
+    // attachment (the structure) rather than visual display.
+    await expect(page.locator("table thead")).toBeAttached()
 
     // Assert <thead> contains <th> elements (not just <td>)
     const ths = page.locator("table thead th")

@@ -189,7 +189,7 @@ export function IncomeView() {
           </button>
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn btn-primary income-dividend-action"
             onClick={() => {
               setEditing(null)
               setShowDividendEditor(true)

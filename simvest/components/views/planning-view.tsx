@@ -304,6 +304,8 @@ function GoalStrip({
         gap: 10,
         overflowX: "auto",
         paddingBottom: 4,
+        scrollSnapType: "x mandatory",
+        overscrollBehaviorX: "contain",
       }}
       data-testid="goal-strip"
     >
@@ -361,6 +363,7 @@ function GoalTile({
         textAlign: "left",
         cursor: "pointer",
         boxShadow: active ? "0 4px 14px rgba(0,0,0,0.06)" : "none",
+        scrollSnapAlign: "start",
       }}
     >
       <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 2 }}>
@@ -372,7 +375,7 @@ function GoalTile({
       <div style={{ marginTop: 8 }}>
         <span
           className={`chip ${ev.onTrack ? "positive" : "negative"}`}
-          style={{ fontSize: 10.5 }}
+          style={{ fontSize: 11.5 }}
         >
           {ev.onTrack ? "✓ on track" : "△ behind"}
         </span>
@@ -411,6 +414,7 @@ function ScratchpadTile({
         borderRadius: 10,
         textAlign: "left",
         cursor: "pointer",
+        scrollSnapAlign: "start",
       }}
     >
       <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 2 }}>
@@ -593,15 +597,12 @@ function Workspace({
       {/* KPI tiles */}
       <KpiTiles evaluation={evaluation} kind={local.kind} />
 
-      {/* Two-column body */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(260px, 360px) 1fr",
-          gap: 18,
-          marginTop: 16,
-        }}
-      >
+      {/* Two-column body: assumptions (inputs) beside the trajectory chart
+          (the page's main output). Below 640px this collapses to a single
+          column, reordered so the chart — the thing the user came here to
+          read — appears right after the KPI tiles, with the sliders that
+          tune it below. */}
+      <div className="planning-body">
         <AssumptionsPanel
           local={local}
           setLocal={setLocal}
@@ -609,7 +610,7 @@ function Workspace({
           portfolios={portfolios}
           evaluation={evaluation}
         />
-        <div>
+        <div className="planning-chart-col">
           <div
             style={{
               fontSize: 12,
@@ -649,13 +650,7 @@ function KpiTiles({
 }) {
   const onTrack = evaluation.onTrack
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(3, 1fr)",
-        gap: 10,
-      }}
-    >
+    <div className="planning-kpis">
       <KpiTile
         label="Required monthly"
         accent={onTrack ? "positive" : "primary"}
@@ -701,7 +696,7 @@ function KpiTiles({
           <KpiTile
             label="Portfolio target"
             value={fmtEUR(evaluation.portfolioTargetValue, { compact: true })}
-            sub={`at ${evaluation.swrUsed?.toFixed(1) ?? "?"}% SWR · ${Math.max(0, Math.round(evaluation.portfolioTargetValue))} EUR needed`}
+            sub={`at ${evaluation.swrUsed?.toFixed(1) ?? "?"}% SWR · ${fmtEUR(Math.max(0, evaluation.portfolioTargetValue), { compact: true })} needed`}
             testId="kpi-portfolio-target"
           />
           <KpiTile
@@ -770,7 +765,7 @@ function KpiTile({
       <div
         className="muted small"
         style={{
-          fontSize: 10.5,
+          fontSize: 11.5,
           fontWeight: 600,
           letterSpacing: "0.06em",
           textTransform: "uppercase",
@@ -816,7 +811,7 @@ function AssumptionsPanel({
 }) {
   const meta = VALUE_META[local.kind]
   return (
-    <div>
+    <div className="planning-assumptions">
       <div
         style={{
           fontSize: 12,
