@@ -866,6 +866,36 @@ input[type="range"].slider::-moz-range-thumb {
 .table td.td-date {
   padding-left: 20px;
 }
+/* Holding name truncates to a single line instead of wrapping the row taller
+   or blowing out the "auto" name column — full name is still on the title
+   attribute for a hover tooltip. Mobile overrides max-width (see stacked-card
+   block below) since the flex-basis there already bounds the available
+   width. */
+.holding-name-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+/* Row actions default to a quiet opacity and go full-contrast on hover/focus
+   (desktop) or unconditionally under a coarse pointer (touch has no hover to
+   reveal them with). */
+.row-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+.table tr:hover .row-actions,
+.row-actions:focus-within {
+  opacity: 1;
+}
+@media (pointer: coarse) {
+  .row-actions {
+    opacity: 1;
+  }
+}
 
 .tag {
   display: inline-flex;
@@ -1419,6 +1449,90 @@ input[type="range"].slider::-moz-range-thumb {
   .entries-grid-actions .btn {
     width: 100%;
     justify-content: center;
+  }
+}
+
+/* ---- Holdings table: stacked-card layout on phones ----
+   Same problem as the entries grid above, different column set: Name (auto),
+   ISIN (160px), Type (100px), Dividends received (180px), Income 12mo
+   (170px, a tappable chip link), Actions (80px) sum to ~690px fixed alone —
+   on a ~390px phone the income link and the Edit/Delete buttons were clipped
+   off-screen. Re-flow into a card: name + type chip + actions form the
+   header line (name grows, the other two sit at the end), ISIN/Dividends
+   share a second line, Income gets its own third line. Same <table> DOM,
+   same data-testids. */
+@media (max-width: 640px) {
+  .holdings-table thead {
+    display: none;
+  }
+  .holdings-table,
+  .holdings-table tbody {
+    display: block;
+  }
+  .holdings-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .holdings-table tr:hover td {
+    background: transparent;
+  }
+  .holdings-table td {
+    display: block;
+    padding: 0;
+    border: none;
+  }
+  .holdings-table td.num {
+    text-align: left;
+  }
+  /* calc(100% - 150px) reserves just enough room for the type chip + the two
+     44px action buttons so the header trio fills exactly one line, forcing
+     ISIN/Dividends/Income to wrap onto the lines below — same trick the
+     entries card layout uses for its date + actions header line. */
+  .holdings-table td.td-holding-name {
+    order: 1;
+    flex: 1 1 calc(100% - 150px);
+    min-width: 0;
+    padding-left: 0;
+    font-size: 14px;
+  }
+  .holdings-table .holding-name-text {
+    max-width: none;
+  }
+  .holdings-table td.td-holding-type {
+    order: 2;
+    flex: 0 0 auto;
+  }
+  .holdings-table td.td-holding-actions {
+    order: 3;
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+  .holdings-table td.td-holding-actions:empty {
+    display: none;
+  }
+  .holdings-table td.td-holding-isin,
+  .holdings-table td.td-holding-dividends {
+    order: 4;
+    flex: 1 1 50%;
+    min-width: 0;
+  }
+  .holdings-table td.td-holding-income {
+    order: 5;
+    flex: 1 1 100%;
+  }
+  .holdings-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 1px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--neutral-400);
   }
 }
 
