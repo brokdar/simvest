@@ -349,8 +349,8 @@ test.describe("Navigation — mobile", () => {
 
     await expect(toggle).toHaveAttribute("aria-label", "Open navigation menu")
     await expect(toggle).toHaveAttribute("aria-expanded", "false")
-    await expect(toggle).toHaveAttribute("aria-controls", /.+/)
-    const controls = await toggle.getAttribute("aria-controls")
+    // Radix omits aria-controls while the dialog is closed (nothing in the
+    // DOM to reference yet) — it only appears once open.
 
     await toggle.tap()
     const drawer = page.getByTestId("mobile-drawer")
@@ -358,7 +358,9 @@ test.describe("Navigation — mobile", () => {
     await expect(toggle).toHaveAttribute("aria-expanded", "true")
 
     // aria-controls references the drawer content element.
+    await expect(toggle).toHaveAttribute("aria-controls", /.+/)
     const drawerId = await drawer.getAttribute("id")
+    const controls = await toggle.getAttribute("aria-controls")
     expect(controls).toBe(drawerId)
   })
 
