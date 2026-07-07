@@ -59,6 +59,17 @@ export function EditableRow({
   const firstFocusRef = useRef<HTMLTableCellElement>(null)
   useEffect(() => {
     if (!isFocusPending) return
+    // Don't pop the on-screen keyboard on touch devices: a new draft row would
+    // otherwise steal focus into its first cell the instant it's added. Consume
+    // the pending focus so it doesn't linger for a later pointer/keyboard visit.
+    const coarse =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(pointer: coarse)").matches
+    if (coarse) {
+      onFocusConsumed()
+      return
+    }
     const el = firstFocusRef.current?.querySelector<HTMLElement>(
       "input, button, [contenteditable]"
     )
@@ -98,22 +109,26 @@ export function EditableRow({
   if (!editMode) {
     return (
       <tr data-testid={`entry-row-${testIdSuffix}`}>
-        <td style={{ paddingLeft: 20 }}>
-          <div style={{ fontWeight: 600 }}>
+        <td className="td-date">
+          <div style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
             {formatEntryDate(display.year, display.month, display.day)}
           </div>
         </td>
-        <td className="num">
+        <td className="num td-invested" data-label="Invested">
           <Money
             value={display.invested}
             sign
             tone={display.invested < 0 ? "neg" : "none"}
           />
         </td>
-        <td className="num" style={{ fontWeight: 600 }}>
+        <td
+          className="num td-value"
+          data-label="Portfolio value"
+          style={{ fontWeight: 600 }}
+        >
           <Money value={display.value} />
         </td>
-        <td className="num">
+        <td className="num td-delta" data-label="M/M Δ">
           {display.value == null || prev?.value == null ? (
             <span className="muted mono">—</span>
           ) : (
@@ -121,6 +136,9 @@ export function EditableRow({
           )}
         </td>
         <td
+          className="td-note"
+          data-label="Note"
+          data-empty={display.note ? undefined : "true"}
           style={{
             color: "var(--neutral-500)",
             fontStyle: display.note ? "normal" : "italic",
@@ -128,7 +146,7 @@ export function EditableRow({
         >
           {display.note || <span className="muted">—</span>}
         </td>
-        <td></td>
+        <td className="td-actions"></td>
       </tr>
     )
   }
@@ -142,7 +160,7 @@ export function EditableRow({
         data-draft={!isExisting ? "true" : undefined}
         style={{ opacity: rowOpacity, textDecoration: rowDecoration }}
       >
-        <td style={{ paddingLeft: 20 }} ref={firstFocusRef}>
+        <td className="td-date" ref={firstFocusRef}>
           <CellDate
             year={display.year}
             month={display.month}
@@ -153,7 +171,7 @@ export function EditableRow({
             testId={`cell-date-${testIdSuffix}`}
           />
         </td>
-        <td className="num">
+        <td className="num td-invested" data-label="Invested">
           <CellMoney
             value={display.invested}
             onChange={(v) => onUpdateCell("invested", v ?? 0)}
@@ -164,7 +182,7 @@ export function EditableRow({
             testId={`cell-invested-${testIdSuffix}`}
           />
         </td>
-        <td className="num">
+        <td className="num td-value" data-label="Portfolio value">
           <CellMoney
             value={display.value}
             onChange={(v) => onUpdateCell("value", v)}
@@ -175,14 +193,14 @@ export function EditableRow({
             testId={`cell-value-${testIdSuffix}`}
           />
         </td>
-        <td className="num">
+        <td className="num td-delta" data-label="M/M Δ">
           {display.value == null || prev?.value == null ? (
             <span className="muted mono">—</span>
           ) : (
             <Money value={delta} sign tone="auto" />
           )}
         </td>
-        <td>
+        <td className="td-note" data-label="Note">
           <CellNote
             value={display.note}
             onChange={(v) => onUpdateCell("note", v)}
@@ -191,7 +209,7 @@ export function EditableRow({
             monthLabel={monthLabel}
           />
         </td>
-        <td>
+        <td className="td-actions">
           <div style={{ display: "flex", gap: 4, opacity: 0.85 }}>
             {isExisting ? (
               isToDelete ? (
@@ -233,7 +251,7 @@ export function EditableRow({
         </td>
       </tr>
       {display.error && (
-        <tr data-testid={`row-error-${testIdSuffix}`}>
+        <tr data-testid={`row-error-${testIdSuffix}`} className="row-error">
           <td colSpan={6} style={{ paddingTop: 0, paddingBottom: 8 }}>
             <div
               role="alert"

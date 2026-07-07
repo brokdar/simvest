@@ -1,6 +1,34 @@
 import type { Page } from "@playwright/test"
 
 /**
+ * Navigate via the primary nav in a viewport-agnostic way.
+ *
+ * Desktop (>640px) renders the sidebar rail — the nav link is clicked
+ * directly. Mobile (<=640px) removes the rail and puts the nav behind a
+ * hamburger drawer, so the toggle is opened first and the link is clicked
+ * *inside* the drawer (scoping avoids the strict-mode clash with the hidden
+ * sidebar copy of the same testid).
+ *
+ * Pass `urlPattern` (a `page.waitForURL` glob) to also wait for the route.
+ */
+export async function navClick(
+  page: Page,
+  testId: string,
+  urlPattern?: string
+) {
+  const toggle = page.getByTestId("nav-toggle")
+  if (await toggle.isVisible()) {
+    await toggle.click()
+    const drawer = page.getByTestId("mobile-drawer")
+    await drawer.waitFor({ state: "visible" })
+    await drawer.getByTestId(testId).click()
+  } else {
+    await page.getByTestId(testId).click()
+  }
+  if (urlPattern) await page.waitForURL(urlPattern)
+}
+
+/**
  * Seed the selected-portfolio for the next navigation. Writes both:
  *
  *   - a browser-context cookie (`simvest.selectedPortfolio=<id>`) — the

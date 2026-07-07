@@ -109,7 +109,8 @@ export function HoldingEditor({
             <input
               className="input-bare"
               value={form.name}
-              placeholder="e.g. Vanguard FTSE All-World ETF"
+              placeholder="e.g. Vanguard FTSE All-World ETF…"
+              autoComplete="off"
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               data-testid="holding-editor-name"
             />
@@ -119,7 +120,10 @@ export function HoldingEditor({
             <input
               className="input-bare mono"
               value={form.isin}
-              placeholder="e.g. IE00BK5BQT80"
+              placeholder="e.g. IE00BK5BQT80…"
+              spellCheck={false}
+              autoComplete="off"
+              autoCapitalize="characters"
               onChange={(e) =>
                 setForm({ ...form, isin: e.target.value.toUpperCase() })
               }

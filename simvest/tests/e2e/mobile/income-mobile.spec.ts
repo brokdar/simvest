@@ -20,7 +20,9 @@ test.describe("Income — mobile", () => {
     await preselectPortfolio(page, 1)
     await page.goto("/income")
 
-    await page.locator('[data-testid="btn-add-dividend"]').tap()
+    // The in-page "Record dividend" button is hidden on phones (de-duped
+    // against the topbar +); the topbar action opens the same editor.
+    await page.locator('[data-testid="action-new-dividend"]').tap()
     const dialog = page.locator('[data-testid="dividend-editor-dialog"]')
     await expect(dialog).toBeVisible()
 
@@ -88,5 +90,174 @@ test.describe("Income — mobile", () => {
     // Tap again toggles the filter off.
     await nameButton.tap()
     await expect(chart).not.toHaveAttribute("data-highlighted-source", /.+/)
+  })
+
+  // E2E-M-INC-003 — The Per-Holding + Recent-Payouts tables re-flow into
+  // stacked cards (thead hidden, rows flex) and fit the viewport with no
+  // column clipped off the right edge.
+  test("E2E-M-INC-003 — income tables render as stacked cards within the viewport", async ({
+    page,
+  }) => {
+    await preselectPortfolio(page, 1)
+    await page.goto("/income")
+    await page.locator('[data-testid="income-per-holding-table"]').waitFor()
+
+    const viewport = page.viewportSize()
+    const vw = viewport?.width ?? 393
+
+    for (const cls of [".per-holding-table", ".recent-payouts-table"]) {
+      // The recent-payouts thead is display:none; the per-holding thead is
+      // clip-hidden (1x1px, position:absolute) so its sort buttons stay
+      // keyboard-operable. Either way it must not occupy visual layout.
+      const theadHidden = await page.evaluate((sel) => {
+        const thead = document.querySelector(`${sel} thead`)
+        if (!thead) return ""
+        const cs = window.getComputedStyle(thead)
+        if (cs.display === "none") return "hidden"
+        const r = thead.getBoundingClientRect()
+        return cs.position === "absolute" && r.width <= 1 && r.height <= 1
+          ? "hidden"
+          : `visible (${cs.display}, ${r.width}x${r.height})`
+      }, cls)
+      expect(theadHidden).toBe("hidden")
+
+      const rowDisplay = await page.evaluate((sel) => {
+        const tr = document.querySelector(`${sel} tbody tr`)
+        return tr ? window.getComputedStyle(tr).display : ""
+      }, cls)
+      expect(rowDisplay).toBe("flex")
+
+      const box = await page.locator(cls).first().boundingBox()
+      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(vw + 1)
+    }
+  })
+
+  // E2E-M-INC-004 — A payout's edit/delete actions are reachable and fully
+  // on-screen in card mode — before the re-flow the Actions column was clipped
+  // off the right edge, so payouts could not be edited or deleted on mobile.
+  test("E2E-M-INC-004 — recent-payout row actions are reachable within the viewport", async ({
+    page,
+  }) => {
+    await preselectPortfolio(page, 1)
+    await page.goto("/income")
+    await page.locator('[data-testid="income-recent-table"]').waitFor()
+
+    const firstRow = page.locator('[data-testid^="income-row-"]').first()
+    const editBtn = firstRow.locator('button[aria-label="Edit income event"]')
+    await expect(editBtn).toBeVisible()
+
+    const viewport = page.viewportSize()
+    const vw = viewport?.width ?? 393
+
+    const editBox = await editBtn.boundingBox()
+    expect(editBox).not.toBeNull()
+    expect((editBox?.x ?? 0) + (editBox?.width ?? 0)).toBeLessThanOrEqual(
+      vw + 1
+    )
+    // Coarse-pointer target, and full contrast (not the desktop quiet opacity).
+    expect(editBox?.height ?? 0).toBeGreaterThanOrEqual(40)
+    const actionsOpacity = await editBtn.evaluate(
+      (el) => window.getComputedStyle(el.parentElement!).opacity
+    )
+    expect(Number(actionsOpacity)).toBe(1)
+
+    const deleteBox = await firstRow
+      .locator('button[aria-label="Delete income event"]')
+      .boundingBox()
+    expect(deleteBox).not.toBeNull()
+    expect((deleteBox?.x ?? 0) + (deleteBox?.width ?? 0)).toBeLessThanOrEqual(
+      vw + 1
+    )
+  })
+
+  // E2E-M-INC-005 — The heatmap stays usable on mobile: its scroll track keeps
+  // cells at a legible/tappable width (so it overflows its own scroller rather
+  // than crushing to ~10px cells), and that scroll is contained — the document
+  // itself does not gain a horizontal scrollbar.
+  test("E2E-M-INC-005 — heatmap scrolls horizontally with tappable cells, no page overflow", async ({
+    page,
+  }) => {
+    await preselectPortfolio(page, 1)
+    await page.goto("/income")
+    await page.locator('[data-testid="income-heatmap"]').waitFor()
+
+    // The track overflows its scroll container (min-width forces a scroller)
+    // rather than collapsing the month cells.
+    const overflows = await page.evaluate(() => {
+      const scroll = document.querySelector(
+        '[data-testid="income-heatmap"] .heatmap-scroll'
+      )
+      return scroll ? scroll.scrollWidth > scroll.clientWidth + 1 : false
+    })
+    expect(overflows).toBe(true)
+
+    // A month cell keeps a tappable width (min ~28px), not a crushed ~10px.
+    const cell = page.locator('[data-testid^="income-heatmap-cell-"]').first()
+    const cellBox = await cell.boundingBox()
+    expect(cellBox?.width ?? 0).toBeGreaterThanOrEqual(28)
+
+    // The page itself does not scroll horizontally — the overflow is contained.
+    const pageOverflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth
+    )
+    expect(pageOverflow).toBe(false)
+  })
+
+  // E2E-M-INC-006 — Touch users can reach the monthly-payouts breakdown: on
+  // desktop it's a hover tooltip, so on mobile tapping a month must both select
+  // it AND surface the per-month detail card, clamped inside the viewport.
+  test("E2E-M-INC-006 — tapping a payouts-chart month shows its breakdown on-screen", async ({
+    page,
+  }) => {
+    await page.goto("/income")
+    await page.locator('[data-testid="income-monthly-chart"]').waitFor()
+
+    // The detail card only shows once a month is tapped (no hover on touch).
+    const detail = page.locator('[data-testid="income-monthly-detail"]')
+    await expect(detail).toBeHidden()
+
+    await page.locator('[data-testid^="income-bar-hit-"]').first().tap()
+    await expect(detail).toBeVisible()
+
+    const viewport = page.viewportSize()
+    const vw = viewport?.width ?? 393
+    const box = await detail.boundingBox()
+    expect(box?.x ?? -1).toBeGreaterThanOrEqual(0)
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(vw + 1)
+  })
+
+  // E2E-M-INC-007 — Same for the calendar heatmap: the per-month detail popover
+  // is hover-only on desktop, so tapping a cell must surface it on touch, and it
+  // must sit within the viewport even though the cell lives in a scroll track.
+  test("E2E-M-INC-007 — tapping a heatmap cell shows its detail popover on-screen", async ({
+    page,
+  }) => {
+    await page.goto("/income")
+    await page.locator('[data-testid="income-heatmap"]').waitFor()
+
+    const popover = page.locator('[data-testid="income-heatmap-detail"]')
+    await expect(popover).toBeHidden()
+
+    // Tap a cell that actually has a payout (empty cells label "No payouts…").
+    const cellId = await page
+      .locator('[data-testid^="income-heatmap-cell-"]')
+      .evaluateAll((els) => {
+        const withData = els.find(
+          (e) => !(e.getAttribute("aria-label") ?? "").startsWith("No payouts")
+        )
+        return withData?.getAttribute("data-testid") ?? null
+      })
+    if (!cellId) test.skip(true, "no heatmap cell with a payout seeded")
+
+    await page.locator(`[data-testid="${cellId}"]`).tap()
+    await expect(popover).toBeVisible()
+
+    const viewport = page.viewportSize()
+    const vw = viewport?.width ?? 393
+    const box = await popover.boundingBox()
+    expect(box?.x ?? -1).toBeGreaterThanOrEqual(0)
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(vw + 1)
   })
 })

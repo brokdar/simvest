@@ -107,6 +107,8 @@ export function SettingsView() {
             justifyContent: "space-between",
             alignItems: "baseline",
             marginBottom: 14,
+            gap: 8,
+            flexWrap: "wrap",
           }}
         >
           <h3 style={{ fontSize: 15 }}>Portfolios</h3>
@@ -327,11 +329,8 @@ function NumberFormatRow({
   return (
     <div
       data-testid="number-format-row"
+      className="settings-pref-row"
       style={{
-        display: "grid",
-        gridTemplateColumns: "1fr auto",
-        gap: 12,
-        alignItems: "center",
         padding: "14px 0 4px",
         borderTop: "1px solid var(--border)",
         marginTop: 14,
@@ -355,7 +354,7 @@ function NumberFormatRow({
           <span className="mono">{fmtEUR(PREVIEW_AMOUNT, {}, resolved)}</span>
         </div>
       </div>
-      <div style={{ minWidth: 180 }}>
+      <div className="settings-pref-control">
         <Select
           value={current}
           onValueChange={(v) => onChange(v === "auto" ? null : v)}
@@ -400,13 +399,8 @@ function DefaultEntryDayRow({
   return (
     <div
       data-testid="default-entry-day-row"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "1fr auto",
-        gap: 12,
-        alignItems: "center",
-        padding: "4px 0",
-      }}
+      className="settings-pref-row"
+      style={{ padding: "4px 0" }}
     >
       <div>
         <div style={{ fontWeight: 600, fontSize: 13 }}>
@@ -420,8 +414,8 @@ function DefaultEntryDayRow({
       <div
         role="group"
         aria-label="Default entry day"
+        className="settings-daypicker-group"
         style={{
-          display: "inline-flex",
           padding: 3,
           background: "var(--neutral-50)",
           border: "1px solid var(--border)",
@@ -459,6 +453,7 @@ function DefaultEntryDayRow({
               step={1}
               value={customDay}
               disabled={!isCustom}
+              aria-label="Custom day of month"
               onChange={(e) => {
                 const n = Math.max(
                   1,
@@ -467,10 +462,9 @@ function DefaultEntryDayRow({
                 onChange(String(n))
               }}
               onClick={(e) => e.stopPropagation()}
+              className="settings-day-input"
               data-testid="default-entry-day-custom-input"
               style={{
-                width: 44,
-                padding: "2px 6px",
                 borderRadius: 6,
                 border: "1px solid var(--border)",
                 background: isCustom ? "var(--surface)" : "transparent",
@@ -504,6 +498,7 @@ function SegmentButton({
       aria-pressed={selected}
       onClick={onClick}
       data-testid={testId}
+      className="settings-segment-btn"
       style={{
         padding: "6px 12px",
         fontSize: 12,
@@ -553,19 +548,19 @@ function PortfolioRow({
         borderTop: showDivider ? "1px solid var(--border)" : undefined,
       }}
     >
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "auto 1fr minmax(90px, 200px) auto",
-          gap: 12,
-          alignItems: "center",
-        }}
-      >
-        <ColorPicker
-          value={portfolio.color}
-          onChange={(c) => onChange({ color: c })}
-        />
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      {/* Single grid for the whole row (was two independent grids stacked
+          on top of each other) so Export/Edit/Delete can be regrouped into
+          one actions line on mobile via `order` — see .settings-portfolio-row
+          in globals.css. Desktop keeps the original two-line layout via
+          grid-template-areas. */}
+      <div className="settings-portfolio-row">
+        <div className="settings-pf-swatch">
+          <ColorPicker
+            value={portfolio.color}
+            onChange={(c) => onChange({ color: c })}
+          />
+        </div>
+        <div className="settings-pf-name">
           <input
             className="input-bare"
             aria-label={`${portfolio.name} name`}
@@ -577,7 +572,7 @@ function PortfolioRow({
             {portfolio.entries.length === 1 ? "entry" : "entries"}
           </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div className="settings-pf-contrib">
           <MoneyInput
             value={portfolio.targetMonthlyContribution}
             onChange={(v) => {
@@ -593,28 +588,8 @@ function PortfolioRow({
             Monthly contribution
           </div>
         </div>
-        <button
-          type="button"
-          className="btn btn-icon btn-ghost"
-          aria-label={`Delete ${portfolio.name}`}
-          onClick={onDelete}
-        >
-          <Icon name="trash" size={14} />
-        </button>
-      </div>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "auto 1fr auto auto auto",
-          gap: 12,
-          alignItems: "center",
-          marginTop: 8,
-        }}
-      >
-        <div style={{ width: 28 }} />
         <div
-          className="muted small"
+          className="settings-pf-summary muted small"
           style={{ fontSize: 12, color: "var(--neutral-600)" }}
           data-testid={`portfolio-starting-summary-${portfolio.id}`}
         >
@@ -643,24 +618,29 @@ function PortfolioRow({
         </div>
         <button
           type="button"
-          className="btn btn-icon btn-ghost"
+          className="btn btn-icon btn-ghost settings-pf-export"
           onClick={onExport}
           aria-label={`Export ${portfolio.name}`}
           data-testid={`portfolio-export-${portfolio.id}`}
-          style={{ height: 28, width: 28 }}
         >
           <Icon name="download" size={14} />
         </button>
         <button
           type="button"
-          className="btn btn-secondary"
+          className="btn btn-secondary btn-sm settings-pf-edit"
           onClick={onEdit}
           data-testid={`portfolio-edit-${portfolio.id}`}
-          style={{ height: 28, padding: "0 10px", fontSize: 12 }}
         >
           <Icon name="edit" size={12} /> Edit
         </button>
-        <div style={{ width: 32 }} />
+        <button
+          type="button"
+          className="btn btn-icon btn-ghost settings-pf-delete"
+          aria-label={`Delete ${portfolio.name}`}
+          onClick={onDelete}
+        >
+          <Icon name="trash" size={14} />
+        </button>
       </div>
     </div>
   )
@@ -709,6 +689,7 @@ function ColorPicker({
         aria-label="Pick color"
         aria-expanded={open}
         aria-haspopup="dialog"
+        className="settings-color-trigger"
         style={{
           width: 28,
           height: 28,
@@ -749,6 +730,7 @@ function ColorPicker({
               }}
               aria-label={COLOR_NAMES[c] ?? c}
               aria-pressed={value === c}
+              className="settings-palette-swatch"
               style={{
                 width: 22,
                 height: 22,

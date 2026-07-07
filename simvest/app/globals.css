@@ -205,17 +205,20 @@ h4 {
   display: grid;
   grid-template-columns: 248px 1fr;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 .sidebar {
   background: var(--surface);
   border-right: 1px solid var(--border);
   padding: 20px 14px;
+  padding-left: calc(14px + env(safe-area-inset-left));
   display: flex;
   flex-direction: column;
   gap: 4px;
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
 }
 .brand {
   display: flex;
@@ -294,7 +297,9 @@ h4 {
 }
 .topbar {
   height: 64px;
+  height: calc(64px + env(safe-area-inset-top));
   padding: 0 28px;
+  padding-top: env(safe-area-inset-top);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -323,14 +328,111 @@ h4 {
   gap: 10px;
 }
 
+/* Hamburger trigger for the mobile nav drawer. Hidden by default; the
+   <=640px block below reveals it once the sidebar rail is removed. The
+   descendant selector out-specifies `.btn { display: inline-flex }` so the
+   trigger stays hidden on desktop regardless of source order. */
+.topbar-left .nav-toggle {
+  display: none;
+}
+
+/* ---- Mobile nav drawer (Radix Dialog) ---- */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(15, 23, 42, 0.45);
+}
+.drawer-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 61;
+  width: min(280px, 82vw);
+  height: 100vh;
+  height: 100dvh;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  box-shadow: var(--sh-lg, 0 10px 40px rgba(0, 0, 0, 0.18));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 20px 14px calc(20px + env(safe-area-inset-bottom));
+  padding-left: calc(14px + env(safe-area-inset-left));
+  padding-top: calc(20px + env(safe-area-inset-top));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* Slide the panel in from the left / out to the left. tw-animate-css is not
+   used here so the motion is defined explicitly; prefers-reduced-motion is
+   honored by the global reduce block that zeroes animation durations. */
+.drawer-panel[data-state="open"] {
+  animation: drawer-in 0.22s ease;
+}
+.drawer-panel[data-state="closed"] {
+  animation: drawer-out 0.18s ease;
+}
+.drawer-overlay[data-state="open"] {
+  animation: drawer-fade-in 0.22s ease;
+}
+.drawer-overlay[data-state="closed"] {
+  animation: drawer-fade-out 0.18s ease;
+}
+@keyframes drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes drawer-out {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes drawer-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes drawer-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 .view {
-  padding: 24px 28px 48px;
+  padding: 24px 28px calc(48px + env(safe-area-inset-bottom));
   max-width: 1440px;
   margin: 0 auto;
 }
 .view h1.title {
   font-size: 26px;
   letter-spacing: -0.02em;
+}
+
+/* ---- Touch interaction defaults ----
+   Kill the ~300ms double-tap-zoom delay on interactive elements and
+   suppress the mobile Safari/Chrome tap-highlight flash. Pointer-agnostic
+   (no-op for mouse/trackpad input), so this applies unconditionally. */
+a,
+button,
+input,
+select,
+textarea,
+[role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ---- Generic UI ---- */
@@ -346,10 +448,10 @@ h4 {
   border: 1px solid transparent;
   cursor: pointer;
   transition:
-    background-color,
-    border-color,
-    color,
-    opacity,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease,
     box-shadow 0.15s ease;
   font-family: inherit;
 }
@@ -697,7 +799,15 @@ input[type="range"].slider {
     var(--primary) var(--fill, 50%),
     var(--secondary-100) var(--fill, 50%)
   );
+  touch-action: manipulation;
+  user-select: none;
+}
+input[type="range"].slider:focus {
   outline: none;
+}
+input[type="range"].slider:focus-visible {
+  outline: 2px solid var(--primary-100);
+  outline-offset: 2px;
 }
 input[type="range"].slider::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -749,6 +859,42 @@ input[type="range"].slider::-moz-range-thumb {
 }
 .table th.num {
   text-align: right;
+}
+/* Date column indent — replaces the per-cell inline paddingLeft:20 the entries
+   grid used to carry (moved to CSS so the mobile card layout can reset it). */
+.table th.th-date,
+.table td.td-date {
+  padding-left: 20px;
+}
+/* Holding name truncates to a single line instead of wrapping the row taller
+   or blowing out the "auto" name column — full name is still on the title
+   attribute for a hover tooltip. Mobile overrides max-width (see stacked-card
+   block below) since the flex-basis there already bounds the available
+   width. */
+.holding-name-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+/* Row actions default to a quiet opacity and go full-contrast on hover/focus
+   (desktop) or unconditionally under a coarse pointer (touch has no hover to
+   reveal them with). */
+.row-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+.table tr:hover .row-actions,
+.row-actions:focus-within {
+  opacity: 1;
+}
+@media (pointer: coarse) {
+  .row-actions {
+    opacity: 1;
+  }
 }
 
 .tag {
@@ -806,6 +952,18 @@ input[type="range"].slider::-moz-range-thumb {
   width: 8px;
   height: 8px;
   border-radius: 2px;
+}
+/* On a narrow (phone) chart the `nowrap` tooltip could grow wider than the
+   plot and overflow the edge even after x-clamping. Cap its width and let long
+   EUR rows wrap instead. */
+@media (max-width: 640px) {
+  .chart-tooltip {
+    max-width: min(72vw, 240px);
+    white-space: normal;
+  }
+  .chart-tooltip .tt-row {
+    gap: 10px;
+  }
 }
 
 .spark path {
@@ -1056,19 +1214,22 @@ input[type="range"].slider::-moz-range-thumb {
   }
   .sidebar {
     padding: 12px 8px;
+    padding-left: calc(8px + env(safe-area-inset-left));
   }
-  .brand {
+  /* The icon-rail collapse is scoped to .sidebar so the mobile nav drawer
+     (portaled outside .sidebar) keeps full-width, labelled nav items. */
+  .sidebar .brand {
     justify-content: center;
     padding: 4px 0 12px;
     gap: 0;
   }
-  .brand-name,
-  .brand-sub,
-  .brand-text,
-  .nav-section {
+  .sidebar .brand-name,
+  .sidebar .brand-sub,
+  .sidebar .brand-text,
+  .sidebar .nav-section {
     display: none;
   }
-  .nav-item {
+  .sidebar .nav-item {
     justify-content: center;
     padding: 10px 0;
     font-size: 0;
@@ -1076,12 +1237,12 @@ input[type="range"].slider::-moz-range-thumb {
     width: 100%;
     min-height: 40px;
   }
-  .nav-item .ico {
+  .sidebar .nav-item .ico {
     width: 20px;
     height: 20px;
     flex-shrink: 0;
   }
-  .nav-item .ico svg {
+  .sidebar .nav-item .ico svg {
     width: 20px;
     height: 20px;
   }
@@ -1097,7 +1258,7 @@ input[type="range"].slider::-moz-range-thumb {
     grid-template-columns: repeat(2, 1fr);
   }
   .view {
-    padding: 20px 18px 36px;
+    padding: 20px 18px calc(36px + env(safe-area-inset-bottom));
   }
   .topbar {
     padding: 0 18px;
@@ -1109,6 +1270,21 @@ input[type="range"].slider::-moz-range-thumb {
 @media (max-width: 640px) {
   .grid-4 {
     grid-template-columns: 1fr;
+  }
+  /* Phone layout: drop the icon rail entirely (it permanently ate ~16% of a
+     390px screen) and go single-column. Nav moves into the hamburger drawer;
+     the breadcrumb is hidden because the page <h1> is the single title. */
+  .app {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    display: none;
+  }
+  .crumbs {
+    display: none;
+  }
+  .topbar-left .nav-toggle {
+    display: inline-flex;
   }
   .topbar-right .input-bare,
   .topbar-right .input-bare + svg {
@@ -1130,6 +1306,7 @@ input[type="range"].slider::-moz-range-thumb {
   .topbar-left {
     min-width: 0;
     gap: 8px;
+    flex: 1 1 auto;
   }
   .topbar-action {
     width: 36px;
@@ -1141,8 +1318,8 @@ input[type="range"].slider::-moz-range-thumb {
   .topbar-action .btn-label {
     display: none;
   }
-  /* Let a long portfolio name ellipsize inside the fixed 180px switcher
-     rather than widening it. */
+  /* Let the switcher flex-shrink and ellipsize its label rather than holding a
+     fixed width that pushes the bell + action off-screen. */
   .pf-dd-label {
     min-width: 0;
   }
@@ -1153,7 +1330,8 @@ input[type="range"].slider::-moz-range-thumb {
     white-space: nowrap;
   }
   .pf-dd-trigger {
-    min-width: 180px;
+    min-width: 0;
+    flex: 0 1 auto;
   }
   .tabs-bar button {
     padding: 7px 10px;
@@ -1161,6 +1339,693 @@ input[type="range"].slider::-moz-range-thumb {
   }
   .view h1.title {
     font-size: 22px;
+  }
+  /* iOS Safari zooms the viewport on focus of any text input under 16px.
+     Bump the app's text inputs (MoneyInput's .input-bare, and ShadCN's
+     Input if it's ever used) past that threshold on small screens only —
+     desktop keeps the tighter 13px sizing. */
+  .input-bare,
+  [data-slot="input"],
+  .settings-day-input {
+    font-size: 16px;
+  }
+}
+
+/* ---- Entries grid: stacked-card layout on phones ----
+   The 6-column editable table can't fit ~390px — every column past "Portfolio
+   value" (including the entire edit/delete Actions column) was clipped by the
+   card's overflow, so entries couldn't be edited or deleted on mobile. Rather
+   than fork the state logic, we keep the SAME <table> DOM (preserving every
+   data-testid and the inline-edit controller that drives it) and re-flow each
+   row into a card with display rules. Each <td> becomes a labelled block via
+   its data-label; the date is the card header. */
+@media (max-width: 640px) {
+  .entries-table thead {
+    display: none;
+  }
+  .entries-table,
+  .entries-table tbody {
+    display: block;
+  }
+  .entries-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 6px 14px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .entries-table tr:hover td {
+    background: transparent;
+  }
+  .entries-table td {
+    display: block;
+    padding: 0;
+    border: none;
+  }
+  .entries-table td.num {
+    text-align: left;
+  }
+  /* Card line order (td source order is date, invested, value, delta, note,
+     actions — but we want the actions button up on the header line, not
+     trailing at the bottom, so `order` re-flows them into:
+       line 1  date + actions       line 3  M/M Δ
+       line 2  invested + value      line 4  note                             */
+  /* Date is the card's header line. The `calc(100% - 96px)` basis makes it take
+     the whole first line in read mode (where td-actions is hidden) while still
+     leaving room for the edit-mode action buttons beside it on the right. */
+  .entries-table td.td-date {
+    order: 1;
+    flex: 1 1 calc(100% - 96px);
+    padding-left: 0;
+    font-size: 14px;
+    align-self: center;
+  }
+  .entries-table td.td-actions {
+    order: 2;
+    flex: 0 0 auto;
+    margin-left: auto;
+    align-self: center;
+  }
+  .entries-table td.td-actions:empty {
+    display: none;
+  }
+  /* Invested + Portfolio value share the second line, side by side. */
+  .entries-table td.td-invested,
+  .entries-table td.td-value {
+    order: 3;
+    flex: 1 1 40%;
+    min-width: 0;
+  }
+  .entries-table td.td-delta,
+  .entries-table td.td-note {
+    order: 4;
+    flex: 1 1 100%;
+  }
+  /* Read-mode rows render "—" for an absent note; hide that whole block so the
+     card doesn't carry an empty labelled row. Edit-mode always has an input. */
+  .entries-table td.td-note[data-empty="true"] {
+    display: none;
+  }
+  .entries-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 1px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--neutral-400);
+  }
+  /* Inline validation error spans the full card width below the fields. */
+  .entries-table tr.row-error {
+    display: block;
+    padding: 0 16px 10px;
+    border: none;
+  }
+  .entries-table tr.row-error td {
+    padding: 0;
+  }
+
+  /* Page + grid action button rows: two per line, filling the width, instead
+     of an awkward wrap at iPhone width. */
+  .entries-header-actions,
+  .entries-grid-actions {
+    width: 100%;
+  }
+  .entries-header-actions > *,
+  .entries-grid-actions > * {
+    flex: 1 1 calc(50% - 6px);
+    display: flex;
+  }
+  .entries-header-actions .btn,
+  .entries-grid-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ---- Holdings table: stacked-card layout on phones ----
+   Same problem as the entries grid above, different column set: Name (auto),
+   ISIN (160px), Type (100px), Dividends received (180px), Income 12mo
+   (170px, a tappable chip link), Actions (80px) sum to ~690px fixed alone —
+   on a ~390px phone the income link and the Edit/Delete buttons were clipped
+   off-screen. Re-flow into a card: name + type chip + actions form the
+   header line (name grows, the other two sit at the end), ISIN/Dividends
+   share a second line, Income gets its own third line. Same <table> DOM,
+   same data-testids. */
+@media (max-width: 640px) {
+  .holdings-table thead {
+    display: none;
+  }
+  .holdings-table,
+  .holdings-table tbody {
+    display: block;
+  }
+  .holdings-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .holdings-table tr:hover td {
+    background: transparent;
+  }
+  .holdings-table td {
+    display: block;
+    padding: 0;
+    border: none;
+  }
+  .holdings-table td.num {
+    text-align: left;
+  }
+  /* calc(100% - 150px) reserves just enough room for the type chip + the two
+     44px action buttons so the header trio fills exactly one line, forcing
+     ISIN/Dividends/Income to wrap onto the lines below — same trick the
+     entries card layout uses for its date + actions header line. */
+  .holdings-table td.td-holding-name {
+    order: 1;
+    flex: 1 1 calc(100% - 150px);
+    min-width: 0;
+    padding-left: 0;
+    font-size: 14px;
+  }
+  .holdings-table .holding-name-text {
+    max-width: none;
+  }
+  .holdings-table td.td-holding-type {
+    order: 2;
+    flex: 0 0 auto;
+  }
+  .holdings-table td.td-holding-actions {
+    order: 3;
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+  .holdings-table td.td-holding-actions:empty {
+    display: none;
+  }
+  .holdings-table td.td-holding-isin,
+  .holdings-table td.td-holding-dividends {
+    order: 4;
+    flex: 1 1 50%;
+    min-width: 0;
+  }
+  .holdings-table td.td-holding-income {
+    order: 5;
+    flex: 1 1 100%;
+  }
+  .holdings-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 1px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--neutral-400);
+  }
+}
+
+/* ---- Income /income surfaces: stacked-card + scroll layouts on phones ----
+   The Income page carries three clipped data surfaces at ~390px:
+   the 7-column Per-Holding table, the 6-column Recent-Payouts ledger (whose
+   edit/delete actions fell off the right edge, so payouts couldn't be managed
+   on mobile), and the 14-column calendar heatmap. The two tables re-flow into
+   cards with the same <table> DOM + data-testids used by the entries/holdings
+   patterns above; the heatmap scrolls horizontally inside a min-width track. */
+@media (max-width: 640px) {
+  /* --- Per-Holding table --- */
+  /* Visually hide the sort header row rather than `display: none` it: the
+     sort buttons stay in the accessibility tree and remain keyboard-operable
+     on mobile (E2E-X-A11Y-INC-002 focuses one and toggles it with Enter). */
+  .per-holding-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  .per-holding-table,
+  .per-holding-table tbody {
+    display: block;
+  }
+  .per-holding-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .per-holding-table tr:hover td {
+    background: transparent;
+  }
+  .per-holding-table td {
+    display: block;
+    padding: 0;
+    border: none;
+  }
+  .per-holding-table td.num {
+    text-align: left;
+  }
+  /* Header line: holding name (grows, truncates) + Share as a compact chip on
+     the right. calc reserves room for the chip so it stays on the same line. */
+  .per-holding-table td.td-ph-name {
+    order: 1;
+    flex: 1 1 calc(100% - 84px);
+    min-width: 0;
+    padding-left: 0;
+    font-size: 14px;
+  }
+  .per-holding-table td.td-ph-name button {
+    max-width: 100% !important;
+  }
+  .per-holding-table td.td-ph-share {
+    order: 2;
+    flex: 0 0 auto;
+    margin-left: auto;
+    text-align: right;
+  }
+  /* Drop the desktop progress bar and render Share as a plain chip in the
+     header — the bar is absolutely positioned for the table cell and has no
+     meaning stacked in a card. */
+  .per-holding-table td.td-ph-share .ph-share-bar {
+    display: none;
+  }
+  .per-holding-table td.td-ph-share .ph-share-value {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: 999px;
+    background: var(--secondary-50);
+    border: 1px solid var(--border);
+    font-size: 11.5px;
+    color: var(--neutral-600);
+  }
+  /* Body: labelled rows, two per line. */
+  .per-holding-table td.td-ph-received,
+  .per-holding-table td.td-ph-lastpaid,
+  .per-holding-table td.td-ph-count,
+  .per-holding-table td.td-ph-cadence {
+    flex: 1 1 40%;
+    min-width: 0;
+  }
+  .per-holding-table td.td-ph-received {
+    order: 3;
+  }
+  .per-holding-table td.td-ph-lastpaid {
+    order: 4;
+  }
+  .per-holding-table td.td-ph-count {
+    order: 5;
+  }
+  .per-holding-table td.td-ph-cadence {
+    order: 6;
+  }
+  /* The 24-mo sparkline is a fixed-width decorative trend; hide it on the card
+     to keep each row compact — Count/Cadence/Last paid already convey rhythm. */
+  .per-holding-table td.td-ph-spark {
+    display: none;
+  }
+  .per-holding-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 1px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--neutral-400);
+  }
+
+  /* --- Recent-Payouts ledger --- */
+  .recent-payouts-table thead {
+    display: none;
+  }
+  .recent-payouts-table,
+  .recent-payouts-table tbody {
+    display: block;
+  }
+  .recent-payouts-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .recent-payouts-table tr:hover td {
+    background: transparent;
+  }
+  .recent-payouts-table td {
+    display: block;
+    padding: 0;
+    border: none;
+  }
+  .recent-payouts-table td.num {
+    text-align: left;
+  }
+  /* Header line: paid date + kind chip + edit/delete actions (pushed right). */
+  .recent-payouts-table td.td-rp-date {
+    order: 1;
+    flex: 0 0 auto;
+    padding-left: 0;
+    font-size: 14px;
+  }
+  .recent-payouts-table td.td-rp-kind {
+    order: 2;
+    flex: 0 0 auto;
+  }
+  .recent-payouts-table td.td-rp-actions {
+    order: 3;
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+  /* Body: source, then amount (prominent), then note (hidden when empty). */
+  .recent-payouts-table td.td-rp-source {
+    order: 4;
+    flex: 1 1 100%;
+  }
+  .recent-payouts-table td.td-rp-amount {
+    order: 5;
+    flex: 1 1 100%;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .recent-payouts-table td.td-rp-note {
+    order: 6;
+    flex: 1 1 100%;
+  }
+  .recent-payouts-table td.td-rp-note[data-empty="true"] {
+    display: none;
+  }
+  .recent-payouts-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 1px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--neutral-400);
+  }
+
+  /* --- Calendar heatmap: horizontal scroll track --- */
+  .heatmap-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+  }
+  .heatmap-track {
+    min-width: 560px;
+  }
+
+  /* De-dupe the record affordances: the topbar + (action-new-dividend) already
+     opens the dividend editor on /income, so the redundant in-page "Record
+     dividend" button is hidden on phones. "Record interest" stays (the topbar
+     + covers dividends only) and the empty-state CTA is unaffected. */
+  .income-dividend-action {
+    display: none;
+  }
+}
+
+/* ---- Planning workspace: responsive grids ----
+   The workspace body was a fixed `minmax(260px, 360px) 1fr` two-column grid
+   and the KPI row a fixed `repeat(3, 1fr)` — both inline styles, so a media
+   query couldn't touch them. At ~390px the assumptions column alone claimed
+   ≥260px, pushing the trajectory chart (the page's main output) off-screen
+   entirely, and the third KPI tile clipped mid-word. Both now live in classes
+   so they can collapse below 640px. */
+.planning-body {
+  display: grid;
+  grid-template-columns: minmax(260px, 360px) 1fr;
+  gap: 18px;
+  margin-top: 16px;
+}
+.planning-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+@media (max-width: 640px) {
+  .planning-body {
+    grid-template-columns: 1fr;
+  }
+  /* Reorder to chart-first: KPI tiles above already answer "am I on track",
+     so the trajectory chart — the visual the user is here to read — follows
+     immediately, with the sliders that tune it below for those who want to
+     adjust assumptions. */
+  .planning-chart-col {
+    order: 1;
+  }
+  .planning-assumptions {
+    order: 2;
+    margin-top: 18px;
+  }
+  /* Three ~90px tiles clipped values like "€1,234.56/mo" mid-word. Values here
+     run wider than the entries/holdings/income card fields, so each tile gets
+     the full row rather than sharing three narrow columns. */
+  .planning-kpis {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Settings: portfolio rows + preference rows ----
+   The portfolio row was two independent inline-style grids stacked on top
+   of each other: "auto 1fr minmax(90px, 200px) auto" for name/contribution/
+   delete, then "auto 1fr auto auto auto" for the starting-balance summary +
+   Export/Edit underneath. At ~390px the 1fr name track collapsed to ~2
+   characters, and neither grid could reflow (inline styles aren't reachable
+   from a media query). They're now one grid (so the row's pieces can be
+   freely repositioned — Delete moves down to join Export/Edit as a single
+   actions line on mobile) with named areas for desktop and `order`-based
+   flex reflow below 640px, following the same "same DOM, CSS repositions
+   it" approach as the entries/holdings mobile card layouts. */
+.settings-portfolio-row {
+  display: grid;
+  grid-template-columns: auto 1fr minmax(90px, 200px) auto;
+  grid-template-areas:
+    "swatch name contrib delete"
+    ".      summary export edit";
+  column-gap: 12px;
+  row-gap: 8px;
+  align-items: center;
+}
+.settings-pf-swatch {
+  grid-area: swatch;
+}
+.settings-pf-name {
+  grid-area: name;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.settings-pf-contrib {
+  grid-area: contrib;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.settings-pf-summary {
+  grid-area: summary;
+  min-width: 0;
+}
+.settings-pf-export {
+  grid-area: export;
+  justify-self: end;
+}
+.settings-pf-edit {
+  grid-area: edit;
+  justify-self: end;
+}
+.settings-pf-delete {
+  grid-area: delete;
+  justify-self: end;
+}
+
+/* Shared by the Default-day and Number-format preference rows: a
+   description column that used to fight a fixed-width right column
+   (minWidth: 180 select, or a non-wrapping segmented control) for space,
+   squeezing the description into a sliver at phone width. */
+.settings-pref-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+.settings-pref-control {
+  min-width: 180px;
+}
+.settings-daypicker-group {
+  display: inline-flex;
+}
+.settings-day-input {
+  width: 44px;
+  padding: 2px 6px;
+}
+
+@media (max-width: 640px) {
+  /* Portfolio row: swatch+name share a line, then contribution, then the
+     starting-balance summary each get a full-width line, then Export/Edit/
+     Delete become one actions line — three equal, tappable buttons instead
+     of a 200px-floored grid column collapsing the name input. */
+  .settings-portfolio-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 10px;
+  }
+  .settings-pf-swatch {
+    order: 1;
+    flex: 0 0 auto;
+  }
+  .settings-pf-name {
+    order: 2;
+    flex: 1 1 calc(100% - 44px);
+    min-width: 0;
+  }
+  .settings-pf-contrib {
+    order: 3;
+    flex: 1 1 100%;
+  }
+  .settings-pf-summary {
+    order: 4;
+    flex: 1 1 100%;
+  }
+  .settings-pf-export {
+    order: 5;
+    flex: 1 1 0;
+  }
+  .settings-pf-edit {
+    order: 6;
+    flex: 1 1 0;
+    justify-content: center;
+  }
+  .settings-pf-delete {
+    order: 7;
+    flex: 1 1 0;
+  }
+
+  /* Preference rows: description first, control below at full width. */
+  .settings-pref-row {
+    grid-template-columns: 1fr;
+  }
+  .settings-pref-control {
+    min-width: 0;
+    width: 100%;
+  }
+  /* Segmented day-picker: allow the three segments (First / Last / Custom)
+     to wrap onto more than one line rather than clipping off the card's
+     right edge. */
+  .settings-daypicker-group {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+}
+
+/* ---- Coarse-pointer touch targets ----
+   Raise interactive controls to a >=44px effective hit area on touch
+   devices without changing mouse/trackpad sizing. min-height/min-width
+   clamp up from the existing (smaller) height/width — desktop is
+   unaffected since this whole block is gated on `pointer: coarse`. */
+@media (pointer: coarse) {
+  .btn {
+    min-height: 44px;
+  }
+  .btn-sm {
+    min-height: 44px;
+  }
+  .btn-icon {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .seg button {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .seg-control-option {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* Only chips that act as links/buttons need a bigger hit area —
+     plain display chips (spans) stay at their compact size. */
+  a.chip,
+  button.chip {
+    min-height: 44px;
+    padding: 0 14px;
+  }
+  .pf-dd-trigger {
+    min-height: 44px;
+  }
+  .topbar-action {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .nav-item {
+    min-height: 44px;
+  }
+  /* Range slider: keep the visual track thin but pad the hit box out to
+     44px via a transparent margin. box-sizing:content-box (overriding the
+     global border-box) plus background-clip:content-box keeps the
+     gradient track confined to the small content box while the padding
+     adds tappable dead space around it. */
+  input[type="range"].slider {
+    box-sizing: content-box;
+    height: 8px;
+    padding: 18px 0;
+    background-clip: content-box;
+  }
+  input[type="range"].slider::-webkit-slider-thumb {
+    width: 26px;
+    height: 26px;
+  }
+  input[type="range"].slider::-moz-range-thumb {
+    width: 26px;
+    height: 26px;
+  }
+  /* Settings: default-day segmented control + its custom-day number input. */
+  .settings-segment-btn {
+    min-height: 44px;
+  }
+  .settings-day-input {
+    min-height: 44px;
+    width: 52px;
+  }
+  /* Portfolio color-picker trigger: bump the tappable box to 44px without
+     enlarging the visible 28px swatch, by growing the padding box only
+     (box-sizing:content-box + background-clip:content-box is the same
+     trick the range slider thumb above uses). */
+  .settings-color-trigger {
+    box-sizing: content-box;
+    width: 28px;
+    height: 28px;
+    padding: 8px;
+    background-clip: content-box;
+  }
+  /* Palette swatches keep their compact 22px visual (six of them sit in one
+     popover row) but get the same padded hit area. */
+  .settings-palette-swatch {
+    box-sizing: content-box;
+    width: 22px;
+    height: 22px;
+    padding: 11px;
+    background-clip: content-box;
   }
 }
 

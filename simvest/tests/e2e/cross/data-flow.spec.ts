@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures"
-import { preselectPortfolio } from "../helpers"
+import { navClick, preselectPortfolio } from "../helpers"
 
 // No project scoping guard — runs on both chromium-desktop and mobile-safari.
 
@@ -36,8 +36,7 @@ test.describe("Data flow — cross-cutting", () => {
     ).not.toBeAttached()
 
     // Client-side navigate to Overview — NO page.goto, NO page.reload
-    await page.getByTestId("nav-overview").click()
-    await page.waitForURL("**/")
+    await navClick(page, "nav-overview", "**/")
 
     // Assert Recent activity section is visible and shows our value
     await expect(page.locator('[data-testid="recent-activity"]')).toBeVisible()
@@ -72,8 +71,7 @@ test.describe("Data flow — cross-cutting", () => {
     ).not.toBeAttached()
 
     // Client-side navigate to Growth Chart — NO reload
-    await page.getByTestId("nav-chart").click()
-    await page.waitForURL("**/chart")
+    await navClick(page, "nav-chart", "**/chart")
 
     // Wait for chart to render — current source uses growth-chart-svg testid.
     await expect(page.locator('[data-testid="growth-chart-svg"]')).toBeVisible({
@@ -107,8 +105,7 @@ test.describe("Data flow — cross-cutting", () => {
     ).not.toBeAttached()
 
     // Client-side navigate to Overview — NO reload
-    await page.getByTestId("nav-overview").click()
-    await page.waitForURL("**/")
+    await navClick(page, "nav-overview", "**/")
 
     await expect(page.locator('[data-testid="recent-activity"]')).toBeVisible()
     // 777777 formatted as EUR — accept both de-DE ("777.777") and en-US
@@ -149,8 +146,7 @@ test.describe("Data flow — cross-cutting", () => {
     await expect(page.locator('[data-slot="dialog-content"]')).not.toBeVisible()
 
     // Client-side navigate to Overview — NO reload
-    await page.getByTestId("nav-overview").click()
-    await page.waitForURL("**/")
+    await navClick(page, "nav-overview", "**/")
 
     // Assert goal appears in Goal progress section
     await expect(
@@ -180,8 +176,7 @@ test.describe("Data flow — cross-cutting", () => {
     expect(selectedName).not.toBe("Combined")
 
     // Client-side navigate to Entries
-    await page.getByTestId("nav-entries").click()
-    await page.waitForURL("**/entries")
+    await navClick(page, "nav-entries", "**/entries")
 
     // Portfolio name should still be the same in the switcher
     await expect(
@@ -189,8 +184,7 @@ test.describe("Data flow — cross-cutting", () => {
     ).toContainText(selectedName!)
 
     // Client-side navigate to Chart
-    await page.getByTestId("nav-chart").click()
-    await page.waitForURL("**/chart")
+    await navClick(page, "nav-chart", "**/chart")
 
     // Portfolio name should still be the same
     await expect(
@@ -207,7 +201,9 @@ test.describe("Data flow — cross-cutting", () => {
 
     // Navigate to / first (full load — this IS expected to fetch)
     await page.goto("/")
-    await expect(page.locator('[data-testid="sidebar"]')).toBeVisible()
+    // Wait for the shell to hydrate. The topbar is present on every viewport
+    // (the sidebar is hidden on mobile), so it's the viewport-agnostic gate.
+    await expect(page.getByTestId("topbar")).toBeVisible()
 
     // Start counting AFTER initial hydration
     await page.route("**/api/portfolios", async (route) => {
@@ -220,12 +216,9 @@ test.describe("Data flow — cross-cutting", () => {
     // Client-side navigate through multiple routes (Forecast, Entries, Planning).
     // /simulation and /goals were retired and now redirect to /planning;
     // nav-simulation and nav-goals testids no longer exist.
-    await page.getByTestId("nav-chart").click()
-    await page.waitForURL("**/chart")
-    await page.getByTestId("nav-entries").click()
-    await page.waitForURL("**/entries")
-    await page.getByTestId("nav-planning").click()
-    await page.waitForURL("**/planning")
+    await navClick(page, "nav-chart", "**/chart")
+    await navClick(page, "nav-entries", "**/entries")
+    await navClick(page, "nav-planning", "**/planning")
 
     // Give any async fetches time to fire
     await page.waitForTimeout(500)

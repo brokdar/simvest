@@ -1,4 +1,5 @@
 import { test, expect } from "../fixtures"
+import { preselectPortfolio } from "../helpers"
 
 test.describe("Views — mobile", () => {
   test.beforeEach(({}, testInfo) => {
@@ -108,6 +109,38 @@ test.describe("Views — mobile", () => {
     )
   })
 
+  // E2E-M-VIEWS-005b — Tapping the forecast chart pins a tooltip that stays
+  // visible after the finger lifts and never overflows the viewport. A second
+  // tap on the same spot dismisses it (pin-on-lift touch model).
+  test("E2E-M-VIEWS-005b — tapping the forecast chart pins a tooltip within the viewport", async ({
+    page,
+  }) => {
+    await page.goto("/chart")
+
+    const svg = page.locator('[data-testid="growth-chart-svg"]')
+    await expect(svg).toBeVisible()
+    await expect
+      .poll(async () => (await svg.boundingBox())?.width ?? 0)
+      .toBeGreaterThan(200)
+
+    // Tap the chart — a plain tap must reveal the tooltip immediately.
+    await svg.tap()
+
+    const tooltip = page.locator(".chart-tooltip")
+    await expect(tooltip).toBeVisible()
+
+    // Pinned tooltip is fully within the viewport (x-clamped, not clipped).
+    const vw = page.viewportSize()?.width ?? 393
+    const box = await tooltip.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.x).toBeGreaterThanOrEqual(0)
+    expect(box!.x + box!.width).toBeLessThanOrEqual(vw + 1)
+
+    // A second tap on the same point dismisses the pin.
+    await svg.tap()
+    await expect(tooltip).toBeHidden()
+  })
+
   // E2E-M-VIEWS-006 — Growth Chart scenario stats row stacks at 640 px breakpoint
   test("E2E-M-VIEWS-006 — growth chart scenario stats row stacks to single column", async ({
     page,
@@ -126,32 +159,41 @@ test.describe("Views — mobile", () => {
     expect(columnCount).toBe(1)
   })
 
-  // E2E-M-VIEWS-007 — Entries table is scrollable horizontally within its card (overflow finding)
-  // README finding: the entries table has 7 columns and overflows on mobile (clipped by overflow:hidden)
-  test.fixme("E2E-M-VIEWS-007 — entries table does not overflow the page (README finding #7 — table overflow bug)", async ({
+  // E2E-M-VIEWS-007 — Entries re-flow to stacked cards on mobile (fixes the
+  // README finding #7 overflow bug: the 6-column table was clipped by the
+  // card's overflow, so the Actions column was unreachable). The card layout
+  // keeps every cell — including actions — within the viewport.
+  test("E2E-M-VIEWS-007 — entries render as stacked cards with no clipped columns on mobile", async ({
     page,
   }) => {
+    await preselectPortfolio(page, 1)
     await page.goto("/entries")
+    await page.waitForSelector('[data-testid="entries-table"]')
 
-    // The entries table card wraps the table with overflow: hidden, so the
-    // page-level scroll should not be horizontal — but the table itself may be clipped
-    const pageOverflow = await page.evaluate(
-      () =>
-        document.documentElement.scrollWidth >
-        document.documentElement.clientWidth
-    )
-    expect(pageOverflow).toBe(false)
-
-    // Table card has overflow: hidden — table content may be partially invisible
-    const cardOverflow = await page.evaluate(() => {
-      const card = document.querySelector('[data-testid="entries-table"]')
-      return card ? window.getComputedStyle(card).overflow : ""
+    // Header row is hidden in card mode — each cell carries its own label.
+    const theadDisplay = await page.evaluate(() => {
+      const thead = document.querySelector(".entries-table thead")
+      return thead ? window.getComputedStyle(thead).display : ""
     })
-    expect(cardOverflow).toBe("hidden")
+    expect(theadDisplay).toBe("none")
 
-    // First column "Month" must be visible
-    const firstHeader = page.locator(".table thead tr th").first()
-    await expect(firstHeader).toBeVisible()
+    // Rows re-flow to flex cards instead of table rows.
+    const rowDisplay = await page.evaluate(() => {
+      const tr = document.querySelector(".entries-table tbody tr")
+      return tr ? window.getComputedStyle(tr).display : ""
+    })
+    expect(rowDisplay).toBe("flex")
+
+    // The card (and therefore every column, including Actions) fits the
+    // viewport — nothing is clipped off the right edge.
+    const viewport = page.viewportSize()
+    const viewportWidth = viewport?.width ?? 393
+    const box = await page
+      .locator('[data-testid="entries-table"]')
+      .boundingBox()
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(
+      viewportWidth + 1
+    )
   })
 
   // Companion test that verifies what CAN be asserted currently (page-level overflow is hidden)
@@ -291,7 +333,10 @@ test.describe("Views — mobile", () => {
 
   // E2E-M-VIEWS-014 — Settings portfolio rows reflow at mobile width
   // README finding: portfolio row grid "auto 1fr 200px auto" has a 200px column that is too wide on mobile
-  test.fixme("E2E-M-VIEWS-014 — settings portfolio row grid does not overflow at mobile width (README finding #14 — settings row layout bug)", async ({
+  // Fixed: the row is now `.settings-portfolio-row` (globals.css), which
+  // switches to a flex column stack below 640px — see settings-mobile.spec.ts
+  // for the detailed reflow assertions (name input width, actions reachable).
+  test("E2E-M-VIEWS-014 — settings portfolio row grid does not overflow at mobile width (README finding #14 — settings row layout bug)", async ({
     page,
   }) => {
     await page.goto("/settings")
@@ -304,14 +349,12 @@ test.describe("Views — mobile", () => {
     )
     expect(pageOverflow).toBe(false)
 
-    // The portfolio row uses gridTemplateColumns: "auto 1fr 200px auto" (inline style)
-    // At 293px content width this is too tight — this test documents the layout bug
+    // The portfolio row no longer uses a fixed 200px-floored grid column at
+    // mobile width — it's a flex-wrap stack (see .settings-portfolio-row).
     const rowCols = await page.evaluate(() => {
       const row = document.querySelector('[data-testid^="portfolio-row-"]')
       return row ? window.getComputedStyle(row).gridTemplateColumns : ""
     })
-    // The 200px column should have been reduced to fit mobile; this is the bug
-    // This assertion will fail until the row is made responsive
     expect(rowCols).not.toContain("200px")
   })
 

@@ -100,7 +100,7 @@ export function RecentPayoutsTable({
           </button>
         )}
       </div>
-      <table className="table">
+      <table className="recent-payouts-table table">
         <thead>
           <tr>
             <th style={{ paddingLeft: 18 }}>Paid date</th>
@@ -125,6 +125,7 @@ export function RecentPayoutsTable({
                 }}
               >
                 <td
+                  className="td-rp-date"
                   style={{ paddingLeft: 18 }}
                   data-testid={`income-row-anchor-${monthKey}`}
                 >
@@ -132,7 +133,7 @@ export function RecentPayoutsTable({
                     {formatEntryDate(year, month, day)}
                   </div>
                 </td>
-                <td>
+                <td className="td-rp-source" data-label="Source">
                   {e.kind === "interest" ? (
                     <span className="muted small">Broker-paid interest</span>
                   ) : (
@@ -141,7 +142,7 @@ export function RecentPayoutsTable({
                     </span>
                   )}
                 </td>
-                <td>
+                <td className="td-rp-kind">
                   <span
                     className="chip"
                     style={{
@@ -160,10 +161,16 @@ export function RecentPayoutsTable({
                     {e.kind === "dividend" ? "Dividend" : "Interest"}
                   </span>
                 </td>
-                <td className="num mono pos">
+                <td
+                  className="num mono pos td-rp-amount"
+                  data-label={`Amount (${basis})`}
+                >
                   {fmtEUR(eventAmount(e, basis))}
                 </td>
                 <td
+                  className="td-rp-note"
+                  data-label="Note"
+                  data-empty={e.note ? undefined : "true"}
                   style={{
                     color: "var(--neutral-500)",
                     fontStyle: e.note ? "normal" : "italic",
@@ -171,8 +178,8 @@ export function RecentPayoutsTable({
                 >
                   {e.note || <span className="muted">—</span>}
                 </td>
-                <td>
-                  <div style={{ display: "flex", gap: 4, opacity: 0.7 }}>
+                <td className="td-rp-actions">
+                  <div className="row-actions">
                     <button
                       type="button"
                       className="btn btn-icon btn-ghost btn-sm"

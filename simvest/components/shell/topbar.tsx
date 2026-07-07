@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation"
 import type { ReactNode } from "react"
 import { Icon } from "@/components/icon"
+import { MobileNav } from "./mobile-nav"
 import { TopbarSearch } from "./topbar-search"
 
 const CRUMBS: Record<string, string> = {
@@ -27,6 +28,7 @@ export function Topbar({
   return (
     <header className="topbar" data-testid="topbar">
       <div className="topbar-left">
+        <MobileNav />
         <nav
           aria-label="Breadcrumb"
           className="crumbs"

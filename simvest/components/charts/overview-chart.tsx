@@ -9,11 +9,11 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
-  type TouchEvent as ReactTouchEvent,
 } from "react"
 import { fmtEUR } from "@/lib/format"
 import { axisLayout, niceMax } from "@/lib/charts/scales"
 import { XAxis, YAxis } from "@/components/charts/axis"
+import { useChartTouch } from "@/components/charts/use-chart-touch"
 import type { EntryDTO } from "@/lib/types"
 
 // Mirrors the GrowthChart precedent — narrow initial width avoids a horizontal
@@ -359,7 +359,7 @@ export const OverviewChart = memo(function OverviewChart({
     return () => clearTimeout(t)
   }, [active])
 
-  const setNearest = useCallback(
+  const resolveIndex = useCallback(
     (clientX: number, clientY: number, rect: DOMRect) => {
       const mx = clientX - rect.left
       const my = clientY - rect.top
@@ -372,8 +372,7 @@ export const OverviewChart = memo(function OverviewChart({
         my > H - PAD.b ||
         n === 0
       ) {
-        setActiveIdx(null)
-        return
+        return null
       }
       let best = 0
       let bestDist = Infinity
@@ -384,31 +383,32 @@ export const OverviewChart = memo(function OverviewChart({
           best = k
         }
       }
-      setActiveIdx(best)
+      return best
     },
     [n, scaleX, W, H]
   )
 
   const onMouseMove = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
-      setNearest(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect())
+      setActiveIdx(
+        resolveIndex(
+          e.clientX,
+          e.clientY,
+          e.currentTarget.getBoundingClientRect()
+        )
+      )
     },
-    [setNearest]
-  )
-
-  const onTouchMove = useCallback(
-    (e: ReactTouchEvent<SVGSVGElement>) => {
-      const t = e.touches[0]
-      if (!t) {
-        setActiveIdx(null)
-        return
-      }
-      setNearest(t.clientX, t.clientY, e.currentTarget.getBoundingClientRect())
-    },
-    [setNearest]
+    [resolveIndex]
   )
 
   const clearActive = useCallback(() => setActiveIdx(null), [])
+
+  const { onTouchStart, onTouchMove, onTouchEnd } = useChartTouch({
+    resolveIndex,
+    activeIndex: activeIdx,
+    setActiveIndex: setActiveIdx,
+    containerRef,
+  })
 
   const onKeyDown = useCallback(
     (e: ReactKeyboardEvent<SVGSVGElement>) => {
@@ -476,8 +476,9 @@ export const OverviewChart = memo(function OverviewChart({
         tabIndex={0}
         onMouseMove={onMouseMove}
         onMouseLeave={clearActive}
+        onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
-        onTouchEnd={clearActive}
+        onTouchEnd={onTouchEnd}
         onTouchCancel={clearActive}
         onBlur={clearActive}
         onKeyDown={onKeyDown}

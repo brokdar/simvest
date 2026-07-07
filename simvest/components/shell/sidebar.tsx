@@ -2,69 +2,8 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Icon, type IconName } from "@/components/icon"
-
-type NavItem = {
-  href: string
-  label: string
-  icon: IconName
-  testId: string
-}
-
-const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
-  {
-    title: "Portfolio",
-    items: [
-      {
-        href: "/",
-        label: "Overview",
-        icon: "dashboard",
-        testId: "nav-overview",
-      },
-      {
-        href: "/holdings",
-        label: "Holdings",
-        icon: "wallet",
-        testId: "nav-holdings",
-      },
-      {
-        href: "/entries",
-        label: "Monthly Entries",
-        icon: "table",
-        testId: "nav-entries",
-      },
-      {
-        href: "/income",
-        label: "Income",
-        icon: "note",
-        testId: "nav-income",
-      },
-    ],
-  },
-  {
-    title: "Planning",
-    items: [
-      { href: "/chart", label: "Forecast", icon: "chart", testId: "nav-chart" },
-      {
-        href: "/planning",
-        label: "Planning",
-        icon: "target",
-        testId: "nav-planning",
-      },
-    ],
-  },
-  {
-    title: "System",
-    items: [
-      {
-        href: "/settings",
-        label: "Settings",
-        icon: "settings",
-        testId: "nav-settings",
-      },
-    ],
-  },
-]
+import { Icon } from "@/components/icon"
+import { NAV_SECTIONS, isNavItemActive } from "./nav-items"
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -92,23 +31,19 @@ export function Sidebar() {
       {NAV_SECTIONS.map((section) => (
         <nav key={section.title} aria-label={section.title}>
           <div className="nav-section">{section.title}</div>
-          {section.items.map((it) => {
-            const active =
-              it.href === "/" ? pathname === "/" : pathname.startsWith(it.href)
-            return (
-              <Link
-                key={it.href}
-                href={it.href}
-                className={`nav-item ${active ? "active" : ""}`}
-                data-testid={it.testId}
-              >
-                <span className="ico">
-                  <Icon name={it.icon} />
-                </span>
-                {it.label}
-              </Link>
-            )
-          })}
+          {section.items.map((it) => (
+            <Link
+              key={it.href}
+              href={it.href}
+              className={`nav-item ${isNavItemActive(it.href, pathname) ? "active" : ""}`}
+              data-testid={it.testId}
+            >
+              <span className="ico">
+                <Icon name={it.icon} />
+              </span>
+              {it.label}
+            </Link>
+          ))}
         </nav>
       ))}
     </aside>

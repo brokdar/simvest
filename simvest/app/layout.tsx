@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Manrope, Inter } from "next/font/google"
 
 import "./globals.css"
@@ -23,6 +23,12 @@ export const metadata: Metadata = {
   title: "Simvest — Portfolio Manager & Simulator",
   description:
     "Track portfolios, project growth, and solve for retirement goals.",
+}
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 }
 
 // `getInitialData()` reads from SQLite — there is no value in trying to

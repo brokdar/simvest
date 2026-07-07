@@ -31,6 +31,7 @@ export type IconName =
   | "dot"
   | "note"
   | "target"
+  | "menu"
 
 type Props = {
   name: IconName
@@ -123,6 +124,7 @@ export function Icon({ name, size = 18, className, style }: Props) {
     arrowRight: <path d="M5 12h14M13 5l7 7-7 7" {...p} />,
     check: <path d="M5 12l4 4L19 7" {...p} />,
     close: <path d="M6 6l12 12M18 6l-12 12" {...p} />,
+    menu: <path d="M4 7h16M4 12h16M4 17h16" {...p} />,
     info: (
       <>
         <circle cx="12" cy="12" r="9" {...p} />

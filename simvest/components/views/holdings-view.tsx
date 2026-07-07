@@ -280,18 +280,29 @@ function PortfolioGroup({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "6px 12px",
           padding: "14px 18px",
           borderBottom: "1px solid var(--border)",
           background: "var(--neutral-50)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            minWidth: 0,
+            flexWrap: "wrap",
+          }}
+        >
           <span
             style={{
               width: 10,
               height: 10,
               borderRadius: 2,
               background: portfolio.color,
+              flexShrink: 0,
             }}
           />
           <div style={{ fontWeight: 600, fontSize: 14 }}>{portfolio.name}</div>
@@ -303,7 +314,7 @@ function PortfolioGroup({
           {fmtEUR(groupTotal)} dividends to date
         </div>
       </div>
-      <table className="table">
+      <table className="holdings-table table">
         <thead>
           <tr>
             <th style={{ paddingLeft: 18 }}>Name</th>
@@ -323,16 +334,26 @@ function PortfolioGroup({
             const total = dividendsByHolding.get(h.id) ?? 0
             return (
               <tr key={h.id} data-testid={`holding-row-${h.id}`}>
-                <td style={{ paddingLeft: 18, color: "var(--neutral-800)" }}>
-                  <span style={{ fontWeight: 600 }}>{h.name}</span>
+                <td
+                  className="td-holding-name"
+                  style={{ paddingLeft: 18, color: "var(--neutral-800)" }}
+                >
+                  <span
+                    className="holding-name-text"
+                    style={{ fontWeight: 600 }}
+                    title={h.name}
+                  >
+                    {h.name}
+                  </span>
                 </td>
                 <td
-                  className="mono small"
+                  className="mono small td-holding-isin"
+                  data-label="ISIN"
                   style={{ color: "var(--neutral-500)" }}
                 >
                   {h.isin ?? <span className="muted">—</span>}
                 </td>
-                <td>
+                <td className="td-holding-type">
                   <span
                     className="chip"
                     style={{
@@ -344,14 +365,20 @@ function PortfolioGroup({
                     {TYPE_LABELS[h.type]}
                   </span>
                 </td>
-                <td className="num mono">
+                <td
+                  className="num mono td-holding-dividends"
+                  data-label="Dividends received"
+                >
                   {total > 0 ? (
                     <span className="pos">{fmtEUR(total)}</span>
                   ) : (
                     <span className="muted">—</span>
                   )}
                 </td>
-                <td className="num mono">
+                <td
+                  className="num mono td-holding-income"
+                  data-label="Income (12 mo)"
+                >
                   {(() => {
                     const trailing = trailing12ByHolding.get(h.id) ?? 0
                     if (trailing <= 0) return <span className="muted">—</span>
@@ -371,8 +398,8 @@ function PortfolioGroup({
                     )
                   })()}
                 </td>
-                <td>
-                  <div style={{ display: "flex", gap: 4, opacity: 0.7 }}>
+                <td className="td-holding-actions">
+                  <div className="row-actions">
                     <button
                       type="button"
                       className="btn btn-icon btn-ghost btn-sm"
@@ -416,26 +443,36 @@ function PortfolioGroup({
           })}
           {portfolioInterest > 0 && (
             <tr data-testid={`portfolio-interest-row-${portfolio.id}`}>
-              <td style={{ paddingLeft: 18, color: "var(--neutral-800)" }}>
+              <td
+                className="td-holding-name"
+                style={{ paddingLeft: 18, color: "var(--neutral-800)" }}
+              >
                 <span style={{ fontWeight: 600 }}>Interest</span>
                 <div className="muted small">Not linked to a holding</div>
               </td>
               <td
-                className="mono small"
+                className="mono small td-holding-isin"
+                data-label="ISIN"
                 style={{ color: "var(--neutral-500)" }}
               >
                 <span className="muted">—</span>
               </td>
-              <td>
+              <td className="td-holding-type">
                 <span className="muted small">Crowdlending / cash</span>
               </td>
-              <td className="num mono">
+              <td
+                className="num mono td-holding-dividends"
+                data-label="Dividends received"
+              >
                 <span className="muted">—</span>
               </td>
-              <td className="num mono">
+              <td
+                className="num mono td-holding-income"
+                data-label="Income (12 mo)"
+              >
                 <span className="pos">{fmtEUR(portfolioInterest)}</span>
               </td>
-              <td aria-hidden="true"></td>
+              <td className="td-holding-actions" aria-hidden="true"></td>
             </tr>
           )}
         </tbody>

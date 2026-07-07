@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { filterEventsByMonth, incomeByMonth } from "@/lib/calc"
 import { fmtEUR } from "@/lib/format"
 import { labelFor, type DividendBasis, type IncomeEventDTO } from "@/lib/types"
@@ -37,10 +37,51 @@ export function IncomeCalendarHeatmap({
   onMonthSelect,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
+  // Transient mouse hover only — touch drives the popover through `selectedMonth`
+  // (see the pointer guard on the cells) so a tap doesn't pin a synthetic hover.
   const [hoverKey, setHoverKey] = useState<string | null>(null)
-  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(
-    null
-  )
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+
+  // Hover wins; otherwise the selected month shows its breakdown, so a tap both
+  // filters the ledger AND reveals the month (tap again on it dismisses).
+  const activeKey = hoverKey ?? selectedMonth
+
+  // Position the popover from the active cell's *rendered* rect rather than its
+  // grid slot, and recompute on scroll/resize — the grid lives in a horizontal
+  // scroll track (`.heatmap-scroll`), so a cell's on-screen x shifts as it
+  // scrolls. The popover itself renders outside the track (not clipped).
+  useEffect(() => {
+    const container = containerRef.current
+    if (!activeKey || !container) {
+      setPos(null)
+      return
+    }
+    const compute = () => {
+      const cell = container.querySelector(
+        `[data-testid="income-heatmap-cell-${activeKey}"]`
+      )
+      if (!cell) {
+        setPos(null)
+        return
+      }
+      const cellRect = cell.getBoundingClientRect()
+      const wrapRect = container.getBoundingClientRect()
+      const cx = cellRect.left + cellRect.width / 2 - wrapRect.left
+      const clampedX = Math.max(
+        0,
+        Math.min(wrapRect.width - POPOVER_WIDTH, cx - POPOVER_WIDTH / 2)
+      )
+      setPos({ x: clampedX, y: cellRect.bottom - wrapRect.top + 6 })
+    }
+    compute()
+    const scroller = container.querySelector(".heatmap-scroll")
+    scroller?.addEventListener("scroll", compute, { passive: true })
+    window.addEventListener("resize", compute)
+    return () => {
+      scroller?.removeEventListener("scroll", compute)
+      window.removeEventListener("resize", compute)
+    }
+  }, [activeKey])
 
   const { years, grid, yearTotals, yearMax } = useMemo(() => {
     const map = incomeByMonth(events, undefined, "all", basis)
@@ -77,28 +118,7 @@ export function IncomeCalendarHeatmap({
     )
   }
 
-  const hoverParts = hoverKey ? hoverKey.split("-").map(Number) : null
-
-  const trackCell = (e: React.SyntheticEvent<HTMLElement>, key: string) => {
-    setHoverKey(key)
-    const container = containerRef.current
-    if (!container) return
-    const cellRect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    const wrapRect = container.getBoundingClientRect()
-    const cx = cellRect.left + cellRect.width / 2 - wrapRect.left
-    const clampedX = Math.max(
-      0,
-      Math.min(wrapRect.width - POPOVER_WIDTH, cx - POPOVER_WIDTH / 2)
-    )
-    setHoverPos({
-      x: clampedX,
-      y: cellRect.bottom - wrapRect.top + 6,
-    })
-  }
-  const clearCell = () => {
-    setHoverKey(null)
-    setHoverPos(null)
-  }
+  const activeParts = activeKey ? activeKey.split("-").map(Number) : null
 
   return (
     <div
@@ -107,110 +127,127 @@ export function IncomeCalendarHeatmap({
       aria-label="Income calendar heatmap by year and month"
       style={{ position: "relative" }}
     >
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "44px repeat(12, 1fr) 80px",
-          gap: 6,
-          fontSize: 11,
-          color: "var(--neutral-400)",
-          marginBottom: 6,
-        }}
-      >
-        <div />
-        {MONTH_HEADERS.map((m) => (
-          <div key={m} style={{ textAlign: "center" }}>
-            {m}
-          </div>
-        ))}
-        <div style={{ textAlign: "right" }}>Total</div>
-      </div>
-      {years.map((y) => {
-        const max = yearMax[y] || 1
-        return (
+      {/* On phones the 14-column grid can't shrink to fit ~390px without the
+          month cells collapsing to ~10px (untappable) and the headers
+          overlapping. Rather than transpose the grid — which would mean
+          rewriting the row/label generation and forfeiting the data-testids —
+          we keep the exact grid intact and let it scroll horizontally inside
+          a min-width inner track (`.heatmap-track`), so each cell stays a
+          legible, tappable ~34px. Desktop is unaffected (no min-width). */}
+      <div className="heatmap-scroll">
+        <div className="heatmap-track">
           <div
-            key={y}
             style={{
               display: "grid",
               gridTemplateColumns: "44px repeat(12, 1fr) 80px",
               gap: 6,
+              fontSize: 11,
+              color: "var(--neutral-400)",
               marginBottom: 6,
-              alignItems: "center",
             }}
           >
-            <div style={{ fontSize: 12, fontWeight: 600 }}>{y}</div>
-            {grid[y].map((v, idx) => {
-              const month = idx + 1
-              const key = `${y}-${String(month).padStart(2, "0")}`
-              const isSelected = selectedMonth === key
-              const bucket = v === 0 ? 0 : Math.min(5, Math.ceil((v / max) * 5))
-              const bg =
-                bucket === 0
-                  ? "var(--neutral-50)"
-                  : `color-mix(in srgb, var(--primary) ${bucket * 18}%, var(--surface))`
-              const fg = bucket >= 4 ? "#fff" : "var(--neutral-700)"
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  data-testid={`income-heatmap-cell-${key}`}
-                  aria-label={
-                    v === 0
-                      ? `No payouts in ${labelFor(y, month)}`
-                      : `${labelFor(y, month)}: ${fmtEUR(v)}`
-                  }
-                  onMouseEnter={(e) => trackCell(e, key)}
-                  onMouseLeave={clearCell}
-                  onFocus={(e) => trackCell(e, key)}
-                  onBlur={clearCell}
-                  onClick={() => onMonthSelect(isSelected ? null : key)}
-                  className="focus-ring"
+            <div />
+            {MONTH_HEADERS.map((m) => (
+              <div key={m} style={{ textAlign: "center" }}>
+                {m}
+              </div>
+            ))}
+            <div style={{ textAlign: "right" }}>Total</div>
+          </div>
+          {years.map((y) => {
+            const max = yearMax[y] || 1
+            return (
+              <div
+                key={y}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "44px repeat(12, 1fr) 80px",
+                  gap: 6,
+                  marginBottom: 6,
+                  alignItems: "center",
+                }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 600 }}>{y}</div>
+                {grid[y].map((v, idx) => {
+                  const month = idx + 1
+                  const key = `${y}-${String(month).padStart(2, "0")}`
+                  const isSelected = selectedMonth === key
+                  const bucket =
+                    v === 0 ? 0 : Math.min(5, Math.ceil((v / max) * 5))
+                  const bg =
+                    bucket === 0
+                      ? "var(--neutral-50)"
+                      : `color-mix(in srgb, var(--primary) ${bucket * 18}%, var(--surface))`
+                  const fg = bucket >= 4 ? "#fff" : "var(--neutral-700)"
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      data-testid={`income-heatmap-cell-${key}`}
+                      aria-label={
+                        v === 0
+                          ? `No payouts in ${labelFor(y, month)}`
+                          : `${labelFor(y, month)}: ${fmtEUR(v)}`
+                      }
+                      // Only a real mouse hover is transient; touch taps drive
+                      // the popover through the selected month (below) so a tap
+                      // doesn't leave a synthetic hover pinned.
+                      onPointerEnter={(e) => {
+                        if (e.pointerType === "mouse") setHoverKey(key)
+                      }}
+                      onMouseLeave={() => setHoverKey(null)}
+                      onFocus={() => setHoverKey(key)}
+                      onBlur={() => setHoverKey(null)}
+                      onClick={() => onMonthSelect(isSelected ? null : key)}
+                      className="focus-ring"
+                      style={{
+                        border: isSelected
+                          ? "2px solid var(--primary)"
+                          : "1px solid var(--border)",
+                        background: bg,
+                        color: fg,
+                        height: 30,
+                        borderRadius: 4,
+                        cursor: "pointer",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        padding: 0,
+                        textAlign: "center",
+                        touchAction: "manipulation",
+                      }}
+                    >
+                      {v === 0 ? "‒" : ""}
+                    </button>
+                  )
+                })}
+                <div
+                  className="mono"
+                  data-testid={`income-heatmap-year-total-${y}`}
                   style={{
-                    border: isSelected
-                      ? "2px solid var(--primary)"
-                      : "1px solid var(--border)",
-                    background: bg,
-                    color: fg,
-                    height: 30,
-                    borderRadius: 4,
-                    cursor: "pointer",
-                    fontSize: 11,
+                    textAlign: "right",
+                    fontSize: 12,
                     fontWeight: 600,
-                    padding: 0,
-                    textAlign: "center",
-                    touchAction: "manipulation",
+                    fontVariantNumeric: "tabular-nums",
                   }}
                 >
-                  {v === 0 ? "‒" : ""}
-                </button>
-              )
-            })}
-            <div
-              className="mono"
-              data-testid={`income-heatmap-year-total-${y}`}
-              style={{
-                textAlign: "right",
-                fontSize: 12,
-                fontWeight: 600,
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
-              {fmtEUR(yearTotals[y], { compact: true })}
-            </div>
-          </div>
-        )
-      })}
-      {hoverParts && hoverPos && (
+                  {fmtEUR(yearTotals[y], { compact: true })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+      {activeParts && pos && (
         <MonthDetailTooltip
           testId="income-heatmap-detail"
-          left={hoverPos.x}
-          top={hoverPos.y}
+          left={pos.x}
+          top={pos.y}
           placement="below"
           width={POPOVER_WIDTH}
-          year={hoverParts[0]}
-          month={hoverParts[1]}
+          year={activeParts[0]}
+          month={activeParts[1]}
           basis={basis}
-          events={filterEventsByMonth(events, hoverParts[0], hoverParts[1])}
+          events={filterEventsByMonth(events, activeParts[0], activeParts[1])}
         />
       )}
     </div>
