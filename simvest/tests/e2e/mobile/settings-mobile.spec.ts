@@ -39,7 +39,9 @@ test.describe("Settings — mobile", () => {
     const firstRow = page.locator('[data-testid^="portfolio-row-"]').first()
     await expect(firstRow).toBeVisible()
 
-    const nameInput = firstRow.locator("input.input-bare")
+    // The row holds two .input-bare fields (name + monthly contribution) —
+    // target the name input by its accessible name to stay strict-mode safe.
+    const nameInput = firstRow.getByRole("textbox", { name: / name$/ })
     await expect(nameInput).toBeVisible()
 
     const box = await nameInput.boundingBox()

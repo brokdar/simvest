@@ -106,11 +106,20 @@ test.describe("Income — mobile", () => {
     const vw = viewport?.width ?? 393
 
     for (const cls of [".per-holding-table", ".recent-payouts-table"]) {
-      const theadDisplay = await page.evaluate((sel) => {
+      // The recent-payouts thead is display:none; the per-holding thead is
+      // clip-hidden (1x1px, position:absolute) so its sort buttons stay
+      // keyboard-operable. Either way it must not occupy visual layout.
+      const theadHidden = await page.evaluate((sel) => {
         const thead = document.querySelector(`${sel} thead`)
-        return thead ? window.getComputedStyle(thead).display : ""
+        if (!thead) return ""
+        const cs = window.getComputedStyle(thead)
+        if (cs.display === "none") return "hidden"
+        const r = thead.getBoundingClientRect()
+        return cs.position === "absolute" && r.width <= 1 && r.height <= 1
+          ? "hidden"
+          : `visible (${cs.display}, ${r.width}x${r.height})`
       }, cls)
-      expect(theadDisplay).toBe("none")
+      expect(theadHidden).toBe("hidden")
 
       const rowDisplay = await page.evaluate((sel) => {
         const tr = document.querySelector(`${sel} tbody tr`)
