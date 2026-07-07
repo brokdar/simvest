@@ -102,4 +102,33 @@ test.describe("Planning — mobile", () => {
     })
     expect(columnCount).toBe(1)
   })
+
+  // E2E-M-PLAN-005 — Tapping the trajectory chart pins a tooltip that stays
+  // visible after the finger lifts and is clamped within the viewport.
+  test("E2E-M-PLAN-005 — tapping the trajectory chart pins a tooltip within the viewport", async ({
+    page,
+  }) => {
+    await page.goto("/planning")
+
+    const svg = page.locator('[data-testid="solver-chart-svg"]')
+    await expect(svg).toBeVisible()
+    await expect
+      .poll(async () => (await svg.boundingBox())?.width ?? 0)
+      .toBeGreaterThan(200)
+
+    await svg.tap()
+
+    const tooltip = page.locator(".chart-tooltip")
+    await expect(tooltip).toBeVisible()
+
+    const vw = page.viewportSize()?.width ?? 390
+    const box = await tooltip.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.x).toBeGreaterThanOrEqual(0)
+    expect(box!.x + box!.width).toBeLessThanOrEqual(vw + 1)
+
+    // A second tap on the same point dismisses the pin.
+    await svg.tap()
+    await expect(tooltip).toBeHidden()
+  })
 })

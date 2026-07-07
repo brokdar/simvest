@@ -953,6 +953,18 @@ input[type="range"].slider::-moz-range-thumb {
   height: 8px;
   border-radius: 2px;
 }
+/* On a narrow (phone) chart the `nowrap` tooltip could grow wider than the
+   plot and overflow the edge even after x-clamping. Cap its width and let long
+   EUR rows wrap instead. */
+@media (max-width: 640px) {
+  .chart-tooltip {
+    max-width: min(72vw, 240px);
+    white-space: normal;
+  }
+  .chart-tooltip .tt-row {
+    gap: 10px;
+  }
+}
 
 .spark path {
   fill: none;

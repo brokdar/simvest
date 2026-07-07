@@ -5,8 +5,18 @@ import { fmtEUR } from "@/lib/format"
 import { addCalendarMonths, entryTimestamp } from "@/lib/dates"
 import { axisLayout, niceMax } from "@/lib/charts/scales"
 import { XAxis, YAxis } from "@/components/charts/axis"
+import { useChartTouch } from "@/components/charts/use-chart-touch"
 import type { EntryDTO } from "@/lib/types"
 import type { MonthCoverage, ProjectionPoint } from "@/lib/calc"
+
+// Below this container width the fixed desktop height reads as a cramped, overly
+// tall column on a phone — shrink to a portrait-friendly height instead.
+const NARROW_WIDTH = 560
+const NARROW_HEIGHT = 300
+// Conservative half-width used to clamp the tooltip inside the plot. The real
+// tooltip can be wider for long EUR values, but this prevents the common
+// left/right edge overflow on a narrow chart.
+const TOOLTIP_HALF_WIDTH = 96
 
 export type GrowthChartOptions = {
   showDividends: boolean
@@ -73,7 +83,9 @@ export function GrowthChart({
   // scroll on mobile (393px viewport - 64px sidebar = ~329px). ResizeObserver
   // expands this to the actual container width after first paint.
   const [W, setW] = useState(320)
-  const [hover, setHover] = useState<HoverPayload | null>(null)
+  // Index of the month currently shown in the tooltip (mouse, touch, or pinned
+  // after a touch lift), or null. The hover payload is derived from it.
+  const [activeIdx, setActiveIdx] = useState<number | null>(null)
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -84,7 +96,10 @@ export function GrowthChart({
     return () => ro.disconnect()
   }, [])
 
-  const H = height
+  const narrow = W < NARROW_WIDTH
+  // `height` is the desktop value; on a narrow chart shrink it so the plot isn't
+  // a tall, cramped column at phone width (desktop rendering is unchanged).
+  const H = narrow ? Math.min(height, NARROW_HEIGHT) : height
   const pad = { l: 60, r: 20, t: 16, b: 36 }
   const iw = W - pad.l - pad.r
   const ih = H - pad.t - pad.b
@@ -291,14 +306,12 @@ export function GrowthChart({
     }
   }
 
-  const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    const mx = e.clientX - rect.left
-    if (mx < pad.l || mx > W - pad.r || totalMonths === 0) {
-      setHover(null)
-      return
-    }
-    // Pick the nearest data point on the real-time axis.
+  // Nearest data point on the real-time axis for a client X, or null when the
+  // pointer is outside the plot. Pure — the tooltip payload is derived from it.
+  // Plain function (not useCallback) so the React Compiler can memoize it.
+  const resolveIndex = (clientX: number, _clientY: number, rect: DOMRect) => {
+    const mx = clientX - rect.left
+    if (mx < pad.l || mx > W - pad.r || totalMonths === 0) return null
     let i = 0
     let bestDist = Infinity
     for (let k = 0; k < totalMonths; k++) {
@@ -308,11 +321,19 @@ export function GrowthChart({
         i = k
       }
     }
+    return i
+  }
+
+  const buildHover = (): HoverPayload | null => {
+    if (activeIdx === null || activeIdx < 0 || activeIdx >= totalMonths) {
+      return null
+    }
+    const i = activeIdx
     if (i < histCount) {
       const e2 = entries[i]
       const monthDividends = lookupDividends(e2)
       const cov = coverage?.[i]
-      setHover({
+      return {
         x: x(i),
         // Suppress the value dot on unrecorded months — the tooltip's
         // "Value: —" row already communicates the absence, so a dot would
@@ -347,31 +368,96 @@ export function GrowthChart({
               ]
             : []),
         ],
-      })
-    } else {
-      const pi = i - histCount
-      const base = valueBase[pi]
-      const cons = valueCons[pi]
-      const opt = valueOpt[pi]
-      const inv = projInvested[pi]
-      const dYears = ((pi + 1) / 12).toFixed(1)
-      setHover({
-        x: x(i),
-        y: y(base),
-        label: `+${dYears}y · projected`,
-        rows: [
-          { k: "Optimistic", v: fmtEUR(opt), c: "var(--tertiary)" },
-          { k: "Base", v: fmtEUR(base), c: "var(--primary)" },
-          { k: "Conservative", v: fmtEUR(cons), c: "var(--secondary-400)" },
-          { k: "Invested", v: fmtEUR(inv), c: "var(--neutral-400)" },
-        ],
-      })
+      }
+    }
+    const pi = i - histCount
+    const base = valueBase[pi]
+    const cons = valueCons[pi]
+    const opt = valueOpt[pi]
+    const inv = projInvested[pi]
+    const dYears = ((pi + 1) / 12).toFixed(1)
+    return {
+      x: x(i),
+      y: y(base),
+      label: `+${dYears}y · projected`,
+      rows: [
+        { k: "Optimistic", v: fmtEUR(opt), c: "var(--tertiary)" },
+        { k: "Base", v: fmtEUR(base), c: "var(--primary)" },
+        { k: "Conservative", v: fmtEUR(cons), c: "var(--secondary-400)" },
+        { k: "Invested", v: fmtEUR(inv), c: "var(--neutral-400)" },
+      ],
     }
   }
 
+  const hover = buildHover()
+
+  const onMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    setActiveIdx(
+      resolveIndex(
+        e.clientX,
+        e.clientY,
+        e.currentTarget.getBoundingClientRect()
+      )
+    )
+  }
+
+  const { onTouchStart, onTouchMove, onTouchEnd } = useChartTouch({
+    resolveIndex,
+    activeIndex: activeIdx,
+    setActiveIndex: setActiveIdx,
+    containerRef,
+  })
+
+  // Screen-reader announcement of the settled active point — mirrors the
+  // overview chart's live region so keyboard/AT users get the hovered values.
+  // Debounced so a mouse scrub doesn't queue an announcement per pixel; the
+  // dep is the summary string (stable by value) and the only setState runs
+  // inside the timer, so no synchronous cascade in the effect body.
+  const ariaSummary = hover
+    ? `${hover.label}: ${hover.rows.map((r) => `${r.k} ${r.v}`).join(", ")}`
+    : ""
+  const [announce, setAnnounce] = useState("")
+  useEffect(() => {
+    const t = setTimeout(() => setAnnounce(ariaSummary), 250)
+    return () => clearTimeout(t)
+  }, [ariaSummary])
+
   const visibleGoalLines = goalLines.filter((g) => g.value <= yMax * 1.1)
 
+  // Right-pinned goal pills collide when two targets sit near the same value.
+  // Lay them out top-down with a greedy minimum gap so they stack instead of
+  // overprinting, and shorten to the value alone on a narrow chart where the
+  // full "name · €Xk" pill would overflow the plot.
+  const sortedGoals = [...visibleGoalLines]
+    .map((g) => ({ g, lineY: y(g.value) }))
+    .sort((a, b) => a.lineY - b.lineY)
+  const goalPills: {
+    id: number
+    color: string
+    lineY: number
+    labelY: number
+    text: string
+    width: number
+  }[] = []
+  const minGoalGap = 22
+  let lastGoalY = -Infinity
+  for (const { g, lineY } of sortedGoals) {
+    let labelY = lineY - 6
+    if (labelY - lastGoalY < minGoalGap) labelY = lastGoalY + minGoalGap
+    lastGoalY = labelY
+    const text = narrow
+      ? fmtEUR(g.value, { compact: true })
+      : `${g.name} · ${fmtEUR(g.value, { compact: true })}`
+    const width = narrow ? 58 : 92
+    goalPills.push({ id: g.id, color: g.color, lineY, labelY, text, width })
+  }
+
   const dividerX = x(Math.max(0, histCount - 1))
+
+  const tooltipLeft =
+    hover === null
+      ? 0
+      : Math.max(TOOLTIP_HALF_WIDTH, Math.min(W - TOOLTIP_HALF_WIDTH, hover.x))
 
   return (
     <div
@@ -384,17 +470,16 @@ export function GrowthChart({
         height={H}
         role="img"
         aria-label="Portfolio growth chart showing historical and projected values"
-        onMouseMove={onMove}
-        onMouseLeave={() => setHover(null)}
-        onTouchMove={(e) => {
-          const t = e.touches[0]
-          onMove({
-            clientX: t.clientX,
-            clientY: t.clientY,
-          } as unknown as React.MouseEvent<SVGSVGElement>)
-        }}
-        onTouchEnd={() => setHover(null)}
-        style={{ display: "block", maxWidth: "100%" }}
+        onMouseMove={onMouseMove}
+        onMouseLeave={() => setActiveIdx(null)}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={() => setActiveIdx(null)}
+        // pan-y lets vertical page scroll pass through while a horizontal drag
+        // scrubs the chart; no preventDefault needed (React touch listeners are
+        // passive). Mirrors the overview chart.
+        style={{ display: "block", maxWidth: "100%", touchAction: "pan-y" }}
         data-testid="growth-chart-svg"
       >
         <YAxis
@@ -418,36 +503,36 @@ export function GrowthChart({
           opacity="0.5"
         />
 
-        {visibleGoalLines.map((g) => (
-          <g key={g.id}>
+        {goalPills.map((p) => (
+          <g key={p.id}>
             <line
               x1={pad.l}
               x2={W - pad.r}
-              y1={y(g.value)}
-              y2={y(g.value)}
-              stroke={g.color}
+              y1={p.lineY}
+              y2={p.lineY}
+              stroke={p.color}
               strokeDasharray="4 4"
               strokeWidth="1.5"
               opacity="0.7"
             />
-            <g transform={`translate(${W - pad.r - 4}, ${y(g.value) - 6})`}>
+            <g transform={`translate(${W - pad.r - 4}, ${p.labelY})`}>
               <rect
-                x="-92"
+                x={-p.width}
                 y="-12"
-                width="92"
+                width={p.width}
                 height="20"
                 rx="4"
-                fill={g.color}
+                fill={p.color}
               />
               <text
-                x="-86"
+                x={-p.width + 6}
                 y="3"
                 fontSize="11"
                 fill="#fff"
                 fontWeight="600"
                 fontFamily="var(--font-body)"
               >
-                {g.name} · {fmtEUR(g.value, { compact: true })}
+                {p.text}
               </text>
             </g>
           </g>
@@ -619,29 +704,45 @@ export function GrowthChart({
         )}
       </svg>
 
-      {hover && (
-        <div
-          className="chart-tooltip"
-          style={{
-            left: hover.x,
-            // Fallback: when hovering an unrecorded month (no dot to anchor
-            // to), float the tooltip at a comfortable top position.
-            top: Math.max(30, (hover.y ?? 40) - 10),
-            transform: "translate(-50%, -100%)",
-          }}
-        >
-          <div className="tt-h">{hover.label}</div>
-          {hover.rows.map((r, i) => (
-            <div className="tt-row" key={i}>
-              <span className="l">
-                <span className="d" style={{ background: r.c }} />
-                {r.k}
-              </span>
-              <span>{r.v}</span>
+      {/* SR-only live announcement of the settled active point. The visual
+          tooltip below is decorative (aria-hidden) so the values aren't
+          double-announced for sighted users. */}
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {announce}
+      </div>
+
+      {hover &&
+        (() => {
+          const anchorY = hover.y ?? 40
+          // Flip the tooltip below the point when anchoring it above would clip
+          // the top of the plot; otherwise it sits above the crosshair dot.
+          const flipBelow = anchorY < 96
+          return (
+            <div
+              className="chart-tooltip"
+              aria-hidden="true"
+              style={{
+                // Clamp horizontally so long EUR rows don't overflow the plot.
+                left: tooltipLeft,
+                top: flipBelow ? anchorY + 14 : Math.max(30, anchorY - 10),
+                transform: flipBelow
+                  ? "translate(-50%, 0)"
+                  : "translate(-50%, -100%)",
+              }}
+            >
+              <div className="tt-h">{hover.label}</div>
+              {hover.rows.map((r, i) => (
+                <div className="tt-row" key={i}>
+                  <span className="l">
+                    <span className="d" style={{ background: r.c }} />
+                    {r.k}
+                  </span>
+                  <span>{r.v}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          )
+        })()}
     </div>
   )
 }

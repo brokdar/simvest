@@ -109,6 +109,38 @@ test.describe("Views — mobile", () => {
     )
   })
 
+  // E2E-M-VIEWS-005b — Tapping the forecast chart pins a tooltip that stays
+  // visible after the finger lifts and never overflows the viewport. A second
+  // tap on the same spot dismisses it (pin-on-lift touch model).
+  test("E2E-M-VIEWS-005b — tapping the forecast chart pins a tooltip within the viewport", async ({
+    page,
+  }) => {
+    await page.goto("/chart")
+
+    const svg = page.locator('[data-testid="growth-chart-svg"]')
+    await expect(svg).toBeVisible()
+    await expect
+      .poll(async () => (await svg.boundingBox())?.width ?? 0)
+      .toBeGreaterThan(200)
+
+    // Tap the chart — a plain tap must reveal the tooltip immediately.
+    await svg.tap()
+
+    const tooltip = page.locator(".chart-tooltip")
+    await expect(tooltip).toBeVisible()
+
+    // Pinned tooltip is fully within the viewport (x-clamped, not clipped).
+    const vw = page.viewportSize()?.width ?? 393
+    const box = await tooltip.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.x).toBeGreaterThanOrEqual(0)
+    expect(box!.x + box!.width).toBeLessThanOrEqual(vw + 1)
+
+    // A second tap on the same point dismisses the pin.
+    await svg.tap()
+    await expect(tooltip).toBeHidden()
+  })
+
   // E2E-M-VIEWS-006 — Growth Chart scenario stats row stacks at 640 px breakpoint
   test("E2E-M-VIEWS-006 — growth chart scenario stats row stacks to single column", async ({
     page,
