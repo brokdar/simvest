@@ -1,57 +1,77 @@
 import { test, expect } from "../fixtures"
+import type { Page } from "@playwright/test"
 
 test.describe("Navigation — mobile", () => {
   test.beforeEach(({}, testInfo) => {
     test.skip(testInfo.project.name !== "mobile-safari", "mobile only")
   })
 
-  // E2E-M-NAV-001 — Tapping the Overview icon navigates to "/" and shows active state
-  test("E2E-M-NAV-001 — tapping Overview icon navigates to / and shows active state", async ({
+  // Open the hamburger drawer and return its locator. Below 640px the sidebar
+  // rail is removed and the nav lives behind the hamburger; every navigation
+  // test drives it through the drawer.
+  async function openDrawer(page: Page) {
+    await page.getByTestId("nav-toggle").tap()
+    const drawer = page.getByTestId("mobile-drawer")
+    await expect(drawer).toBeVisible()
+    return drawer
+  }
+
+  // E2E-M-NAV-001 — Tapping the Overview item navigates to "/" and shows active state
+  test("E2E-M-NAV-001 — tapping Overview navigates to / and shows active state", async ({
     page,
   }) => {
     await page.goto("/chart")
     await page.evaluate(() => localStorage.clear())
 
-    await page.tap('[data-testid="nav-overview"]')
+    const drawer = await openDrawer(page)
+    await drawer.getByTestId("nav-overview").tap()
     await page.waitForURL("**/")
 
     expect(page.url()).toMatch(/\/$/)
-    await expect(page.getByTestId("nav-overview")).toHaveClass(/active/)
-    await expect(page.getByTestId("nav-chart")).not.toHaveClass(/active/)
-    await expect(page.getByTestId("topbar-crumb")).toContainText("Overview")
+    // Active state is reflected on the (route-reactive) sidebar copy; the
+    // drawer has closed on navigation, so scope to the sidebar to stay
+    // unambiguous.
+    const sidebar = page.getByTestId("sidebar")
+    await expect(sidebar.getByTestId("nav-overview")).toHaveClass(/active/)
+    await expect(sidebar.getByTestId("nav-chart")).not.toHaveClass(/active/)
+    // The page <h1> is the single visible title now (the breadcrumb is hidden).
+    await expect(page.locator("h1.title")).toContainText("Overview")
   })
 
-  // E2E-M-NAV-002 — Tapping the Growth Chart icon navigates to /chart
-  test("E2E-M-NAV-002 — tapping Growth Chart icon navigates to /chart", async ({
+  // E2E-M-NAV-002 — Tapping the Forecast item navigates to /chart
+  test("E2E-M-NAV-002 — tapping Forecast navigates to /chart", async ({
     page,
   }) => {
     await page.goto("/")
     await page.evaluate(() => localStorage.clear())
 
-    await page.tap('[data-testid="nav-chart"]')
+    const drawer = await openDrawer(page)
+    await drawer.getByTestId("nav-chart").tap()
     await page.waitForURL("**/chart")
 
     expect(page.url()).toContain("/chart")
-    await expect(page.getByTestId("nav-chart")).toHaveClass(/active/)
-    // /chart's crumb is "Forecast" (renamed from "Growth chart").
-    await expect(page.getByTestId("topbar-crumb")).toContainText("Forecast")
+    await expect(
+      page.getByTestId("sidebar").getByTestId("nav-chart")
+    ).toHaveClass(/active/)
+    await expect(page.locator("h1.title")).toContainText("Forecast")
   })
 
-  // E2E-M-NAV-003 — Tapping the Monthly Entries icon navigates to /entries
-  test("E2E-M-NAV-003 — tapping Monthly Entries icon navigates to /entries", async ({
+  // E2E-M-NAV-003 — Tapping the Monthly Entries item navigates to /entries
+  test("E2E-M-NAV-003 — tapping Monthly Entries navigates to /entries", async ({
     page,
   }) => {
     await page.goto("/")
     await page.evaluate(() => localStorage.clear())
 
-    await page.tap('[data-testid="nav-entries"]')
+    const drawer = await openDrawer(page)
+    await drawer.getByTestId("nav-entries").tap()
     await page.waitForURL("**/entries")
 
     expect(page.url()).toContain("/entries")
-    await expect(page.getByTestId("nav-entries")).toHaveClass(/active/)
-    await expect(page.getByTestId("topbar-crumb")).toContainText(
-      "Monthly entries"
-    )
+    await expect(
+      page.getByTestId("sidebar").getByTestId("nav-entries")
+    ).toHaveClass(/active/)
+    await expect(page.locator("h1.title")).toContainText("Monthly entries")
   })
 
   // E2E-M-NAV-004 — /simulation legacy redirects to /planning
@@ -60,10 +80,6 @@ test.describe("Navigation — mobile", () => {
   }) => {
     // The Simulation and Goals tabs were merged into a single Planning route
     // (next.config.mjs has 301 redirects for /simulation and /goals → /planning).
-    // Clear localStorage via init script (instead of `goto("/")` + `evaluate`)
-    // so we don't issue two back-to-back navigations — the second one races
-    // with Next.js dev-mode Fast Refresh, which can re-navigate to "/" and
-    // interrupt the test's goto("/simulation").
     await page.addInitScript(() => {
       try {
         window.localStorage.clear()
@@ -76,47 +92,56 @@ test.describe("Navigation — mobile", () => {
     await page.waitForURL("**/planning")
 
     expect(page.url()).toContain("/planning")
-    await expect(page.getByTestId("nav-planning")).toHaveClass(/active/)
-    await expect(page.getByTestId("topbar-crumb")).toContainText("Planning")
+    await expect(
+      page.getByTestId("sidebar").getByTestId("nav-planning")
+    ).toHaveClass(/active/)
+    await expect(page.locator("h1.title")).toContainText("Planning")
   })
 
-  // E2E-M-NAV-005 — Tapping the Planning icon navigates to /planning
-  test("E2E-M-NAV-005 — tapping Planning icon navigates to /planning", async ({
+  // E2E-M-NAV-005 — Tapping the Planning item navigates to /planning
+  test("E2E-M-NAV-005 — tapping Planning navigates to /planning", async ({
     page,
   }) => {
     await page.goto("/")
     await page.evaluate(() => localStorage.clear())
 
-    await page.tap('[data-testid="nav-planning"]')
+    const drawer = await openDrawer(page)
+    await drawer.getByTestId("nav-planning").tap()
     await page.waitForURL("**/planning")
 
     expect(page.url()).toContain("/planning")
-    await expect(page.getByTestId("nav-planning")).toHaveClass(/active/)
-    await expect(page.getByTestId("topbar-crumb")).toContainText("Planning")
+    await expect(
+      page.getByTestId("sidebar").getByTestId("nav-planning")
+    ).toHaveClass(/active/)
+    await expect(page.locator("h1.title")).toContainText("Planning")
   })
 
-  // E2E-M-NAV-006 — Tapping the Settings icon navigates to /settings
-  test("E2E-M-NAV-006 — tapping Settings icon navigates to /settings", async ({
+  // E2E-M-NAV-006 — Tapping the Settings item navigates to /settings
+  test("E2E-M-NAV-006 — tapping Settings navigates to /settings", async ({
     page,
   }) => {
     await page.goto("/")
     await page.evaluate(() => localStorage.clear())
 
-    await page.tap('[data-testid="nav-settings"]')
+    const drawer = await openDrawer(page)
+    await drawer.getByTestId("nav-settings").tap()
     await page.waitForURL("**/settings")
 
     expect(page.url()).toContain("/settings")
-    await expect(page.getByTestId("nav-settings")).toHaveClass(/active/)
-    await expect(page.getByTestId("topbar-crumb")).toContainText("Settings")
+    await expect(
+      page.getByTestId("sidebar").getByTestId("nav-settings")
+    ).toHaveClass(/active/)
+    await expect(page.locator("h1.title")).toContainText("Settings")
   })
 
-  // E2E-M-NAV-007 — Active state is visually distinct (accent background) on mobile
+  // E2E-M-NAV-007 — Active state is visually distinct (accent background) in the drawer
   test("E2E-M-NAV-007 — active state has accent background on mobile", async ({
     page,
   }) => {
     await page.goto("/chart")
 
-    const activeItem = page.getByTestId("nav-chart")
+    const drawer = await openDrawer(page)
+    const activeItem = drawer.getByTestId("nav-chart")
     await expect(activeItem).toHaveClass(/active/)
 
     const activeBg = await activeItem.evaluate(
@@ -127,10 +152,9 @@ test.describe("Navigation — mobile", () => {
     expect(activeBg).not.toBe("transparent")
 
     // Non-active item should have a different (transparent/white) background
-    const inactiveItem = page.getByTestId("nav-overview")
-    const inactiveBg = await inactiveItem.evaluate(
-      (el) => window.getComputedStyle(el).backgroundColor
-    )
+    const inactiveBg = await drawer
+      .getByTestId("nav-overview")
+      .evaluate((el) => window.getComputedStyle(el).backgroundColor)
     expect(activeBg).not.toBe(inactiveBg)
   })
 
@@ -140,6 +164,7 @@ test.describe("Navigation — mobile", () => {
     page,
   }) => {
     await page.goto("/")
+    const drawer = await openDrawer(page)
 
     const testIds = [
       "nav-overview",
@@ -152,8 +177,7 @@ test.describe("Navigation — mobile", () => {
     ]
 
     for (const testId of testIds) {
-      const link = page.getByTestId(testId)
-      const title = await link.getAttribute("title")
+      const title = await drawer.getByTestId(testId).getAttribute("title")
       expect(title).toBeNull()
     }
   })
@@ -233,43 +257,118 @@ test.describe("Navigation — mobile", () => {
     await page.goto("/simulation")
     await page.waitForURL("**/planning")
 
-    await expect(page.getByTestId("nav-planning")).toHaveClass(/active/)
+    await expect(
+      page.getByTestId("sidebar").getByTestId("nav-planning")
+    ).toHaveClass(/active/)
   })
 
-  // E2E-M-NAV-012 — Sequential navigation through all routes does not cause layout shift
+  // E2E-M-NAV-012 — Sequential navigation through all routes does not shift the layout
   test("E2E-M-NAV-012 — sequential navigation through all routes does not cause layout shift", async ({
     page,
   }) => {
     await page.goto("/")
 
-    const routes: Array<[string, string]> = [
-      ["nav-chart", "**/chart"],
-      ["nav-entries", "**/entries"],
-      ["nav-holdings", "**/holdings"],
-      ["nav-income", "**/income"],
-      ["nav-planning", "**/planning"],
-      ["nav-settings", "**/settings"],
-      ["nav-overview", "**/"],
+    const routes: Array<[string, string, string]> = [
+      ["nav-chart", "**/chart", "Forecast"],
+      ["nav-entries", "**/entries", "Monthly entries"],
+      ["nav-holdings", "**/holdings", "Holdings"],
+      ["nav-income", "**/income", "Income"],
+      ["nav-planning", "**/planning", "Planning"],
+      ["nav-settings", "**/settings", "Settings"],
+      ["nav-overview", "**/", "Overview"],
     ]
 
-    const sidebar = page.locator('[data-testid="sidebar"]')
+    const topbar = page.getByTestId("topbar")
+    const viewportWidth = page.viewportSize()?.width ?? 393
 
-    for (const [testId, urlPattern] of routes) {
-      await page.tap(`[data-testid="${testId}"]`)
+    for (const [testId, urlPattern, title] of routes) {
+      const drawer = await openDrawer(page)
+      await drawer.getByTestId(testId).tap()
       await page.waitForURL(urlPattern)
 
-      // Sidebar width must remain 64px throughout all navigations. Use the
-      // Locator-based evaluate so Playwright auto-waits for the element to be
-      // attached — `document.querySelector(".sidebar")` could return null
-      // briefly under heavy parallel load and produce -1.
-      const sidebarWidth = await sidebar.evaluate(
-        (el) => el.getBoundingClientRect().width
-      )
-      expect(sidebarWidth).toBeGreaterThanOrEqual(63)
-      expect(sidebarWidth).toBeLessThanOrEqual(65)
+      // Single-column layout: no rail, so the topbar spans the full viewport
+      // width and starts at the left edge on every route.
+      const box = await topbar.boundingBox()
+      expect(box?.x ?? 99).toBeLessThanOrEqual(1)
+      expect(box?.width ?? 0).toBeGreaterThanOrEqual(viewportWidth - 1)
 
-      // Brand name must remain hidden
-      await expect(page.locator(".brand-name")).toBeHidden()
+      // The sidebar rail must not reappear.
+      await expect(page.getByTestId("sidebar")).toBeHidden()
+      await expect(page.locator("h1.title")).toContainText(title)
     }
+  })
+
+  // E2E-M-NAV-013 — Escape closes the drawer and returns focus to the hamburger
+  test("E2E-M-NAV-013 — Escape closes the drawer and restores focus to the hamburger", async ({
+    page,
+  }) => {
+    await page.goto("/")
+    const toggle = page.getByTestId("nav-toggle")
+    await toggle.tap()
+
+    const drawer = page.getByTestId("mobile-drawer")
+    await expect(drawer).toBeVisible()
+
+    // Focus moved into the drawer (Radix focus trap).
+    const focusInside = await drawer.evaluate((el) =>
+      el.contains(document.activeElement)
+    )
+    expect(focusInside).toBe(true)
+
+    await page.keyboard.press("Escape")
+    await expect(drawer).toBeHidden()
+    // Focus returns to the trigger.
+    await expect(toggle).toBeFocused()
+  })
+
+  // E2E-M-NAV-014 — Tapping the backdrop closes the drawer
+  test("E2E-M-NAV-014 — tapping the backdrop closes the drawer", async ({
+    page,
+  }) => {
+    await page.goto("/")
+    await page.getByTestId("nav-toggle").tap()
+
+    const drawer = page.getByTestId("mobile-drawer")
+    await expect(drawer).toBeVisible()
+
+    // The overlay spans the viewport behind the ~280px panel; tap it to the
+    // right of the panel so the tap lands on the backdrop, not the nav.
+    const overlay = page.locator(".drawer-overlay")
+    const viewportWidth = page.viewportSize()?.width ?? 393
+    await overlay.tap({ position: { x: viewportWidth - 20, y: 300 } })
+
+    await expect(drawer).toBeHidden()
+  })
+
+  // E2E-M-NAV-015 — Hamburger exposes correct ARIA (label, expanded, controls)
+  test("E2E-M-NAV-015 — hamburger exposes aria-label / aria-expanded / aria-controls", async ({
+    page,
+  }) => {
+    await page.goto("/")
+    const toggle = page.getByTestId("nav-toggle")
+
+    await expect(toggle).toHaveAttribute("aria-label", "Open navigation menu")
+    await expect(toggle).toHaveAttribute("aria-expanded", "false")
+    const controls = await toggle.getAttribute("aria-controls")
+    expect(controls).toBeTruthy()
+
+    await toggle.tap()
+    const drawer = page.getByTestId("mobile-drawer")
+    await expect(drawer).toBeVisible()
+    await expect(toggle).toHaveAttribute("aria-expanded", "true")
+
+    // aria-controls references the drawer content element.
+    const drawerId = await drawer.getAttribute("id")
+    expect(controls).toBe(drawerId)
+  })
+
+  // E2E-M-NAV-016 — Hamburger is a >=44px touch target
+  test("E2E-M-NAV-016 — hamburger is at least 44×44px", async ({ page }) => {
+    await page.goto("/")
+    const toggle = page.getByTestId("nav-toggle")
+    await expect(toggle).toBeVisible()
+    const box = await toggle.boundingBox()
+    expect(box?.width).toBeGreaterThanOrEqual(44)
+    expect(box?.height).toBeGreaterThanOrEqual(44)
   })
 })

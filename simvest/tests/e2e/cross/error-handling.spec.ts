@@ -316,9 +316,10 @@ test.describe("Error handling — cross-cutting", () => {
   test("E2E-X-ERR-009 — existing portfolio data remains visible after portfolios 500", async ({
     page,
   }) => {
-    // Navigate to / and let DataProvider hydrate normally
+    // Navigate to / and let DataProvider hydrate normally. The topbar is on
+    // every viewport (sidebar is hidden on mobile), so gate on it.
     await page.goto("/")
-    await expect(page.locator('[data-testid="sidebar"]')).toBeVisible()
+    await expect(page.getByTestId("topbar")).toBeVisible()
 
     // Now intercept GET /api/portfolios to return 500
     await page.route("**/api/portfolios", (route) => {

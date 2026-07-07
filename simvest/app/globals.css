@@ -328,6 +328,89 @@ h4 {
   gap: 10px;
 }
 
+/* Hamburger trigger for the mobile nav drawer. Hidden by default; the
+   <=640px block below reveals it once the sidebar rail is removed. The
+   descendant selector out-specifies `.btn { display: inline-flex }` so the
+   trigger stays hidden on desktop regardless of source order. */
+.topbar-left .nav-toggle {
+  display: none;
+}
+
+/* ---- Mobile nav drawer (Radix Dialog) ---- */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(15, 23, 42, 0.45);
+}
+.drawer-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 61;
+  width: min(280px, 82vw);
+  height: 100vh;
+  height: 100dvh;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  box-shadow: var(--sh-lg, 0 10px 40px rgba(0, 0, 0, 0.18));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 20px 14px calc(20px + env(safe-area-inset-bottom));
+  padding-left: calc(14px + env(safe-area-inset-left));
+  padding-top: calc(20px + env(safe-area-inset-top));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* Slide the panel in from the left / out to the left. tw-animate-css is not
+   used here so the motion is defined explicitly; prefers-reduced-motion is
+   honored by the global reduce block that zeroes animation durations. */
+.drawer-panel[data-state="open"] {
+  animation: drawer-in 0.22s ease;
+}
+.drawer-panel[data-state="closed"] {
+  animation: drawer-out 0.18s ease;
+}
+.drawer-overlay[data-state="open"] {
+  animation: drawer-fade-in 0.22s ease;
+}
+.drawer-overlay[data-state="closed"] {
+  animation: drawer-fade-out 0.18s ease;
+}
+@keyframes drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes drawer-out {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes drawer-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes drawer-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 .view {
   padding: 24px 28px calc(48px + env(safe-area-inset-bottom));
   max-width: 1440px;
@@ -1085,18 +1168,20 @@ input[type="range"].slider::-moz-range-thumb {
     padding: 12px 8px;
     padding-left: calc(8px + env(safe-area-inset-left));
   }
-  .brand {
+  /* The icon-rail collapse is scoped to .sidebar so the mobile nav drawer
+     (portaled outside .sidebar) keeps full-width, labelled nav items. */
+  .sidebar .brand {
     justify-content: center;
     padding: 4px 0 12px;
     gap: 0;
   }
-  .brand-name,
-  .brand-sub,
-  .brand-text,
-  .nav-section {
+  .sidebar .brand-name,
+  .sidebar .brand-sub,
+  .sidebar .brand-text,
+  .sidebar .nav-section {
     display: none;
   }
-  .nav-item {
+  .sidebar .nav-item {
     justify-content: center;
     padding: 10px 0;
     font-size: 0;
@@ -1104,12 +1189,12 @@ input[type="range"].slider::-moz-range-thumb {
     width: 100%;
     min-height: 40px;
   }
-  .nav-item .ico {
+  .sidebar .nav-item .ico {
     width: 20px;
     height: 20px;
     flex-shrink: 0;
   }
-  .nav-item .ico svg {
+  .sidebar .nav-item .ico svg {
     width: 20px;
     height: 20px;
   }
@@ -1138,6 +1223,21 @@ input[type="range"].slider::-moz-range-thumb {
   .grid-4 {
     grid-template-columns: 1fr;
   }
+  /* Phone layout: drop the icon rail entirely (it permanently ate ~16% of a
+     390px screen) and go single-column. Nav moves into the hamburger drawer;
+     the breadcrumb is hidden because the page <h1> is the single title. */
+  .app {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    display: none;
+  }
+  .crumbs {
+    display: none;
+  }
+  .topbar-left .nav-toggle {
+    display: inline-flex;
+  }
   .topbar-right .input-bare,
   .topbar-right .input-bare + svg {
     display: none;
@@ -1158,6 +1258,7 @@ input[type="range"].slider::-moz-range-thumb {
   .topbar-left {
     min-width: 0;
     gap: 8px;
+    flex: 1 1 auto;
   }
   .topbar-action {
     width: 36px;
@@ -1169,8 +1270,8 @@ input[type="range"].slider::-moz-range-thumb {
   .topbar-action .btn-label {
     display: none;
   }
-  /* Let a long portfolio name ellipsize inside the fixed 180px switcher
-     rather than widening it. */
+  /* Let the switcher flex-shrink and ellipsize its label rather than holding a
+     fixed width that pushes the bell + action off-screen. */
   .pf-dd-label {
     min-width: 0;
   }
@@ -1181,7 +1282,8 @@ input[type="range"].slider::-moz-range-thumb {
     white-space: nowrap;
   }
   .pf-dd-trigger {
-    min-width: 180px;
+    min-width: 0;
+    flex: 0 1 auto;
   }
   .tabs-bar button {
     padding: 7px 10px;
