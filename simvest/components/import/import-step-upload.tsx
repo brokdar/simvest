@@ -3,10 +3,23 @@
 import { useState } from "react"
 import { Icon } from "@/components/icon"
 import { FieldLabel } from "@/components/ui/field-label"
+import { XLSX_MARKER } from "@/lib/import/bondora"
 import { listBrokers } from "@/lib/import/registry"
 import type { BrokerId } from "@/lib/import/types"
 
 const BROKERS = listBrokers()
+
+/** Browser-safe ArrayBuffer → base64, chunked to avoid blowing the call
+ *  stack on `String.fromCharCode(...bytes)` for larger statements. */
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf)
+  const CHUNK = 0x8000
+  let binary = ""
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
+  }
+  return btoa(binary)
+}
 
 type Props = {
   submitting: boolean
@@ -19,6 +32,7 @@ export function ImportStepUpload({ submitting, onPreview }: Props) {
   )
   const [csv, setCsv] = useState("")
   const [fileName, setFileName] = useState<string | null>(null)
+  const [fileSize, setFileSize] = useState(0)
   const canSubmit = csv.trim().length > 0 && !submitting
 
   return (
@@ -40,7 +54,7 @@ export function ImportStepUpload({ submitting, onPreview }: Props) {
       </div>
 
       <div>
-        <FieldLabel>Transactions CSV</FieldLabel>
+        <FieldLabel>Transactions file</FieldLabel>
         <label
           className="card card-pad"
           style={{
@@ -55,20 +69,31 @@ export function ImportStepUpload({ submitting, onPreview }: Props) {
           <Icon name="upload" size={18} />
           <span style={{ fontSize: 13 }}>
             {fileName
-              ? `${fileName} — ${(csv.length / 1024).toFixed(1)} KB`
-              : "Choose a CSV file from your broker"}
+              ? `${fileName} — ${(fileSize / 1024).toFixed(1)} KB`
+              : broker === "bondora"
+                ? "Choose a CSV or Excel (.xlsx) file from your broker"
+                : "Choose a CSV file from your broker"}
           </span>
           <input
             type="file"
-            accept=".csv,text/csv"
+            accept={
+              broker === "bondora"
+                ? ".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                : ".csv,text/csv"
+            }
             style={{ display: "none" }}
             data-testid="import-file-input"
             onChange={async (e) => {
               const file = e.target.files?.[0]
               if (!file) return
-              const text = await file.text()
-              setCsv(text)
+              setFileSize(file.size)
               setFileName(file.name)
+              if (file.name.toLowerCase().endsWith(".xlsx")) {
+                const buf = await file.arrayBuffer()
+                setCsv(XLSX_MARKER + arrayBufferToBase64(buf))
+              } else {
+                setCsv(await file.text())
+              }
             }}
           />
         </label>
@@ -96,11 +121,11 @@ export function ImportStepUpload({ submitting, onPreview }: Props) {
             <>
               On the Bondora website:{" "}
               <strong>Go &amp; Grow → Account statement</strong> → pick the date
-              range → export CSV. Daily “Go &amp; Grow returns” become interest;
-              “SEPA payment” rows become each month’s invested; the balance
-              becomes the month-end value. Set the portfolio’s{" "}
-              <strong>Starting value</strong> to the opening balance so gains
-              stay accurate.
+              range → export as Excel (.xlsx) or CSV. Daily “Go &amp; Grow
+              returns/Zinsen” become interest; SEPA deposit rows become each
+              month’s invested; the balance becomes the month-end value. Set the
+              portfolio’s <strong>Starting value</strong> to the opening balance
+              so gains stay accurate.
             </>
           )}
         </div>

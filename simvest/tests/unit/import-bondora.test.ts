@@ -1,9 +1,34 @@
 import { describe, it, expect } from "vitest"
-import { bondoraParser } from "@/lib/import/bondora"
+import * as XLSX from "xlsx"
+import { bondoraParser, XLSX_MARKER } from "@/lib/import/bondora"
 
 /** Build a Bondora-shaped CSV (semicolon-separated) from data lines. */
 function csv(...lines: string[]) {
   return ["Date;Payment type;In;Out;Balance", ...lines].join("\n")
+}
+
+/** Build a marker-prefixed base64 `.xlsx` payload from raw sheet rows —
+ *  mirrors what the upload UI sends for a Bondora Excel export. */
+function xlsxPayload(rows: (string | number)[][]): string {
+  const ws = XLSX.utils.aoa_to_sheet(rows)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, "Data")
+  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer
+  return XLSX_MARKER + buf.toString("base64")
+}
+
+/** A realistic export: account-holder/summary preamble, a section header,
+ *  then the "Datum;Zahlungsart;Eingänge;Ausgänge;Guthaben" table. */
+function bondoraXlsx(...dataRows: (string | number)[][]) {
+  return xlsxPayload([
+    ["Jürgen Altszeimer", "", "", "Zusammenfassung", ""],
+    ["01.06.2026-06.07.2026", "", "", "Zu Beginn", 15740.93],
+    ["", "", "", "Einzahlungen", 291.36],
+    ["", "", "", "", ""],
+    ["Alle Ziele", "", "", "", ""],
+    ["Datum", "Zahlungsart", "Eingänge", "Ausgänge", "Guthaben"],
+    ...dataRows,
+  ])
 }
 
 describe("bondora parser", () => {
@@ -136,5 +161,76 @@ describe("bondora parser", () => {
     )
     expect(r.errors).toHaveLength(0)
     expect(r.monthsAggregated[0]?.deposits).toBe(100)
+  })
+
+  describe(".xlsx export (German headers, DD.MM.YYYY dates, numeric cells)", () => {
+    it("UNIT-BONDORA-012 — aggregates deposits/interest past the preamble rows", () => {
+      const r = bondoraParser.parse(
+        bondoraXlsx(
+          ["01.06.2026", "Go & Grow Zinsen", 2.51, "", 15743.44],
+          ["01.06.2026", "SEPA-Banküberweisung", 100, "", 15843.44],
+          ["02.06.2026", "Go & Grow Zinsen", 2.53, "", 15845.97]
+        )
+      )
+      expect(r.errors).toHaveLength(0)
+      expect(r.monthsAggregated).toHaveLength(1)
+      const june = r.monthsAggregated[0]
+      expect(june).toMatchObject({ year: 2026, month: 6, deposits: 100 })
+      expect(june.value).toBeCloseTo(15845.97, 2)
+
+      expect(r.income).toHaveLength(2)
+      expect(r.income.every((e) => e.kind === "interest" && e.tax === 0)).toBe(
+        true
+      )
+      expect(r.income.map((e) => e.paidDate)).toEqual([
+        "2026-06-01",
+        "2026-06-02",
+      ])
+    })
+
+    it("UNIT-BONDORA-013 — a withdrawal (Ausgänge) nets the month's contribution down", () => {
+      const r = bondoraParser.parse(
+        bondoraXlsx(
+          ["01.06.2026", "SEPA-Banküberweisung", 100, "", 15840.93],
+          ["10.06.2026", "SEPA-Banküberweisung", "", 40, 15800.93]
+        )
+      )
+      const june = r.monthsAggregated.find((m) => m.month === 6)
+      expect(june?.deposits).toBe(60)
+      expect(june?.value).toBe(15800.93)
+    })
+
+    it("UNIT-BONDORA-014 — an unrecognized German payment type still counts as a movement, with a warning", () => {
+      const r = bondoraParser.parse(
+        bondoraXlsx(["01.06.2026", "Zweitmarkt", 25, "", 15765.93])
+      )
+      const june = r.monthsAggregated.find((m) => m.month === 6)
+      expect(june?.deposits).toBe(25)
+      expect(
+        r.warnings.some((w) => w.includes("Unrecognized payment type"))
+      ).toBe(true)
+    })
+
+    it("UNIT-BONDORA-015 — missing the transaction table (no Datum/Zahlungsart header row) errors", () => {
+      const r = bondoraParser.parse(
+        xlsxPayload([["not", "a", "bondora", "statement"]])
+      )
+      expect(r.errors.length).toBeGreaterThan(0)
+      expect(r.monthsAggregated).toHaveLength(0)
+    })
+
+    it("UNIT-BONDORA-016 — an unreadable file (bad base64/not a real workbook) errors cleanly", () => {
+      const r = bondoraParser.parse(XLSX_MARKER + "not-a-real-workbook")
+      expect(r.errors.length).toBeGreaterThan(0)
+      expect(r.monthsAggregated).toHaveLength(0)
+      expect(r.income).toHaveLength(0)
+    })
+
+    it("UNIT-BONDORA-017 — opening balance above the first transaction emits the same reminder as the CSV path", () => {
+      const r = bondoraParser.parse(
+        bondoraXlsx(["01.06.2026", "Go & Grow Zinsen", 2.51, "", 15743.44])
+      )
+      expect(r.warnings.some((w) => /opens at €15740\.93/.test(w))).toBe(true)
+    })
   })
 })
