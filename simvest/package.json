@@ -43,7 +43,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitest/coverage-v8": "^4.1.9",
     "drizzle-kit": "^0.31.10",
-    "eslint": "^9.39.4",
+    "eslint": "^10.6.0",
     "eslint-config-next": "16.1.7",
     "postcss": "^8",
     "prettier": "^3.8.1",
