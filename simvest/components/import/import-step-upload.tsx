@@ -76,11 +76,7 @@ export function ImportStepUpload({ submitting, onPreview }: Props) {
           </span>
           <input
             type="file"
-            accept={
-              broker === "bondora"
-                ? ".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                : ".csv,text/csv"
-            }
+            accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             style={{ display: "none" }}
             data-testid="import-file-input"
             onChange={async (e) => {

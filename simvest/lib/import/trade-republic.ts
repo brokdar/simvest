@@ -1,5 +1,6 @@
 import type { HoldingType } from "@/lib/types"
 import { ISIN_RE } from "@/lib/types"
+import { XLSX_MARKER } from "./bondora"
 import { csvToObjects } from "./csv"
 import type {
   BrokerParseResult,
@@ -52,6 +53,19 @@ export const tradeRepublicParser: BrokerParser = {
   parse(csv: string): BrokerParseResult {
     const warnings: string[] = []
     const errors: string[] = []
+
+    if (csv.startsWith(XLSX_MARKER)) {
+      errors.push(
+        "Excel (.xlsx) files aren't supported for Trade Republic — export a CSV instead, or switch the broker above to Bondora."
+      )
+      return {
+        monthsAggregated: [],
+        income: [],
+        holdingsCandidates: [],
+        warnings,
+        errors,
+      }
+    }
 
     let rows: Record<string, string>[]
     try {
