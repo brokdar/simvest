@@ -16,6 +16,14 @@ const SWR_MAX = 20
 const YIELD_MAX = 20
 const SWR_RANGE_MSG = `swr must be > 0 and ≤ ${SWR_MAX}`
 const YIELD_RANGE_MSG = `yieldAssumed must be > 0 and ≤ ${YIELD_MAX}`
+const RETURN_MIN = -20
+const RETURN_MAX = 30
+const RETURN_RANGE_MSG = `returnAssumed must be between ${RETURN_MIN} and ${RETURN_MAX}`
+
+function asReturn(v: unknown): number | null {
+  const n = asFiniteNumber(v)
+  return n !== null && n >= RETURN_MIN && n <= RETURN_MAX ? n : null
+}
 
 export type GoalCreate = {
   name: string
@@ -27,6 +35,7 @@ export type GoalCreate = {
   targetYear: number
   swr: number | null
   yieldAssumed: number | null
+  returnAssumed: number | null
 }
 
 export type GoalPatch = Partial<GoalCreate>
@@ -80,6 +89,12 @@ export function validateGoalCreate(
     yieldAssumed = n
   }
 
+  let returnAssumed: number | null = null
+  if (body.returnAssumed != null) {
+    returnAssumed = asReturn(body.returnAssumed)
+    if (returnAssumed === null) return err(RETURN_RANGE_MSG)
+  }
+
   const color = asString(body.color) || DEFAULT_IDENTITY_HEX
 
   return ok({
@@ -92,6 +107,7 @@ export function validateGoalCreate(
     targetYear: Math.floor(targetYear),
     swr,
     yieldAssumed,
+    returnAssumed,
   })
 }
 
@@ -164,6 +180,16 @@ export function validateGoalPatch(body: unknown): ValidationResult<GoalPatch> {
         return err(YIELD_RANGE_MSG)
       }
       patch.yieldAssumed = n
+    }
+  }
+
+  if (body.returnAssumed !== undefined) {
+    if (body.returnAssumed === null) {
+      patch.returnAssumed = null
+    } else {
+      const n = asReturn(body.returnAssumed)
+      if (n === null) return err(RETURN_RANGE_MSG)
+      patch.returnAssumed = n
     }
   }
 

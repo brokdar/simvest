@@ -21,11 +21,11 @@ import { collectLayoutIssues, type LayoutIssues } from "./layout-checks"
 
 const ROUTES = [
   { name: "overview", path: "/" },
-  { name: "chart", path: "/chart" },
+  { name: "chart", path: "/projection" },
   { name: "entries", path: "/entries" },
   { name: "holdings", path: "/holdings" },
   { name: "income", path: "/income" },
-  { name: "planning", path: "/planning" },
+  { name: "planning", path: "/goals" },
   { name: "settings", path: "/settings" },
 ] as const
 
@@ -42,88 +42,7 @@ type Assertion = "hscroll" | "overflow" | "overlap" | "money"
 const ASSERTIONS: Assertion[] = ["hscroll", "overflow", "overlap", "money"]
 
 // Key: `<route>|<w>x<h>|<assertion>`
-const KNOWN_FAILURES: Record<string, string> = {
-  // P8: div.value.mono scrollWidth=192 clientWidth=190 '€1,365,192.89; div.value.mono scrollWidth=192 clientWidth=190 '€1,090,000.00
-  "overview|1280x800|overflow":
-    "P8: div.value.mono scrollWidth=192 clientWidth=190 '€1,365,192.89; div.value.mono scrollWidth=192 clientWidth=190 '€1,090,000.00",
-  // P8: text 'Comfortable FI · €1.3M' (cut by ancestor svg[data-testid=growth-chart-svg])
-  "chart|1280x800|money":
-    "P8: text 'Comfortable FI · €1.3M' (cut by ancestor svg[data-testid=growth-chart-svg])",
-  // P8: svg[data-testid=growth-chart-svg] > '’19’22’27’30’33’36’39’42’45' x 'Early FI · €692k
-  "chart|1280x800|overlap":
-    "P8: svg[data-testid=growth-chart-svg] > '’19’22’27’30’33’36’39’42’45' x 'Early FI · €692k",
-  // P8: text 'Comfortable FI · €1.3M' (cut by ancestor svg[data-testid=growth-chart-svg])
-  "chart|1440x900|money":
-    "P8: text 'Comfortable FI · €1.3M' (cut by ancestor svg[data-testid=growth-chart-svg])",
-  // P8: svg[data-testid=growth-chart-svg] > '’19’21’23’27’29’31’33’35’37’39’41’43’45' x 'Early FI · €692k
-  "chart|1440x900|overlap":
-    "P8: svg[data-testid=growth-chart-svg] > '’19’21’23’27’29’31’33’35’37’39’41’43’45' x 'Early FI · €692k",
-  // P8: text 'Comfortable FI · €1.3M' (cut by ancestor svg[data-testid=growth-chart-svg])
-  "chart|1920x1080|money":
-    "P8: text 'Comfortable FI · €1.3M' (cut by ancestor svg[data-testid=growth-chart-svg])",
-  // P8: svg[data-testid=growth-chart-svg] > '’19’21’23’27’29’31’33’35’37’39’41’43’45' x 'Early FI · €692k
-  "chart|1920x1080|overlap":
-    "P8: svg[data-testid=growth-chart-svg] > '’19’21’23’27’29’31’33’35’37’39’41’43’45' x 'Early FI · €692k",
-  // P9: svg[data-testid=growth-chart-svg] > '’19’31’41' x '€692k
-  "chart|360x740|overlap":
-    "P9: svg[data-testid=growth-chart-svg] > '’19’31’41' x '€692k",
-  // P9: svg[data-testid=growth-chart-svg] > '’19’31’41' x '€692k
-  "chart|390x844|overlap":
-    "P9: svg[data-testid=growth-chart-svg] > '’19’31’41' x '€692k",
-  // P9: svg[data-testid=growth-chart-svg] > '’19’31’41' x '€692k
-  "chart|414x896|overlap":
-    "P9: svg[data-testid=growth-chart-svg] > '’19’31’41' x '€692k",
-  // P9: svg[data-testid=entries-bar-chart-svg] > 'Feb 21' x 'Feb 22; svg[data-testid=entries-bar-chart-svg] > 'Feb 22' x 'Feb 23
-  "entries|360x740|overlap":
-    "P9: svg[data-testid=entries-bar-chart-svg] > 'Feb 21' x 'Feb 22; svg[data-testid=entries-bar-chart-svg] > 'Feb 22' x 'Feb 23",
-  // P9: svg[data-testid=entries-bar-chart-svg] > 'Feb 21' x 'Feb 22; svg[data-testid=entries-bar-chart-svg] > 'Feb 22' x 'Feb 23
-  "entries|390x844|overlap":
-    "P9: svg[data-testid=entries-bar-chart-svg] > 'Feb 21' x 'Feb 22; svg[data-testid=entries-bar-chart-svg] > 'Feb 22' x 'Feb 23",
-  // P9: tr[data-testid=holding-row-1] > 'Vanguard FTSE All-World' x 'ETF; tr[data-testid=holding-row-3] > 'Vanguard FTSE All-World High Dividend' x 'ETF
-  "holdings|360x740|overlap":
-    "P9: tr[data-testid=holding-row-1] > 'Vanguard FTSE All-World' x 'ETF; tr[data-testid=holding-row-3] > 'Vanguard FTSE All-World High Dividend' x 'ETF",
-  // P9: tr[data-testid=holding-row-1] > 'Vanguard FTSE All-World' x 'ETF; tr[data-testid=holding-row-3] > 'Vanguard FTSE All-World High Dividend' x 'ETF
-  "holdings|390x844|overlap":
-    "P9: tr[data-testid=holding-row-1] > 'Vanguard FTSE All-World' x 'ETF; tr[data-testid=holding-row-3] > 'Vanguard FTSE All-World High Dividend' x 'ETF",
-  // P9: tr[data-testid=holding-row-1] > 'Vanguard FTSE All-World' x 'ETF; tr[data-testid=holding-row-3] > 'Vanguard FTSE All-World High Dividend' x 'ETF
-  "holdings|414x896|overlap":
-    "P9: tr[data-testid=holding-row-1] > 'Vanguard FTSE All-World' x 'ETF; tr[data-testid=holding-row-3] > 'Vanguard FTSE All-World High Dividend' x 'ETF",
-  // P8: button[data-testid=income-donut-legend-holding:3].focus-ring > 'Vanguard FTSE All-World High Dividend' x '25.5
-  "income|1280x800|overlap":
-    "P8: button[data-testid=income-donut-legend-holding:3].focus-ring > 'Vanguard FTSE All-World High Dividend' x '25.5",
-  // P8: button[data-testid=income-donut-legend-holding:1].focus-ring > 'Vanguard FTSE All-World' x '35.2%; button[data-testid=income-donut-legend-holding:3].focus-ring > 'Vanguard FTSE All-World High Dividend' x '25.5
-  "income|1920x1080|overlap":
-    "P8: button[data-testid=income-donut-legend-holding:1].focus-ring > 'Vanguard FTSE All-World' x '35.2%; button[data-testid=income-donut-legend-holding:3].focus-ring > 'Vanguard FTSE All-World High Dividend' x '25.5",
-  // P9: tr scrollWidth=123 clientWidth=32 'Holding▼Received▼Last paid▼Count▼Cadence
-  "income|360x740|overflow":
-    "P9: tr scrollWidth=123 clientWidth=32 'Holding▼Received▼Last paid▼Count▼Cadence",
-  // P9: svg > 'Aug 26' x 'Oct 26; button[data-testid=income-donut-legend-holding:3].focus-ring > 'Vanguard FTSE All-World High Dividend' x '25.5; tr[data-testid=income-holding-row-3] > 'Vanguard FTSE All-World High Dividend' x '25.5%
-  "income|360x740|overlap":
-    "P9: svg > 'Aug 26' x 'Oct 26; button[data-testid=income-donut-legend-holding:3].focus-ring > 'Vanguard FTSE All-World High Dividend' x '25.5; tr[data-testid=income-holding-row-3] > 'Vanguard FTSE All-World High Dividend' x '25.5%",
-  // P9: tr scrollWidth=123 clientWidth=32 'Holding▼Received▼Last paid▼Count▼Cadence
-  "income|390x844|overflow":
-    "P9: tr scrollWidth=123 clientWidth=32 'Holding▼Received▼Last paid▼Count▼Cadence",
-  // P9: svg > 'Aug 26' x 'Oct 26; tr[data-testid=income-holding-row-3] > 'Vanguard FTSE All-World High Dividend' x '25.5%
-  "income|390x844|overlap":
-    "P9: svg > 'Aug 26' x 'Oct 26; tr[data-testid=income-holding-row-3] > 'Vanguard FTSE All-World High Dividend' x '25.5%",
-  // P9: tr scrollWidth=123 clientWidth=32 'Holding▼Received▼Last paid▼Count▼Cadence
-  "income|414x896|overflow":
-    "P9: tr scrollWidth=123 clientWidth=32 'Holding▼Received▼Last paid▼Count▼Cadence",
-  // P9: svg > 'Aug 26' x 'Oct 26
-  "income|414x896|overlap": "P9: svg > 'Aug 26' x 'Oct 26",
-  // P8: svg[data-testid=solver-chart-svg] > 'Target reached' x '€2.0M
-  "planning|1280x800|overlap":
-    "P8: svg[data-testid=solver-chart-svg] > 'Target reached' x '€2.0M",
-  // P9: svg[data-testid=solver-chart-svg] > 'Target reached' x '€2.0M
-  "planning|360x740|overlap":
-    "P9: svg[data-testid=solver-chart-svg] > 'Target reached' x '€2.0M",
-  // P9: svg[data-testid=solver-chart-svg] > 'Target reached' x '€2.0M
-  "planning|390x844|overlap":
-    "P9: svg[data-testid=solver-chart-svg] > 'Target reached' x '€2.0M",
-  // P9: svg[data-testid=solver-chart-svg] > 'Target reached' x '€2.0M
-  "planning|414x896|overlap":
-    "P9: svg[data-testid=solver-chart-svg] > 'Target reached' x '€2.0M",
-}
+const KNOWN_FAILURES: Record<string, string> = {}
 
 // Stress data on top of the standard seed: a long portfolio name and a
 // seven-figure balance, the two things most likely to overflow.

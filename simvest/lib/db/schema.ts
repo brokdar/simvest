@@ -58,6 +58,8 @@ export const goals = sqliteTable("goals", {
   target: real("target").notNull().default(0),
   swr: real("swr"),
   yieldAssumed: real("yield_assumed"),
+  /** Expected annual return % override; null = the scope's own track record. */
+  returnAssumed: real("return_assumed"),
   createdAt: integer("created_at")
     .notNull()
     .$defaultFn(() => Date.now()),

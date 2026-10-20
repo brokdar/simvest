@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { fmtAxisEUR, fmtEUR, fmtNum, fmtPct } from "@/lib/format"
 import { niceTicks } from "@/lib/charts/scales"
 import { useChartTouch } from "@/components/charts/use-chart-touch"
-import type { ProjectionPoint } from "@/lib/calc"
+import type { PlanningTrajectories } from "@/lib/goal-evaluator"
 import { svgNum } from "@/lib/charts/svg"
 
 // Conservative tooltip half-width used to keep it inside the plot on a narrow
@@ -16,16 +16,19 @@ export function SolverChart({
   startValue,
   portfolioTarget,
   horizon,
+  monthlySaving,
+  requiredMonthly,
 }: {
-  projections: {
-    cons: ProjectionPoint[]
-    exp: ProjectionPoint[]
-    opt: ProjectionPoint[]
-  }
+  projections: PlanningTrajectories
   startValue: number
   portfolioTarget: number
   horizon: number
+  /** Today's contribution — drives the "what actually happens" line. */
+  monthlySaving: number
+  /** The solved contribution the dashed line assumes. */
+  requiredMonthly: number
 }) {
+  type ProjectionPoint = PlanningTrajectories["exp"][number]
   // Index of the point currently shown in the tooltip (mouse, touch, or pinned
   // after a touch lift), or null. The hover payload is derived from it.
   const [activeIdx, setActiveIdx] = useState<number | null>(null)
@@ -59,6 +62,7 @@ export function SolverChart({
   const n = projections.exp.length
   const yMaxRaw = Math.max(
     projections.opt.at(-1)?.value ?? 0,
+    projections.current.at(-1)?.value ?? 0,
     portfolioTarget * 1.1,
     startValue
   )
@@ -118,6 +122,7 @@ export function SolverChart({
       ? null
       : {
           i: activeIdx,
+          current: projections.current[activeIdx].value,
           cons: projections.cons[activeIdx].value,
           exp: projections.exp[activeIdx].value,
           opt: projections.opt[activeIdx].value,
@@ -145,9 +150,15 @@ export function SolverChart({
   // overview chart's live region. Debounced via a string dep (stable by value)
   // with the only setState inside the timer, so no synchronous effect cascade.
   const ariaSummary = hover
-    ? `+${fmtNum(hover.months / 12, 1)} years: Optimistic ${fmtEUR(hover.opt, {
-        compact: true,
-      })}, Expected ${fmtEUR(hover.exp, {
+    ? `+${fmtNum(hover.months / 12, 1)} years: At your current contribution ${fmtEUR(
+        hover.current,
+        { compact: true }
+      )}; if you add ${fmtEUR(requiredMonthly)}/mo: Optimistic ${fmtEUR(
+        hover.opt,
+        {
+          compact: true,
+        }
+      )}, Expected ${fmtEUR(hover.exp, {
         compact: true,
       })}, Conservative ${fmtEUR(hover.cons, { compact: true })}`
     : ""
@@ -158,12 +169,14 @@ export function SolverChart({
   }, [ariaSummary])
 
   const targetY = y(portfolioTarget)
-  const targetReachedExp = projections.exp.findIndex(
+  // The marker tracks the *current-contribution* line: the solved line hits
+  // the target by construction, so marking it "reached" proved nothing.
+  const targetReachedExp = projections.current.findIndex(
     (p) => p.value >= portfolioTarget
   )
 
-  // Label placement. The "Target reached" marker sits where the expected line
-  // crosses the target line, so the two labels share a Y and (when the target
+  // Label placement. The "Target reached" marker sits where the current
+  // line crosses the target line, so the two labels share a Y and (when the target
   // is hit late in the horizon) an X — they used to overlap into an unreadable
   // smudge. Decouple them:
   //   • The "Target · €Xk" caption goes to the LEFT edge, freeing the right.
@@ -171,10 +184,17 @@ export function SolverChart({
   //     drops below its dot if it would otherwise sit on the target caption.
   const reachedX = targetReachedExp >= 0 ? x(targetReachedExp + 1) : 0
   const reachedY =
-    targetReachedExp >= 0 ? y(projections.exp[targetReachedExp].value) : 0
+    targetReachedExp >= 0 ? y(projections.current[targetReachedExp].value) : 0
   const reachedNearLeft = targetReachedExp >= 0 && reachedX < pad.l + 150
   const reachedNearRight = reachedX > W - pad.r - 96
-  const reachedAnchor = reachedNearRight ? "end" : "middle"
+  // A centred caption on an early crossing would spill left over the y-axis
+  // tick labels; start it at the dot instead (~66px is half its width).
+  const reachedNearAxis = !reachedNearRight && reachedX - 66 < pad.l + 4
+  const reachedAnchor = reachedNearRight
+    ? "end"
+    : reachedNearAxis
+      ? "start"
+      : "middle"
   // Keep the target caption clear of the chart top, and clear of the reached
   // dot when that dot is over on the left where the caption lives.
   const targetLabelBelow = targetY < pad.t + 18 || reachedNearLeft
@@ -185,7 +205,7 @@ export function SolverChart({
       <svg
         ref={svgRef}
         role="img"
-        aria-label="Projection chart showing conservative, expected, and optimistic portfolio growth"
+        aria-label={`Projection chart: growth at your current ${fmtEUR(monthlySaving)}/mo, and the conservative, expected and optimistic range if you add ${fmtEUR(requiredMonthly)}/mo`}
         viewBox={`0 0 ${W} ${H}`}
         width={W}
         height={H}
@@ -240,8 +260,17 @@ export function SolverChart({
         <path
           d={pathFor(projections.exp)}
           fill="none"
+          stroke="var(--primary-400)"
+          strokeWidth="2"
+          strokeDasharray="7 4"
+          data-testid="solver-line-solved"
+        />
+        <path
+          d={pathFor(projections.current)}
+          fill="none"
           stroke="var(--primary)"
           strokeWidth="2.75"
+          data-testid="solver-line-current"
         />
 
         <line
@@ -280,7 +309,7 @@ export function SolverChart({
               strokeWidth="2.5"
             />
             <text
-              x={reachedX + (reachedNearRight ? 4 : 0)}
+              x={reachedX + (reachedNearRight ? 4 : reachedNearAxis ? -4 : 0)}
               y={reachedY - 12}
               textAnchor={reachedAnchor}
               fontSize="var(--fs-2xs)"
@@ -291,8 +320,9 @@ export function SolverChart({
               stroke="var(--surface)"
               strokeWidth="3"
               strokeLinejoin="round"
+              data-testid="solver-reached-label"
             >
-              Target reached
+              Reached at your pace
             </text>
           </g>
         )}
@@ -308,8 +338,9 @@ export function SolverChart({
 
         {[
           { v: projections.opt.at(-1)?.value, c: "var(--tertiary)" },
-          { v: projections.exp.at(-1)?.value, c: "var(--primary)" },
+          { v: projections.exp.at(-1)?.value, c: "var(--primary-400)" },
           { v: projections.cons.at(-1)?.value, c: "var(--secondary-400)" },
+          { v: projections.current.at(-1)?.value, c: "var(--primary)" },
         ].map(
           (e, i) =>
             e.v !== undefined && (
@@ -317,10 +348,10 @@ export function SolverChart({
                 key={i}
                 cx={x(n)}
                 cy={y(e.v)}
-                r={i === 1 ? 5 : 3.5}
+                r={i === 3 ? 5 : 3.5}
                 fill="var(--surface)"
                 stroke={e.c}
-                strokeWidth={i === 1 ? 2.5 : 2}
+                strokeWidth={i === 3 ? 2.5 : 2}
               />
             )
         )}
@@ -337,10 +368,18 @@ export function SolverChart({
             />
             <circle
               cx={x(hover.i + 1)}
-              cy={y(hover.exp)}
+              cy={y(hover.current)}
               r="4.5"
               fill="var(--surface)"
               stroke="var(--primary)"
+              strokeWidth="2"
+            />
+            <circle
+              cx={x(hover.i + 1)}
+              cy={y(hover.exp)}
+              r="3.5"
+              fill="var(--surface)"
+              stroke="var(--primary-400)"
               strokeWidth="2"
             />
             <circle
@@ -397,6 +436,32 @@ export function SolverChart({
         {announce}
       </div>
 
+      <div className="solver-legend" data-testid="solver-legend">
+        <span
+          className="solver-legend-item"
+          data-testid="solver-legend-current"
+        >
+          <LegendSwatch color="var(--primary)" />
+          At your current {fmtEUR(monthlySaving)}/mo
+        </span>
+        <span className="solver-legend-item" data-testid="solver-legend-solved">
+          <LegendSwatch color="var(--primary-400)" dashed />
+          Reachable if you add {fmtEUR(requiredMonthly)}/mo
+        </span>
+        <span className="solver-legend-item">
+          <span
+            aria-hidden="true"
+            style={{
+              width: 18,
+              height: 10,
+              borderRadius: 2,
+              background: "color-mix(in srgb, var(--primary) 12%, transparent)",
+            }}
+          />
+          Conservative–optimistic range
+        </span>
+      </div>
+
       {hover &&
         (() => {
           // Clamp the tooltip inside the plot so long rows don't overflow the
@@ -421,6 +486,21 @@ export function SolverChart({
                 <span className="l">
                   <span
                     className="d"
+                    style={{ background: "var(--primary-300)" }}
+                  />
+                  At your pace
+                </span>
+                <span>{fmtEUR(hover.current, { compact: true })}</span>
+              </div>
+              <div className="tt-row" style={{ opacity: 0.8 }}>
+                <span className="l">
+                  If you add {fmtEUR(requiredMonthly, { compact: true })}/mo
+                </span>
+              </div>
+              <div className="tt-row">
+                <span className="l">
+                  <span
+                    className="d"
                     style={{ background: "var(--tertiary)" }}
                   />
                   Optimistic
@@ -431,7 +511,7 @@ export function SolverChart({
                 <span className="l">
                   <span
                     className="d"
-                    style={{ background: "var(--primary)" }}
+                    style={{ background: "var(--primary-400)" }}
                   />
                   Expected
                 </span>
@@ -456,14 +536,31 @@ export function SolverChart({
                   color: "var(--tooltip-fg-muted)",
                 }}
               >
-                Target: {fmtEUR(portfolioTarget, { compact: true })} ·{" "}
-                {hover.exp >= portfolioTarget
+                Target: {fmtEUR(portfolioTarget, { compact: true })} · at your
+                pace{" "}
+                {hover.current >= portfolioTarget
                   ? "✓ reached"
-                  : `${fmtPct((hover.exp / (portfolioTarget || 1)) * 100, 0)} of target`}
+                  : `${fmtPct((hover.current / (portfolioTarget || 1)) * 100, 0)} of target`}
               </div>
             </div>
           )
         })()}
     </div>
+  )
+}
+
+function LegendSwatch({ color, dashed }: { color: string; dashed?: boolean }) {
+  return (
+    <svg width="20" height="8" aria-hidden="true">
+      <line
+        x1="1"
+        x2="19"
+        y1="4"
+        y2="4"
+        stroke={color}
+        strokeWidth={dashed ? 2 : 2.75}
+        strokeDasharray={dashed ? "5 3" : undefined}
+      />
+    </svg>
   )
 }

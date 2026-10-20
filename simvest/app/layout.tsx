@@ -5,6 +5,7 @@ import "./globals.css"
 import { cn } from "@/lib/utils"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { DataProvider } from "@/components/providers/data-provider"
+import { ToastProvider } from "@/components/providers/toast"
 import { getInitialData } from "@/lib/db/queries"
 import { ThemeSync } from "@/components/providers/theme"
 import { THEME_INIT_SCRIPT } from "@/lib/theme"
@@ -56,7 +57,9 @@ export default async function RootLayout({
       <body>
         <ThemeSync />
         <TooltipProvider delayDuration={200}>
-          <DataProvider initial={initial}>{children}</DataProvider>
+          <ToastProvider>
+            <DataProvider initial={initial}>{children}</DataProvider>
+          </ToastProvider>
         </TooltipProvider>
       </body>
     </html>

@@ -44,7 +44,12 @@ export function collectLayoutIssues(): LayoutIssues {
   // Rects of the actual glyph runs (one range per text node). Ranging over a
   // whole element would also return its box (and, for SVG <g>, its bbox),
   // which over-reports overlaps between containers rather than between text.
-  const textRects = (el: Element): DOMRect[] => {
+  //
+  // With `clip`, each rect is cut to the nearest overflow:hidden/clip ancestors
+  // (a `text-overflow: ellipsis` label reports its full untruncated glyph run,
+  // which is not what the user sees). Used for overlap only; the money check
+  // needs the unclipped rect to detect the cut-off itself.
+  const textRects = (el: Element, clip = false): DOMRect[] => {
     const rects: DOMRect[] = []
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
@@ -53,8 +58,24 @@ export function collectLayoutIssues(): LayoutIssues {
       if (parent && isEffectivelyHidden(parent)) continue
       const range = document.createRange()
       range.selectNodeContents(n)
-      for (const r of Array.from(range.getClientRects()))
-        if (r.width > 0 && r.height > 0) rects.push(r)
+      for (const r of Array.from(range.getClientRects())) {
+        if (r.width <= 0 || r.height <= 0) continue
+        if (!clip || !parent) {
+          rects.push(r)
+          continue
+        }
+        let left = r.left
+        let right = r.right
+        for (let a: Element | null = parent; a; a = a.parentElement) {
+          const ox = getComputedStyle(a).overflowX
+          if (ox !== "hidden" && ox !== "clip") continue
+          const ar = a.getBoundingClientRect()
+          left = Math.max(left, ar.left)
+          right = Math.min(right, ar.right)
+        }
+        if (right - left > 0)
+          rects.push(new DOMRect(left, r.top, right - left, r.height))
+      }
     }
     return rects
   }
@@ -100,7 +121,7 @@ export function collectLayoutIssues(): LayoutIssues {
       return (c.textContent ?? "").trim().length > 0
     })
     if (kids.length < 2) return
-    const boxes = kids.map((k) => ({ k, rects: textRects(k) }))
+    const boxes = kids.map((k) => ({ k, rects: textRects(k, true) }))
     for (let i = 0; i < boxes.length; i++) {
       for (let j = i + 1; j < boxes.length; j++) {
         const hit = boxes[i].rects.some((a) =>

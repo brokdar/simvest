@@ -7,9 +7,11 @@ import * as schema from "./schema"
 
 declare global {
   var __simvestDb: ReturnType<typeof createClient> | undefined
+  var __simvestSqlite: Database.Database | undefined
 }
 
-function resolveDbPath() {
+/** Absolute path of the SQLite file (or ":memory:"), from DATABASE_URL. */
+export function resolveDbPath() {
   const raw = process.env.DATABASE_URL ?? "./data/simvest.db"
   const stripped = raw.startsWith("file:") ? raw.slice(5) : raw
   if (stripped === ":memory:") return stripped
@@ -31,6 +33,9 @@ function createClient() {
   // timeout the first one to migrate holds the write lock and the rest fail
   // with SQLITE_BUSY. 10 s is enough to outlast any normal startup contention.
   sqlite.pragma("busy_timeout = 10000")
+  // Kept for the few jobs Drizzle doesn't cover (the backup download's
+  // `.backup()`); on globalThis so it survives HMR alongside `db`.
+  globalThis.__simvestSqlite = sqlite
   return drizzle(sqlite, { schema })
 }
 
@@ -65,5 +70,11 @@ export const db: Client = isBuildPhase
   : (globalThis.__simvestDb ?? createClient())
 if (!isBuildPhase && process.env.NODE_ENV !== "production")
   globalThis.__simvestDb = db
+
+/** The raw better-sqlite3 handle behind `db`. Request time only. */
+export function rawSqlite(): Database.Database {
+  if (!globalThis.__simvestSqlite) throw new Error("SQLite is not open")
+  return globalThis.__simvestSqlite
+}
 
 export { schema }

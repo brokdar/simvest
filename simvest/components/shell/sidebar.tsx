@@ -24,7 +24,7 @@ export function Sidebar() {
         </div>
         <div className="brand-text">
           <div className="brand-name">Simvest</div>
-          <div className="brand-sub">Portfolio · Simulate</div>
+          <div className="brand-sub">Track &amp; plan</div>
         </div>
       </div>
 

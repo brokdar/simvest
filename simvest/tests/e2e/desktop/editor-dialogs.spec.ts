@@ -18,12 +18,12 @@ test.beforeEach(({}, testInfo) => {
 })
 
 // ---------------------------------------------------------------------------
-// E2E-D-DIALOG-007 — Goal editor opens from topbar "New goal" on /planning
+// E2E-D-DIALOG-007 — Goal editor opens from topbar "New goal" on /goals
 // ---------------------------------------------------------------------------
-test("E2E-D-DIALOG-007 — Goal editor opens from topbar New goal on /planning", async ({
+test("E2E-D-DIALOG-007 — Goal editor opens from topbar New goal on /goals", async ({
   page,
 }) => {
-  await page.goto("/planning")
+  await page.goto("/goals")
 
   await page.locator('button:has-text("New goal")').click()
 
@@ -37,7 +37,7 @@ test("E2E-D-DIALOG-007 — Goal editor opens from topbar New goal on /planning",
 test("E2E-D-DIALOG-008 — Goal editor color selection changes the active swatch border", async ({
   page,
 }) => {
-  await page.goto("/planning")
+  await page.goto("/goals")
   await page.locator('button:has-text("New goal")').click()
   await expect(page.locator('[data-slot="dialog-content"]')).toBeVisible()
 
@@ -73,7 +73,7 @@ test("E2E-D-DIALOG-008 — Goal editor color selection changes the active swatch
 test("E2E-D-DIALOG-009 — Goal editor Create goal disabled with empty name and annualIncome <= 0", async ({
   page,
 }) => {
-  await page.goto("/planning")
+  await page.goto("/goals")
   await page.locator('button:has-text("New goal")').click()
   await expect(page.locator('[data-slot="dialog-content"]')).toBeVisible()
 
@@ -121,7 +121,7 @@ test("E2E-D-DIALOG-010 — Portfolio editor opens from Add portfolio on /setting
   ).toHaveValue("")
 
   await expect(page.getByTestId("monthly-contribution-input")).toHaveValue(
-    "500.00"
+    "1,250.00"
   )
 
   const firstSwatch = page.locator(
@@ -174,7 +174,7 @@ test("E2E-D-DIALOG-012 — Cancel/close paths discard changes for goals and port
   page,
 }) => {
   // --- GoalEditor ---
-  await page.goto("/planning")
+  await page.goto("/goals")
   const goalCountBefore = await page
     .locator('[data-testid^="goal-card"]')
     .count()
@@ -221,7 +221,7 @@ test("E2E-D-DIALOG-013 — Escape key closes goal and portfolio dialogs", async 
   page,
 }) => {
   // --- GoalEditor ---
-  await page.goto("/planning")
+  await page.goto("/goals")
   await page.locator('button:has-text("New goal")').click()
   await expect(page.locator('[data-slot="dialog-content"]')).toBeVisible()
   await page.keyboard.press("Escape")
@@ -242,7 +242,7 @@ test("E2E-D-DIALOG-014 — Outside-click closes goal and portfolio dialogs", asy
   page,
 }) => {
   // --- GoalEditor ---
-  await page.goto("/planning")
+  await page.goto("/goals")
   await page.locator('button:has-text("New goal")').click()
   await expect(page.locator('[data-slot="dialog-content"]')).toBeVisible()
   await page.mouse.click(10, 10)
@@ -272,7 +272,7 @@ test("E2E-D-DIALOG-015 — Only one dialog can be open at a time", async ({
   await page.keyboard.press("Escape")
   await expect(page.locator('[role="dialog"]')).not.toBeVisible()
 
-  await page.goto("/planning")
+  await page.goto("/goals")
   await page.locator('button:has-text("New goal")').click()
   await expect(page.locator('[data-slot="dialog-content"]')).toBeVisible()
 
@@ -306,7 +306,7 @@ test("E2E-D-DIALOG-017 — Portfolio editor form resets to defaults on re-open a
   ).toHaveValue("")
 
   await expect(page.getByTestId("monthly-contribution-input")).toHaveValue(
-    "500.00"
+    "1,250.00"
   )
 })
 
@@ -316,7 +316,7 @@ test("E2E-D-DIALOG-017 — Portfolio editor form resets to defaults on re-open a
 test("E2E-D-DIALOG-018 — Goal editor form resets to defaults when reopened after cancel", async ({
   page,
 }) => {
-  await page.goto("/planning")
+  await page.goto("/goals")
 
   await page.getByTestId("action-new-goal").click()
   await expect(page.locator('[data-slot="dialog-content"]')).toBeVisible()

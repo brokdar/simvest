@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import Link from "next/link"
 import {
   useData,
   useDataActions,
@@ -9,8 +10,14 @@ import {
 import { GrowthChart } from "@/components/growth-chart"
 import { CombinedDataNotice } from "@/components/combined-data-notice"
 import { MonthlySavingControl, SliderRow, Stat } from "@/components/slider-row"
+import { SegControl } from "@/components/ui/seg-control"
 import { fmtEUR, fmtNum, fmtPct } from "@/lib/format"
-import { incomeByMonth, projectFuture, latestKnownValue } from "@/lib/calc"
+import {
+  incomeByMonth,
+  projectFuture,
+  latestKnownValue,
+  returnMilestones,
+} from "@/lib/calc"
 import type { GoalEvaluation, ProjectionPoint } from "@/lib/calc"
 import {
   COMBINED_PORTFOLIO_ID,
@@ -18,7 +25,13 @@ import {
   type SettingsDTO,
 } from "@/lib/types"
 import { swatch } from "@/lib/palette"
-import { fmtYearShort } from "@/lib/dates"
+import { fmtMonth, fmtYearShort } from "@/lib/dates"
+
+const NO_PROJECTION = {
+  base: [] as ProjectionPoint[],
+  conservative: [] as ProjectionPoint[],
+  optimistic: [] as ProjectionPoint[],
+}
 
 export function ChartView() {
   const {
@@ -37,12 +50,65 @@ export function ChartView() {
   // GrowthChart already deflates future points by settings.inflation when this
   // is on; default off so the chart shows nominal money unless asked.
   const [inflationAdjusted, setInflationAdjusted] = useState(false)
+  // L8: a 20-year plan runs the y-axis into the millions and flattens the
+  // real record into the bottom few pixels. "Your history" drops the
+  // projection so the axis fits what actually happened.
+  const [range, setRange] = useState<"plan" | "history">("plan")
 
   const evaluator = useGoalEvaluator()
   const active = activePortfolio
   const last = active.entries.at(-1)
   const isCombined = selectedPortfolio === COMBINED_PORTFOLIO_ID
-  const monthlySaving = effectiveMonthlySaving(selectedPortfolio)
+  const savedMonthlySaving = effectiveMonthlySaving(selectedPortfolio)
+
+  // The assumption sliders are a *preview* (W9): dragging them changes this
+  // page only. Nothing reaches Settings or the portfolio until "Apply to my
+  // plan" — the same try-then-commit model as the Planning Scratchpad. The
+  // preview is keyed to the portfolio so switching accounts drops it.
+  const saved: Assumptions = {
+    horizonYears: settings.horizonYears,
+    conservativeReturn: settings.conservativeReturn,
+    optimisticReturn: settings.optimisticReturn,
+    monthlySaving: savedMonthlySaving,
+  }
+  const [preview, setPreview] = useState<{
+    portfolioId: number
+    values: Partial<Assumptions>
+  } | null>(null)
+  const [justApplied, setJustApplied] = useState(false)
+  const overrides =
+    preview && preview.portfolioId === selectedPortfolio ? preview.values : {}
+  const plan: Assumptions = { ...saved, ...overrides }
+  const changed = (Object.keys(plan) as (keyof Assumptions)[]).filter(
+    (k) => plan[k] !== saved[k]
+  )
+  const dirty = changed.length > 0
+  const setAssumption = (patch: Partial<Assumptions>) => {
+    setJustApplied(false)
+    setPreview({
+      portfolioId: selectedPortfolio,
+      values: { ...overrides, ...patch },
+    })
+  }
+  const resetPreview = () => {
+    setPreview(null)
+    setJustApplied(false)
+  }
+  const applyPreview = () => {
+    const settingsPatch: Partial<Assumptions> = {}
+    for (const k of changed) {
+      if (k !== "monthlySaving") settingsPatch[k] = plan[k]
+    }
+    if (Object.keys(settingsPatch).length > 0) updateSettings(settingsPatch)
+    if (changed.includes("monthlySaving") && !isCombined) {
+      updatePortfolio(selectedPortfolio, {
+        targetMonthlyContribution: plan.monthlySaving,
+      })
+    }
+    setPreview(null)
+    setJustApplied(true)
+  }
+  const monthlySaving = plan.monthlySaving
   const histReturn = useMemo(
     () => evaluator.historicalReturnWithSource(active.id),
     [evaluator, active.id]
@@ -94,40 +160,113 @@ export function ChartView() {
       base: projectFuture({
         startValue,
         monthlySaving,
-        years: settings.horizonYears,
+        years: plan.horizonYears,
         annualReturn: histReturn.value,
       }),
       conservative: projectFuture({
         startValue,
         monthlySaving,
-        years: settings.horizonYears,
-        annualReturn: settings.conservativeReturn,
+        years: plan.horizonYears,
+        annualReturn: plan.conservativeReturn,
       }),
       optimistic: projectFuture({
         startValue,
         monthlySaving,
-        years: settings.horizonYears,
-        annualReturn: settings.optimisticReturn,
+        years: plan.horizonYears,
+        annualReturn: plan.optimisticReturn,
       }),
     }
-  }, [last, startValue, monthlySaving, settings, histReturn.value])
+  }, [
+    last,
+    startValue,
+    monthlySaving,
+    plan.horizonYears,
+    plan.conservativeReturn,
+    plan.optimisticReturn,
+    histReturn.value,
+  ])
 
   if (!last) {
     return (
       <div className="view">
-        <h1 className="title">Forecast</h1>
-        <div className="muted small" style={{ marginTop: 8 }}>
-          This portfolio has no entries yet — add a monthly entry to begin
-          projecting, or switch portfolios from the header.
+        <h1 className="title">Projection</h1>
+        <div className="card card-pad" style={{ marginTop: 16 }}>
+          <div className="empty-state" data-testid="projection-empty">
+            <div className="empty-title">Nothing to project from yet</div>
+            <div className="empty-sub">
+              Log what {active.name} is worth this month and the projection
+              starts from there — or switch accounts from the header.
+            </div>
+            <Link
+              href="/entries?new=entry"
+              className="btn btn-primary btn-sm"
+              data-testid="projection-empty-cta"
+            >
+              Log a month
+            </Link>
+          </div>
         </div>
       </div>
     )
   }
 
   const endBase = projection.base.at(-1)?.value ?? 0
+  // L8: how much of the y-axis the real record gets next to the projection.
+  const historyPeak = Math.max(0, ...active.entries.map((e) => e.value ?? 0))
+  const planPeak = Math.max(
+    historyPeak,
+    ...projection.optimistic.map((p) => p.value),
+    ...projection.base.map((p) => p.value)
+  )
+  const historySqueezed = planPeak > 0 && historyPeak / planPeak < 0.25
 
   const endCons = projection.conservative.at(-1)?.value ?? 0
   const endOpt = projection.optimistic.at(-1)?.value ?? 0
+
+  // "Your track record" is uncapped — it can beat the optimistic case or fall
+  // below the conservative one (N1). So the cards are ordered by rate, not
+  // by a fixed worst / typical / best slot, and the record says what it is.
+  const recordYears = recordSpanYears(active.entries)
+  const recordBadge =
+    histReturn.source === "assumed"
+      ? "Assumed 7% — not enough history yet"
+      : `If your last ${recordYears} repeat exactly`
+  const recordVsRange =
+    histReturn.source === "assumed"
+      ? null
+      : histReturn.value > plan.optimisticReturn
+        ? `Above your optimistic case (${fmtPct(plan.optimisticReturn, 1)})`
+        : histReturn.value < plan.conservativeReturn
+          ? `Below your conservative case (${fmtPct(plan.conservativeReturn, 1)})`
+          : null
+  const scenarios = [
+    {
+      key: "conservative",
+      label: "Conservative",
+      pct: plan.conservativeReturn,
+      end: endCons,
+      endInvested: projection.conservative.at(-1)?.invested ?? 0,
+      color: "var(--secondary-400)",
+    },
+    {
+      key: "base",
+      label: "Your track record",
+      pct: histReturn.value,
+      end: endBase,
+      endInvested: projection.base.at(-1)?.invested ?? 0,
+      color: "var(--primary)",
+      badge: recordBadge,
+      note: recordVsRange,
+    },
+    {
+      key: "optimistic",
+      label: "Optimistic",
+      pct: plan.optimisticReturn,
+      end: endOpt,
+      endInvested: projection.optimistic.at(-1)?.invested ?? 0,
+      color: "var(--tertiary)",
+    },
+  ].sort((a, b) => a.pct - b.pct)
 
   return (
     <div className="view">
@@ -142,7 +281,7 @@ export function ChartView() {
         }}
       >
         <div>
-          <h1 className="title">Forecast</h1>
+          <h1 className="title">Projection</h1>
           <div className="muted small" style={{ marginTop: 4 }}>
             Your portfolio&apos;s trajectory — grounded in real data.
           </div>
@@ -162,8 +301,26 @@ export function ChartView() {
             flexWrap: "wrap",
           }}
         >
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <SegControl<"plan" | "history">
+              ariaLabel="What the chart shows"
+              testId="chart-range"
+              options={[
+                { value: "plan", label: "With projection" },
+                { value: "history", label: "Your history" },
+              ]}
+              value={range}
+              onChange={setRange}
+            />
             <label
+              className="check-label"
               style={{
                 display: "flex",
                 gap: 6,
@@ -181,6 +338,7 @@ export function ChartView() {
               <span>Show dividends</span>
             </label>
             <label
+              className="check-label"
               style={{
                 display: "flex",
                 gap: 6,
@@ -191,6 +349,12 @@ export function ChartView() {
             >
               <input
                 type="checkbox"
+                disabled={range === "history"}
+                title={
+                  range === "history"
+                    ? "Only changes the projection — the history is what you actually had"
+                    : undefined
+                }
                 checked={inflationAdjusted}
                 onChange={(e) => setInflationAdjusted(e.target.checked)}
                 data-testid="chart-inflation-adjusted"
@@ -198,7 +362,7 @@ export function ChartView() {
               <span>Inflation-adjusted (real)</span>
             </label>
           </div>
-          <div className="legend">
+          <div className="legend" data-testid="chart-legend">
             <div className="it">
               <span
                 className="sw line"
@@ -206,27 +370,31 @@ export function ChartView() {
               />
               Value (historical)
             </div>
-            <div className="it">
-              <span
-                className="sw line"
-                style={{ background: "var(--primary)", opacity: 0.4 }}
-              />
-              Base projection
-            </div>
-            <div className="it">
-              <span
-                className="sw line"
-                style={{ background: "var(--tertiary)" }}
-              />
-              Optimistic
-            </div>
-            <div className="it">
-              <span
-                className="sw line"
-                style={{ background: "var(--secondary-400)" }}
-              />
-              Conservative
-            </div>
+            {range === "plan" && (
+              <>
+                <div className="it">
+                  <span
+                    className="sw line"
+                    style={{ background: "var(--primary)", opacity: 0.4 }}
+                  />
+                  Your track record
+                </div>
+                <div className="it">
+                  <span
+                    className="sw line"
+                    style={{ background: "var(--tertiary)" }}
+                  />
+                  Optimistic
+                </div>
+                <div className="it">
+                  <span
+                    className="sw line"
+                    style={{ background: "var(--secondary-400)" }}
+                  />
+                  Conservative
+                </div>
+              </>
+            )}
             <div className="it">
               <span
                 className="sw line"
@@ -236,15 +404,15 @@ export function ChartView() {
                   height: 0,
                 }}
               />
-              Invested
+              Total invested
             </div>
           </div>
         </div>
 
         <GrowthChart
           entries={active.entries}
-          projection={projection}
-          monthlySaving={settings.monthlySaving}
+          projection={range === "history" ? NO_PROJECTION : projection}
+          monthlySaving={monthlySaving}
           inflation={settings.inflation}
           options={{ showDividends, inflationAdjusted }}
           goalLines={goalLines}
@@ -252,6 +420,32 @@ export function ChartView() {
           dividendsByMonth={dividendIndex}
           coverage={isCombined ? combinedCoverage : undefined}
         />
+        <div
+          className="muted small"
+          style={{ marginTop: 6 }}
+          data-testid="chart-range-note"
+        >
+          {range === "history" ? (
+            <>
+              Just what actually happened —{" "}
+              {fmtMonth(active.entries[0].year, active.entries[0].month)} to{" "}
+              {fmtMonth(last.year, last.month)}, scaled to fit.
+            </>
+          ) : historySqueezed ? (
+            <>
+              The plan runs to {fmtEUR(planPeak, { compact: true })}, so your
+              real record sits low on this scale.{" "}
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => setRange("history")}
+                data-testid="chart-range-zoom"
+              >
+                See your history up close
+              </button>
+            </>
+          ) : null}
+        </div>
 
         <div className="hr" />
 
@@ -259,71 +453,40 @@ export function ChartView() {
           <div data-testid="stat-horizon">
             <Stat
               label="Horizon"
-              value={`${settings.horizonYears} years`}
-              sub={`to ${fmtYearShort(new Date().getFullYear() + settings.horizonYears)}`}
+              value={`${plan.horizonYears} years`}
+              sub={`to ${fmtYearShort(new Date().getFullYear() + plan.horizonYears)}`}
             />
           </div>
-          <div data-testid="stat-optimistic">
-            <Stat
-              label={`Optimistic @ ${fmtPct(settings.optimisticReturn, 1)}`}
-              value={fmtEUR(endOpt, { compact: true })}
-              sub={
-                fmtPct((endOpt / startValue - 1) * 100, 0, true) + " vs today"
-              }
-            />
-          </div>
-          <div data-testid="stat-base">
-            <Stat
-              label={`Base @ ${fmtPct(histReturn.value, 1)} ${
-                histReturn.source === "assumed" ? "assumed" : "hist."
-              }`}
-              value={fmtEUR(endBase, { compact: true })}
-              sub={
-                fmtPct((endBase / startValue - 1) * 100, 0, true) + " vs today"
-              }
-            />
-          </div>
-          <div data-testid="stat-conservative">
-            <Stat
-              label={`Conservative @ ${fmtPct(settings.conservativeReturn, 1)}`}
-              value={fmtEUR(endCons, { compact: true })}
-              sub={
-                fmtPct((endCons / startValue - 1) * 100, 0, true) + " vs today"
-              }
-            />
-          </div>
+          {[...scenarios].reverse().map((sc) => (
+            <div key={sc.key} data-testid={`stat-${sc.key}`}>
+              <Stat
+                label={`${sc.label} @ ${fmtPct(sc.pct, 1)}`}
+                value={fmtEUR(sc.end, { compact: true })}
+                sub={
+                  fmtPct((sc.end / startValue - 1) * 100, 0, true) + " vs today"
+                }
+              />
+            </div>
+          ))}
         </div>
       </div>
 
       <div className="grid-3 grid" style={{ marginTop: 16 }}>
-        <ScenarioCard
-          label="Conservative"
-          pct={settings.conservativeReturn}
-          endValue={endCons}
-          endInvested={projection.conservative.at(-1)?.invested ?? 0}
-          startValue={startValue}
-          color="var(--secondary-400)"
-          testId="scenario-card-conservative"
-        />
-        <ScenarioCard
-          label="Base (historical)"
-          pct={histReturn.value}
-          endValue={endBase}
-          endInvested={projection.base.at(-1)?.invested ?? 0}
-          startValue={startValue}
-          color="var(--primary)"
-          accent
-          testId="scenario-card-base"
-        />
-        <ScenarioCard
-          label="Optimistic"
-          pct={settings.optimisticReturn}
-          endValue={endOpt}
-          endInvested={projection.optimistic.at(-1)?.invested ?? 0}
-          startValue={startValue}
-          color="var(--tertiary)"
-          testId="scenario-card-optimistic"
-        />
+        {scenarios.map((sc) => (
+          <ScenarioCard
+            key={sc.key}
+            label={sc.label}
+            pct={sc.pct}
+            endValue={sc.end}
+            endInvested={sc.endInvested}
+            startValue={startValue}
+            color={sc.color}
+            accent={sc.key === "base"}
+            badge={sc.badge}
+            note={sc.note ?? undefined}
+            testId={`scenario-card-${sc.key}`}
+          />
+        ))}
       </div>
 
       <div className="card card-pad" style={{ marginTop: 16 }}>
@@ -340,82 +503,102 @@ export function ChartView() {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              marginBottom: 14,
+              marginBottom: 6,
+              gap: 8,
+              flexWrap: "wrap",
             }}
           >
-            <h3 style={{ fontSize: "var(--fs-lg)" }}>Planning assumptions</h3>
+            <h3 style={{ fontSize: "var(--fs-lg)" }}>Try other assumptions</h3>
             <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-                fontSize: "var(--fs-2xs)",
-                fontWeight: 500,
-                color: "var(--tertiary)",
-                background:
-                  "color-mix(in srgb, var(--tertiary) 10%, transparent)",
-                borderRadius: 20,
-                padding: "2px 8px",
-              }}
+              className={`chip ${dirty ? "warn" : ""}`}
+              data-testid="assumptions-status"
+              data-dirty={dirty ? "true" : "false"}
             >
-              <svg
-                width="10"
-                height="10"
-                viewBox="0 0 10 10"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M8.5 2.5L4 7.5L1.5 5"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              Saved to settings
+              {dirty
+                ? "Preview — not saved"
+                : justApplied
+                  ? "Saved to your plan"
+                  : "Matches your plan"}
             </span>
+          </div>
+          <div className="muted small" style={{ marginBottom: 10 }}>
+            Drag freely — only this chart changes until you apply.
           </div>
           <SliderRow
             label="Horizon"
-            value={settings.horizonYears}
+            value={plan.horizonYears}
             min={1}
             max={40}
             step={1}
-            suffix=" years"
-            onChange={(v) => updateSettings({ horizonYears: v })}
+            unit="years"
+            onChange={(v) => setAssumption({ horizonYears: v })}
             testId="chart-slider-horizon"
           />
           <MonthlySavingControl
             isCombined={isCombined}
             value={monthlySaving}
-            onChange={(v) =>
-              !isCombined &&
-              updatePortfolio(selectedPortfolio, {
-                targetMonthlyContribution: v,
-              })
-            }
+            onChange={(v) => !isCombined && setAssumption({ monthlySaving: v })}
+            testId="chart-slider-saving"
           />
           <SliderRow
             label="Conservative return"
-            value={settings.conservativeReturn}
+            value={plan.conservativeReturn}
             min={0}
             max={8}
             step={0.1}
-            suffix="%"
-            onChange={(v) => updateSettings({ conservativeReturn: v })}
+            unit="percent"
+            onChange={(v) => setAssumption({ conservativeReturn: v })}
             testId="chart-slider-conservative"
           />
           <SliderRow
             label="Optimistic return"
-            value={settings.optimisticReturn}
+            value={plan.optimisticReturn}
             min={5}
             max={15}
             step={0.1}
-            suffix="%"
-            onChange={(v) => updateSettings({ optimisticReturn: v })}
+            unit="percent"
+            onChange={(v) => setAssumption({ optimisticReturn: v })}
             testId="chart-slider-optimistic"
           />
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              marginTop: 12,
+              flexWrap: "wrap",
+              alignItems: "center",
+            }}
+          >
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={!dirty}
+              onClick={applyPreview}
+              data-testid="assumptions-apply"
+            >
+              Apply to my plan
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              disabled={!dirty}
+              onClick={resetPreview}
+              data-testid="assumptions-reset"
+            >
+              Reset
+            </button>
+          </div>
+          <div
+            className="muted small"
+            style={{ marginTop: 8, fontSize: "var(--fs-2xs)" }}
+            data-testid="assumptions-apply-hint"
+          >
+            {dirty
+              ? `Apply saves ${describeChanges(changed, active.name)} — Settings and Goals use them too.`
+              : justApplied
+                ? "Done — Settings and Goals now use these numbers."
+                : "These are your saved plan settings."}
+          </div>
         </div>
 
         <div className="card card-pad" data-testid="milestones-card">
@@ -424,10 +607,12 @@ export function ChartView() {
           </h3>
           <Milestones
             projection={projection}
-            settings={settings}
+            startValue={startValue}
+            monthlySaving={monthlySaving}
             goals={scopedGoals}
             goalEvals={goalEvals}
             histReturn={histReturn.value}
+            horizonYears={plan.horizonYears}
           />
         </div>
       </div>
@@ -451,61 +636,45 @@ function formatGoalSubLabel(g: GoalDTO, ev: GoalEvaluation): string {
 
 function Milestones({
   projection,
-  settings,
+  startValue,
+  monthlySaving,
   goals,
   goalEvals,
   histReturn,
+  horizonYears,
 }: {
   projection: {
     base: ProjectionPoint[]
     conservative: ProjectionPoint[]
     optimistic: ProjectionPoint[]
   }
-  settings: SettingsDTO
+  startValue: number
+  monthlySaving: number
   goals: GoalDTO[]
   goalEvals: Record<number, GoalEvaluation>
   histReturn: number
+  horizonYears: number
 }) {
-  const rAnnual = histReturn / 100
-  const monthlySavings = settings.monthlySaving
-  const yearlySavings = settings.monthlySaving * 12
-
-  const find = (target: number) => {
-    for (let i = 0; i < projection.base.length; i++) {
-      const v = projection.base[i].value
-      if (v * rAnnual >= target) return { month: i, value: v }
-    }
-    return null
-  }
-
-  const covers = [
-    {
-      label: "Annual return covers monthly savings",
-      target: monthlySavings,
-      color: "var(--tertiary)",
-    },
-    {
-      label: "Annual return covers yearly savings",
-      target: yearlySavings,
-      color: "var(--primary)",
-    },
-    {
-      label: "Annual return covers 2× yearly savings",
-      target: yearlySavings * 2,
-      color: "var(--secondary)",
-    },
-  ]
+  // Measured from today (N2): the old version searched the projection from
+  // its first month, so every milestone already behind you read "in ~0,0y".
+  const milestones = returnMilestones({
+    startValue,
+    monthlySaving,
+    annualReturn: histReturn,
+    projection: projection.base,
+  })
+  const yearly = monthlySaving * 12
+  const earnsNow = startValue * (histReturn / 100)
 
   const goalReaches = goals.map((g) => {
     const ev = goalEvals[g.id]
     const portfolioTargetValue = ev?.portfolioTargetValue ?? 0
     let hit: number | null = null
     if (ev) {
-      for (let i = 0; i < projection.base.length; i++) {
-        if (projection.base[i].value >= portfolioTargetValue) {
-          hit = i
-          break
-        }
+      if (startValue >= portfolioTargetValue) hit = 0
+      else {
+        const p = projection.base.find((x) => x.value >= portfolioTargetValue)
+        hit = p ? p.month : null
       }
     }
     return {
@@ -518,15 +687,31 @@ function Milestones({
     }
   })
 
+  const label = (multiple: number) =>
+    multiple === 1
+      ? "Returns match what you add each year"
+      : `Returns are ${multiple}× what you add`
+
   return (
     <div>
-      {covers.map((c) => {
-        const found = find(c.target)
-        const yearsOut = found ? fmtNum(found.month / 12, 1) : "—"
-        return (
+      <div
+        className="muted small"
+        style={{ marginBottom: 6 }}
+        data-testid="milestones-summary"
+      >
+        {yearly <= 0
+          ? "You aren’t adding money here, so there’s nothing for returns to out-earn."
+          : histReturn <= 0
+            ? `At your record of ${fmtPct(histReturn, 1)}/yr the portfolio doesn’t grow on its own, so returns never out-earn the ${fmtEUR(yearly, { compact: true })}/yr you add.`
+            : `Today ${fmtEUR(startValue, { compact: true })} at ${fmtPct(histReturn, 1)}/yr earns about ${fmtEUR(earnsNow, { compact: true })} a year — ${fmtNum(earnsNow / yearly, 1)}× the ${fmtEUR(yearly, { compact: true })} you add.`}
+      </div>
+      {yearly > 0 &&
+        histReturn > 0 &&
+        milestones.map((m) => (
           <div
-            key={c.label}
+            key={m.multiple}
             data-testid="milestone-row"
+            data-reached={m.reached ? "true" : "false"}
             style={{
               display: "flex",
               alignItems: "center",
@@ -535,27 +720,28 @@ function Milestones({
               borderTop: "1px solid var(--border)",
             }}
           >
-            <div
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: 2,
-                background: swatch(c.color),
-              }}
-            />
-            <div style={{ flex: 1, fontSize: "var(--fs-sm)", fontWeight: 500 }}>
-              {c.label}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500 }}>
+                {label(m.multiple)}
+              </div>
+              <div className="muted small">
+                {fmtEUR(m.threshold, { compact: true })}/yr from returns
+              </div>
             </div>
-            <div className="mono small" style={{ fontWeight: 600 }}>
-              {found ? (
-                `in ~${yearsOut}y · ${fmtEUR(found.value, { compact: true })}`
+            <div
+              className="mono small"
+              style={{ fontWeight: 600, textAlign: "right" }}
+            >
+              {m.reached ? (
+                <span className="pos">Reached</span>
+              ) : m.months !== null ? (
+                `in ~${fmtNum(m.months / 12, 1)}y · at ${fmtEUR(m.value, { compact: true })}`
               ) : (
-                <span className="muted">not within horizon</span>
+                <span className="muted">not within {horizonYears} years</span>
               )}
             </div>
           </div>
-        )
-      })}
+        ))}
       <div
         style={{
           fontSize: "var(--fs-2xs)",
@@ -596,7 +782,9 @@ function Milestones({
             <div className="muted small">{g.subLabel}</div>
           </div>
           <div className="mono small" style={{ fontWeight: 600 }}>
-            {g.hit !== null ? (
+            {g.hit === 0 ? (
+              <span className="pos">Reached</span>
+            ) : g.hit !== null ? (
               `~${fmtNum(g.hit / 12, 1)}y`
             ) : (
               <span className="muted">not reached</span>
@@ -616,6 +804,8 @@ function ScenarioCard({
   startValue,
   color,
   accent,
+  badge,
+  note,
   testId,
 }: {
   label: string
@@ -625,6 +815,10 @@ function ScenarioCard({
   startValue: number
   color: string
   accent?: boolean
+  /** What the rate assumes, said plainly ("If your last 6 years repeat…"). */
+  badge?: string
+  /** Where the rate sits against the assumption range, when outside it. */
+  note?: string
   testId?: string
 }) {
   const gain = endValue - endInvested
@@ -658,6 +852,15 @@ function ScenarioCard({
           {label}
         </span>
       </div>
+      {badge && (
+        <div
+          className="chip"
+          data-testid={testId ? `${testId}-badge` : undefined}
+          style={{ marginBottom: 6 }}
+        >
+          {badge}
+        </div>
+      )}
       <div
         className="mono"
         style={{
@@ -672,6 +875,15 @@ function ScenarioCard({
       <div className="muted small mono">
         {fmtPct(pct, 1)}/yr · {fmtNum(mult, 1)}× start
       </div>
+      {note && (
+        <div
+          className="small"
+          style={{ color: "var(--info)", marginTop: 2 }}
+          data-testid={testId ? `${testId}-note` : undefined}
+        >
+          {note}
+        </div>
+      )}
       <div className="hr" style={{ margin: "10px 0" }} />
       <div
         style={{
@@ -680,7 +892,7 @@ function ScenarioCard({
           fontSize: "var(--fs-xs)",
         }}
       >
-        <span className="muted">Invested</span>
+        <span className="muted">Total invested</span>
         <span className="mono">{fmtEUR(endInvested, { compact: true })}</span>
       </div>
       <div
@@ -791,4 +1003,37 @@ function ContribBreakdown({
       </div>
     </div>
   )
+}
+
+type Assumptions = Pick<
+  SettingsDTO,
+  "horizonYears" | "conservativeReturn" | "optimisticReturn"
+> & { monthlySaving: number }
+
+/** "horizon and Trade Republic’s monthly contribution" — what Apply writes. */
+function describeChanges(
+  keys: (keyof Assumptions)[],
+  portfolioName: string
+): string {
+  const parts = keys.map((k) =>
+    k === "horizonYears"
+      ? "the horizon"
+      : k === "conservativeReturn"
+        ? "the conservative return"
+        : k === "optimisticReturn"
+          ? "the optimistic return"
+          : `${portfolioName}’s monthly contribution`
+  )
+  if (parts.length <= 1) return parts.join("")
+  return `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`
+}
+
+/** "6 years" / "8 months" — how much history the track record rests on. */
+function recordSpanYears(entries: { year: number; month: number }[]): string {
+  const first = entries[0]
+  const last = entries.at(-1)
+  if (!first || !last) return "0 months"
+  const months = (last.year - first.year) * 12 + (last.month - first.month) + 1
+  if (months < 18) return `${months} ${months === 1 ? "month" : "months"}`
+  return `${fmtNum(months / 12, 0)} years`
 }

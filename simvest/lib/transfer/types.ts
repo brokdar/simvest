@@ -60,6 +60,8 @@ export type TransferPortfolioFile = {
     target: number
     swr: number | null
     yieldAssumed: number | null
+    /** Optional in files written before the field existed. */
+    returnAssumed?: number | null
     createdAt: number
   }>
   /**

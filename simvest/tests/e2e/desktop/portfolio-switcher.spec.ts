@@ -170,8 +170,8 @@ test.describe("Portfolio switcher — desktop", () => {
     expect(stored).toBe("0")
   })
 
-  // E2E-D-SWITCHER-007 — Switcher reflects selection on /chart view as well
-  test("E2E-D-SWITCHER-007 — switcher reflects selection on /chart view", async ({
+  // E2E-D-SWITCHER-007 — Switcher reflects selection on /projection view as well
+  test("E2E-D-SWITCHER-007 — switcher reflects selection on /projection view", async ({
     page,
   }) => {
     await page.goto("/")
@@ -188,9 +188,9 @@ test.describe("Portfolio switcher — desktop", () => {
       page.getByTestId("portfolio-switcher-content")
     ).not.toBeVisible()
 
-    // Navigate to /chart via the sidebar
-    await page.getByTestId("nav-chart").click()
-    await page.waitForURL("**/chart")
+    // Navigate to /projection via the sidebar
+    await page.getByTestId("nav-projection").click()
+    await page.waitForURL("**/projection")
 
     // The chart page switcher should show the same portfolio
     await expect(
@@ -198,11 +198,11 @@ test.describe("Portfolio switcher — desktop", () => {
     ).toContainText(portfolioName!)
   })
 
-  // E2E-D-SWITCHER-008 — Combined view: Monthly saving shows read-only sum on /chart
-  test("E2E-D-SWITCHER-008 — Combined view shows read-only monthly saving sum on /chart", async ({
+  // E2E-D-SWITCHER-008 — Combined view: Monthly saving shows read-only sum on /projection
+  test("E2E-D-SWITCHER-008 — Combined view shows read-only monthly saving sum on /projection", async ({
     page,
   }) => {
-    await page.goto("/chart")
+    await page.goto("/projection")
 
     // In Combined mode, the monthly saving should be read-only
     const readonlyControl = page.getByTestId("monthly-saving-readonly")
@@ -218,13 +218,13 @@ test.describe("Portfolio switcher — desktop", () => {
     ).not.toBeAttached()
   })
 
-  // E2E-D-SWITCHER-009 — Specific portfolio: Monthly saving shows an editable slider on /chart
-  test("E2E-D-SWITCHER-009 — specific portfolio shows editable monthly saving slider on /chart", async ({
+  // E2E-D-SWITCHER-009 — Specific portfolio: Monthly saving shows an editable slider on /projection
+  test("E2E-D-SWITCHER-009 — specific portfolio shows editable monthly saving slider on /projection", async ({
     page,
   }) => {
     // Set localStorage before navigating so the portfolio is selected on load
     await preselectPortfolio(page, 1)
-    await page.goto("/chart")
+    await page.goto("/projection")
 
     // The hint text should NOT be present
     await expect(
@@ -273,20 +273,26 @@ test.describe("Portfolio switcher — desktop", () => {
 
   // E2E-D-SWITCHER-011 — The header switcher is context-aware: it appears on
   // portfolio-scoped routes and is hidden on routes whose content ignores the
-  // selection (Holdings lists all portfolios, Settings is global).
+  // selection (Planning goals carry their own scope, Settings is global).
   test("E2E-D-SWITCHER-011 — switcher shows on scoped routes and is hidden on non-scoped routes", async ({
     page,
   }) => {
     const trigger = page.getByTestId("portfolio-switcher-trigger")
 
     // Scoped routes: present.
-    for (const route of ["/", "/chart", "/entries", "/income"]) {
+    for (const route of [
+      "/",
+      "/projection",
+      "/entries",
+      "/holdings",
+      "/income",
+    ]) {
       await page.goto(route)
       await expect(trigger).toBeVisible()
     }
 
     // Non-scoped routes: absent.
-    for (const route of ["/holdings", "/planning", "/settings"]) {
+    for (const route of ["/goals", "/settings"]) {
       await page.goto(route)
       await expect(trigger).toHaveCount(0)
     }

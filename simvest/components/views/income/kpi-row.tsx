@@ -2,12 +2,19 @@
 
 import { useMemo } from "react"
 import {
+  aggregateIncomeBySource,
   concentrationTop,
-  trailing12mIncome,
-  trailingYoYDelta,
+  concentrationVerdict,
 } from "@/lib/calc"
-import { fmtEUR, fmtPct } from "@/lib/format"
-import type { DividendBasis, IncomeEventDTO, IncomeKind } from "@/lib/types"
+import { fromMonthIdx, incomeWindow } from "@/lib/income-window"
+import { fmtEUR, fmtPct, plural } from "@/lib/format"
+import { fmtMonth } from "@/lib/dates"
+import {
+  BASIS_LABEL,
+  type DividendBasis,
+  type IncomeEventDTO,
+  type IncomeKind,
+} from "@/lib/types"
 
 type Props = {
   events: IncomeEventDTO[]
@@ -17,6 +24,13 @@ type Props = {
   totalScoped: number
   /** SSR-anchored "now" — see DataProvider.today. */
   asOf: Date
+  /** Portfolio id → display name, for the like-for-like disclosure. */
+  portfolioName: (id: number) => string
+}
+
+const monthOf = (idx: number) => {
+  const { year, month } = fromMonthIdx(idx)
+  return fmtMonth(year, month)
 }
 
 export function KpiRow({
@@ -26,38 +40,63 @@ export function KpiRow({
   basis,
   totalScoped,
   asOf,
+  portfolioName,
 }: Props) {
-  const last12 = useMemo(
-    () => trailing12mIncome(events, scopeId, kindFilter, basis, asOf),
-    [events, scopeId, kindFilter, basis, asOf]
-  )
-  const yoy = useMemo(
-    () => trailingYoYDelta(events, scopeId, kindFilter, basis, asOf),
+  // Both windows end with the last month that has a recorded payout, not with
+  // today — months not imported yet are a gap, not €0 (N4/N5).
+  const win = useMemo(
+    () =>
+      incomeWindow(events, {
+        portfolioId: scopeId,
+        kind: kindFilter,
+        basis,
+        now: asOf,
+      }),
     [events, scopeId, kindFilter, basis, asOf]
   )
   const conc = useMemo(
     () => concentrationTop(events, 3, basis),
     [events, basis]
   )
+  const sourceCount = useMemo(
+    () => aggregateIncomeBySource(events, "all", basis).length,
+    [events, basis]
+  )
+  const verdict = concentrationVerdict(conc.topPct, sourceCount)
 
-  const deltaSign = yoy.deltaAbs > 0 ? "+" : yoy.deltaAbs < 0 ? "−" : ""
+  const delta = win.deltaAbs ?? 0
+  const deltaSign = delta > 0 ? "+" : delta < 0 ? "-" : ""
+  // A drop in income is worth noticing, not an error: warn, never critical.
   const deltaColor =
-    yoy.deltaAbs > 0
-      ? "var(--good)"
-      : yoy.deltaAbs < 0
-        ? "var(--critical)"
-        : "var(--neutral-400)"
-  const deltaClass =
-    yoy.deltaAbs > 0 ? "pos" : yoy.deltaAbs < 0 ? "neg" : "muted"
+    win.deltaPct === null
+      ? "var(--neutral-400)"
+      : delta > 0
+        ? "var(--good)"
+        : delta < 0
+          ? "var(--warn)"
+          : "var(--neutral-400)"
   const deltaText =
-    yoy.prior12 > 0
-      ? `${deltaSign}${fmtEUR(Math.abs(yoy.deltaAbs))} over last 12 mo`
-      : "No prior-year baseline yet"
+    win.prior12 === null
+      ? "No prior-year baseline yet"
+      : `${deltaSign}${fmtEUR(Math.abs(delta))} vs the 12 months before`
+  const windowText =
+    win.anchor === null
+      ? "Nothing recorded yet"
+      : `12 months to ${monthOf(win.anchor)}`
+  const lagText =
+    win.lagging.length > 0
+      ? `Like-for-like: ${win.lagging
+          .map(
+            (l) =>
+              `${portfolioName(l.portfolioId)} through ${monthOf(l.through)}`
+          )
+          .join(", ")}`
+      : null
 
   return (
     <div className="grid-4 grid" style={{ marginBottom: 16 }}>
       <div className="kpi accent" data-testid="kpi-inc-total">
-        <div className="label">Total ({basis})</div>
+        <div className="label">Total ({BASIS_LABEL[basis]})</div>
         <div className="value mono">{fmtEUR(totalScoped)}</div>
         <div className="delta" style={{ color: "var(--hero-fg-soft)" }}>
           Since inception
@@ -65,34 +104,62 @@ export function KpiRow({
       </div>
       <div className="kpi" data-testid="kpi-inc-last12">
         <div className="label">Last 12 months</div>
-        <div className="value mono">{fmtEUR(last12)}</div>
-        <div className="delta muted">Rolling trailing year</div>
+        <div className="value mono">{fmtEUR(win.last12)}</div>
+        <div className="delta muted" data-testid="kpi-inc-last12-window">
+          {windowText}
+          {win.anchor !== null && win.monthsSinceAnchor > 0
+            ? ` · nothing recorded for the ${win.monthsSinceAnchor} ${plural(win.monthsSinceAnchor, "month", "months")} since`
+            : ""}
+        </div>
       </div>
       <div className="kpi" data-testid="kpi-inc-yoy">
-        <div className="label">Trailing YoY</div>
+        <div className="label">Vs the year before</div>
         <div className="value mono">
-          {yoy.prior12 > 0 ? fmtPct(yoy.deltaPct, 1, true) : "—"}
+          {win.deltaPct !== null ? fmtPct(win.deltaPct, 1, true) : "—"}
         </div>
         <div
-          className={`delta ${deltaClass}`}
+          className={`delta ${win.deltaPct === null ? "muted" : delta > 0 ? "pos" : delta < 0 ? "neg" : "muted"}`}
           style={{ color: deltaColor }}
           aria-live="polite"
           data-testid="kpi-inc-yoy-delta"
         >
           {deltaText}
         </div>
+        {lagText && (
+          <div
+            className="delta muted"
+            data-testid="kpi-inc-yoy-partial"
+            title="Months a portfolio hasn’t been imported for yet are left out of both years, so the comparison stays fair."
+          >
+            {lagText}
+          </div>
+        )}
       </div>
       <div className="kpi" data-testid="kpi-inc-concentration">
-        <div className="label">Concentration</div>
+        <div className="label">Top 3 sources</div>
         <div className="value mono">
           {conc.leaders.length > 0 ? fmtPct(conc.topPct, 0) : "—"}
         </div>
         <ConcentrationBar leaders={conc.leaders} />
-        <div className="delta muted">
+        <div
+          className="delta"
+          data-testid="kpi-inc-concentration-verdict"
+          style={{
+            color:
+              verdict.level === "concentrated" || verdict.level === "few"
+                ? "var(--warn)"
+                : "var(--neutral-500)",
+          }}
+        >
           {conc.leaders.length > 0
-            ? `Top: ${conc.leaders[0].name} ${fmtPct(conc.leaders[0].pct, 0)}`
+            ? `of your income · ${verdict.text}`
             : "No payouts yet"}
         </div>
+        {conc.leaders.length > 0 && (
+          <div className="delta muted">
+            Biggest: {conc.leaders[0].name} {fmtPct(conc.leaders[0].pct, 0)}
+          </div>
+        )}
       </div>
     </div>
   )

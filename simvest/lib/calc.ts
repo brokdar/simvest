@@ -583,9 +583,16 @@ export type GoalEvaluation = {
   onTrack: boolean
   requiredMonthly: number
   expectedReturn: number
-  /** Whether `expectedReturn` was derived from the scope's return history or
-   * fell back to the 7% assumption. */
-  expectedReturnSource: "derived" | "assumed"
+  /** Whether `expectedReturn` is the goal's own override, derived from the
+   * scope's return history, or the 7% fallback assumption. */
+  expectedReturnSource: "override" | "derived" | "assumed"
+  /** The scope's own track record, whatever `expectedReturn` ended up being —
+   * so the UI can show "your record" next to an override. */
+  historicalReturn: ReturnEstimate
+  /** Name of the portfolio the return comes from ("Combined" for combined). */
+  returnScopeName: string
+  /** Monthly entries behind `historicalReturn`. */
+  returnEntryCount: number
   monthlySaving: number
   scopedKpiValue: number
   swrUsed?: number
@@ -628,8 +635,10 @@ export function evaluateGoal(
       : aggregatePortfolios(ctx.portfolios)
 
   const K = computeKPIs(scoped)
-  const expected = historicalAnnualReturnWithSource(scoped.entries)
-  const expectedReturn = expected.value
+  const historical = historicalAnnualReturnWithSource(scoped.entries)
+  const expectedReturn = goal.returnAssumed ?? historical.value
+  const expectedReturnSource =
+    goal.returnAssumed != null ? "override" : historical.source
   const years = Math.max(goal.targetYear - currentYear, 1 / 12)
   const scopedPortfolioId =
     goal.scope === "portfolio" ? (goal.portfolioId ?? undefined) : undefined
@@ -747,7 +756,10 @@ export function evaluateGoal(
     onTrack,
     requiredMonthly,
     expectedReturn,
-    expectedReturnSource: expected.source,
+    expectedReturnSource,
+    historicalReturn: historical,
+    returnScopeName: scoped.name,
+    returnEntryCount: scoped.entries.length,
     monthlySaving: ctx.monthlySaving,
     scopedKpiValue: K.value,
     swrUsed,
@@ -905,11 +917,12 @@ export function aggregateIncomeByMonthSource(
 
 /**
  * Infer payout cadence from the median day-gap between consecutive `paidDate`
- * values. Buckets: <45 monthly, <135 quarterly, <270 semi-annual, <540 annual,
- * else irregular. Returns "irregular" when fewer than 2 events exist.
+ * values. Buckets: <4 daily, <17 weekly, <45 monthly, <135 quarterly, <270
+ * semi-annual, <540 annual, else irregular. Fewer than 2 payout dates is
+ * "single" — one data point says nothing about the rhythm (C10).
  */
 export function inferCadence(events: IncomeEventDTO[]): IncomeCadence {
-  if (events.length < 2) return "irregular"
+  if (events.length < 2) return "single"
   const sorted = [...events].sort((a, b) => (a.paidDate < b.paidDate ? -1 : 1))
   const gaps: number[] = []
   for (let i = 1; i < sorted.length; i++) {
@@ -918,11 +931,13 @@ export function inferCadence(events: IncomeEventDTO[]): IncomeCadence {
     const days = (curr - prev) / 86_400_000
     if (days > 0) gaps.push(days)
   }
-  if (gaps.length === 0) return "irregular"
+  if (gaps.length === 0) return "single"
   gaps.sort((a, b) => a - b)
   const mid = Math.floor(gaps.length / 2)
   const median =
     gaps.length % 2 === 0 ? (gaps[mid - 1] + gaps[mid]) / 2 : gaps[mid]
+  if (median < 4) return "daily"
+  if (median < 17) return "weekly"
   if (median < 45) return "monthly"
   if (median < 135) return "quarterly"
   if (median < 270) return "semi-annual"
@@ -955,6 +970,40 @@ export function concentrationTop(
     leaders.push({ name: "Rest", pct: restPct })
   }
   return { topPct, leaders }
+}
+
+export type ConcentrationVerdict = {
+  level: "spread" | "moderate" | "concentrated" | "few"
+  /** One plain sentence saying what the share means. */
+  text: string
+}
+
+/**
+ * What a top-3 share means (N10). High concentration isn't an error, it's a
+ * risk to know about: one source cutting its payout hits the total hard. With
+ * three or fewer sources the top-3 share is trivially 100%, so say that
+ * instead of a misleading "100% concentrated".
+ */
+export function concentrationVerdict(
+  topPct: number,
+  sourceCount: number
+): ConcentrationVerdict {
+  if (sourceCount <= 3) {
+    return {
+      level: "few",
+      text:
+        sourceCount === 1
+          ? "All from one source — one cut stops it"
+          : `Only ${sourceCount} sources — each one matters`,
+    }
+  }
+  if (topPct >= 75)
+    return {
+      level: "concentrated",
+      text: "Concentrated — a cut at one hits hard",
+    }
+  if (topPct >= 50) return { level: "moderate", text: "Moderately spread" }
+  return { level: "spread", text: "Well spread across sources" }
 }
 
 /**
@@ -1046,4 +1095,186 @@ export function aggregateIncomeBySource(
       pct: grandTotal > 0 ? Math.round((rawTotal / grandTotal) * 1000) / 10 : 0,
     }))
     .sort((a, b) => b.total - a.total)
+}
+
+/** A row's value change net of contributions, and the real gap it spans. */
+export type ValueChange = {
+  /** Value change minus everything added since the compared row. */
+  delta: number
+  /** Calendar months between this row and the one it's compared with. */
+  gapMonths: number
+}
+
+/**
+ * The M/M Δ for `entries[i]` (N13): compared with the closest earlier entry
+ * that has a recorded value, net of every contribution in between, and
+ * reporting how many calendar months that really spans. Null when the row
+ * has no value or nothing earlier does. `value`/`invested` let a caller pass
+ * an unsaved draft for row `i`.
+ */
+export function valueChange(
+  entries: EntryDTO[],
+  i: number,
+  current: { value: number | null; invested: number } = entries[i]
+): ValueChange | null {
+  if (current.value === null) return null
+  let added = current.invested
+  for (let j = i - 1; j >= 0; j--) {
+    const prev = entries[j]
+    if (prev.value !== null) {
+      const gapMonths =
+        (entries[i].year - prev.year) * 12 + (entries[i].month - prev.month)
+      return { delta: current.value - prev.value - added, gapMonths }
+    }
+    added += prev.invested
+  }
+  return null
+}
+
+/**
+ * Best and worst single month of value change net of contributions. Only
+ * pairs exactly one calendar month apart count — a three-month gap would
+ * otherwise be reported as one "month".
+ */
+export function bestWorstMonth(entries: EntryDTO[]): {
+  best: number
+  worst: number
+} {
+  let best = 0
+  let worst = 0
+  for (let i = 1; i < entries.length; i++) {
+    const c = valueChange(entries, i)
+    if (!c || c.gapMonths !== 1) continue
+    if (c.delta > best) best = c.delta
+    if (c.delta < worst) worst = c.delta
+  }
+  return { best, worst }
+}
+
+export type ReturnMilestone = {
+  /** Multiple of yearly contributions the expected return must reach. */
+  multiple: number
+  /** Expected yearly return (€) that hits the milestone. */
+  threshold: number
+  /** True when today's portfolio already earns it. */
+  reached: boolean
+  /** Months from now until the projection hits it; 0 when reached; null
+   * when not within the projection. */
+  months: number | null
+  /** Projected portfolio value at that point. */
+  value: number | null
+}
+
+/**
+ * "Your returns out-earn your contributions" (N2). For each multiple of the
+ * yearly contribution, when does a year's expected return (value × rate)
+ * first reach it? Measured from today's value, so a milestone that is
+ * already behind you says "reached" instead of "in ~0,0y".
+ */
+export function returnMilestones(args: {
+  startValue: number
+  monthlySaving: number
+  annualReturn: number
+  projection: ProjectionPoint[]
+  multiples?: number[]
+}): ReturnMilestone[] {
+  const { startValue, monthlySaving, annualReturn, projection } = args
+  const multiples = args.multiples ?? [1, 2, 5]
+  const r = annualReturn / 100
+  const yearly = monthlySaving * 12
+  return multiples.map((multiple) => {
+    const threshold = yearly * multiple
+    if (!(yearly > 0) || !(r > 0)) {
+      return { multiple, threshold, reached: false, months: null, value: null }
+    }
+    if (startValue * r >= threshold) {
+      return {
+        multiple,
+        threshold,
+        reached: true,
+        months: 0,
+        value: startValue,
+      }
+    }
+    const hit = projection.find((p) => p.value * r >= threshold)
+    return {
+      multiple,
+      threshold,
+      reached: false,
+      months: hit ? hit.month : null,
+      value: hit ? hit.value : null,
+    }
+  })
+}
+
+/**
+ * Holdings ranked by what they earn (W3): trailing-12-month income first,
+ * then all-time received, then name — so the top earner leads regardless of
+ * which account it sits in. Returns a new array.
+ */
+export function rankByIncome<
+  T extends { trailing12: number; total: number; name: string },
+>(rows: T[]): T[] {
+  return [...rows].sort(
+    (a, b) =>
+      b.trailing12 - a.trailing12 ||
+      b.total - a.total ||
+      a.name.localeCompare(b.name)
+  )
+}
+
+/** The latest month-over-month move, for the Overview KPI deltas (W8). */
+export type LatestMonthChange = {
+  year: number
+  month: number
+  /** Value change over the month, contributions included. */
+  valueDelta: number
+  /** What was added in that month (all contributions since the compared row). */
+  added: number
+  /** Net of contributions — the market's part (same figure as the M/M Δ). */
+  marketDelta: number
+  /** Calendar months the comparison spans (1 = a true month). */
+  gapMonths: number
+}
+
+/**
+ * Every month-over-month move in a series, oldest first: each entry with a
+ * value compared with the closest earlier one through `valueChange` (N13's
+ * gap-aware M/M Δ). With `coverage` (the Combined view), months where any
+ * account's value was carried forward are skipped on both sides, so a move
+ * describes every account, not one account's update against the others'
+ * stale balances.
+ */
+export function monthMoves(
+  entries: EntryDTO[],
+  coverage?: MonthCoverage[]
+): LatestMonthChange[] {
+  const complete = (i: number) => !coverage || coverage[i]?.estimated === false
+  const out: LatestMonthChange[] = []
+  for (let i = 1; i < entries.length; i++) {
+    if (entries[i].value === null || !complete(i)) continue
+    let j = i - 1
+    while (j >= 0 && entries[j].value === null) j--
+    if (j < 0 || !complete(j)) continue
+    const c = valueChange(entries, i)
+    if (!c) continue
+    const valueDelta = entries[i].value! - entries[j].value!
+    out.push({
+      year: entries[i].year,
+      month: entries[i].month,
+      valueDelta,
+      added: valueDelta - c.delta,
+      marketDelta: c.delta,
+      gapMonths: c.gapMonths,
+    })
+  }
+  return out
+}
+
+/** The newest of `monthMoves` — the Overview KPI deltas (W8). */
+export function latestMonthChange(
+  entries: EntryDTO[],
+  coverage?: MonthCoverage[]
+): LatestMonthChange | null {
+  return monthMoves(entries, coverage).at(-1) ?? null
 }

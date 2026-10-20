@@ -1,10 +1,13 @@
 "use client"
 
+import Link from "next/link"
 import type { ReactNode } from "react"
+import { useDataActions } from "@/components/providers/data-provider"
 import { ProgressRing } from "@/components/progress-ring"
 import { fmtEUR, fmtPct } from "@/lib/format"
-import type { GoalDTO } from "@/lib/types"
+import type { GoalDTO, PortfolioDTO } from "@/lib/types"
 import type { GoalEvaluation } from "@/lib/calc"
+import { goalVerdict } from "@/lib/goal-evaluator"
 import { swatch } from "@/lib/palette"
 
 function goalLineFor(g: GoalDTO): string {
@@ -20,19 +23,21 @@ function goalLineFor(g: GoalDTO): string {
   }
 }
 
-/** On-track verdict + projected-reach year, surfaced from the evaluation. */
-function goalStatus(ev: GoalEvaluation | undefined): {
+/**
+ * On-track verdict + projected-reach year, surfaced from the evaluation. A
+ * goal that's behind is something to adjust, not an error: warn, and the
+ * line leads with what closes the gap (T2).
+ */
+function goalStatus(
+  ev: GoalEvaluation | undefined,
+  targetYear: number
+): {
   text: string
-  cls: "pos" | "neg" | "muted"
+  cls: "pos" | "warn" | "muted"
 } {
   if (!ev) return { text: "—", cls: "muted" }
-  const reach =
-    ev.projectedYear !== null
-      ? `reaches ${Math.round(ev.projectedYear)}`
-      : "not within 40y"
-  return ev.onTrack
-    ? { text: `On track · ${reach}`, cls: "pos" }
-    : { text: `Behind · ${reach}`, cls: "neg" }
+  const v = goalVerdict(ev, targetYear)
+  return { text: v.text, cls: v.onTrack ? "pos" : "warn" }
 }
 
 type Props = {
@@ -43,6 +48,8 @@ type Props = {
    * strip is hidden on an empty list (no error, no empty card). */
   emptyState?: ReactNode
   testId?: string
+  /** Lets a portfolio-scoped goal link to its account (W6). */
+  portfolios?: PortfolioDTO[]
 }
 
 /**
@@ -56,7 +63,9 @@ export function GoalProgressStrip({
   title = "Goal progress",
   emptyState,
   testId = "goal-progress-section",
+  portfolios = [],
 }: Props) {
+  const { setSelectedPortfolio } = useDataActions()
   if (goals.length === 0 && emptyState == null) return null
   return (
     <div className="card card-pad" data-testid={testId}>
@@ -80,7 +89,11 @@ export function GoalProgressStrip({
       {goals.map((g) => {
         const ev = goalEvals[g.id]
         const pct = Math.min(1, Math.max(0, ev?.pct ?? 0))
-        const status = goalStatus(ev)
+        const status = goalStatus(ev, g.targetYear)
+        const account =
+          g.scope === "portfolio"
+            ? portfolios.find((p) => p.id === g.portfolioId)
+            : undefined
         return (
           <div
             key={g.id}
@@ -102,9 +115,13 @@ export function GoalProgressStrip({
                   alignItems: "baseline",
                 }}
               >
-                <div style={{ fontWeight: 600, fontSize: "var(--fs-md)" }}>
+                <Link
+                  href={`/goals?goal=${g.id}`}
+                  className="goal-item-name tap-pad"
+                  data-testid="goal-item-link"
+                >
                   {g.name}
-                </div>
+                </Link>
                 <div
                   className="mono small"
                   style={{ fontWeight: 600 }}
@@ -116,6 +133,19 @@ export function GoalProgressStrip({
               <div className="muted small">
                 {goalLineFor(g)} · target {g.targetYear} · needs{" "}
                 {fmtEUR(ev?.portfolioTargetValue ?? 0, { compact: true })}
+                {account && (
+                  <>
+                    {" · in "}
+                    <Link
+                      href="/"
+                      onClick={() => setSelectedPortfolio(account.id)}
+                      className="goal-item-account"
+                      data-testid="goal-item-account"
+                    >
+                      {account.name}
+                    </Link>
+                  </>
+                )}
               </div>
               <div
                 className={`small ${status.cls}`}
@@ -124,6 +154,23 @@ export function GoalProgressStrip({
               >
                 {status.text}
               </div>
+              {/* W6: "€X/mo more gets you there" — one click to where the
+                  monthly contribution is set. */}
+              {ev && !ev.onTrack && (
+                <Link
+                  href={
+                    account
+                      ? `/settings#contribution-${account.id}`
+                      : "/settings#portfolios"
+                  }
+                  className="goal-item-fix small tap-pad"
+                  data-testid="goal-item-fix"
+                >
+                  {ev.monthlySaving > 0
+                    ? "Change your monthly contribution →"
+                    : "Set a monthly contribution →"}
+                </Link>
+              )}
             </div>
           </div>
         )

@@ -268,6 +268,14 @@ export function validateTransferFile(
       }
       yieldAssumed = n
     }
+    let returnAssumed: number | null = null
+    if (g.returnAssumed !== null && g.returnAssumed !== undefined) {
+      const n = asFiniteNumber(g.returnAssumed)
+      if (n === null) {
+        return err(`goals[${i}].returnAssumed must be a finite number or null.`)
+      }
+      returnAssumed = n
+    }
     const gCreatedAt = asFiniteNumber(g.createdAt)
     if (gCreatedAt === null) {
       return err(`goals[${i}].createdAt is required.`)
@@ -280,6 +288,7 @@ export function validateTransferFile(
       target,
       swr,
       yieldAssumed,
+      returnAssumed,
       createdAt: gCreatedAt,
     })
   }

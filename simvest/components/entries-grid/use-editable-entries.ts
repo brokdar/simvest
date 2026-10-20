@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useDataActions } from "@/components/providers/data-provider"
+import { useToast } from "@/components/providers/toast"
 import type { EntryDTO, PortfolioDTO } from "@/lib/types"
 import {
   hasCellErrors,
@@ -30,6 +31,7 @@ export type UseEditableEntries = ReturnType<typeof useEditableEntries>
 
 export function useEditableEntries(portfolio: PortfolioDTO) {
   const { upsertEntry, deleteEntry } = useDataActions()
+  const { toast } = useToast()
   const [state, setState] = useState<EditableEntriesState>(initialState)
   const [editMode, setEditMode] = useState(false)
   const [pendingFocusKey, setPendingFocusKey] = useState<string | null>(null)
@@ -253,6 +255,10 @@ export function useEditableEntries(portfolio: PortfolioDTO) {
       if (failed === 0) {
         setEditMode(false)
         setSaveStatus(`Saved ${saved} ${saved === 1 ? "entry" : "entries"}.`)
+        // The footer leaves with edit mode, so the toast is what confirms it.
+        toast(
+          `Saved ${saved} ${saved === 1 ? "change" : "changes"} to ${portfolio.name}`
+        )
       } else {
         setSaveStatus(
           `Saved ${saved}, ${failed} failed. Review the highlighted ${failed === 1 ? "row" : "rows"}.`
@@ -260,7 +266,14 @@ export function useEditableEntries(portfolio: PortfolioDTO) {
       }
       setIsSaving(false)
     })()
-  }, [portfolio.id, upsertEntry, deleteEntry, existingByMonth])
+  }, [
+    portfolio.id,
+    portfolio.name,
+    upsertEntry,
+    deleteEntry,
+    existingByMonth,
+    toast,
+  ])
 
   const clearSaveStatus = useCallback(() => setSaveStatus(null), [])
 

@@ -623,7 +623,7 @@ export function PasteImportFlow({
                 <thead>
                   <tr>
                     <th>Month</th>
-                    <th className="num">Invested</th>
+                    <th className="num">Added this month</th>
                     <th className="num">Value</th>
                     <th>Note</th>
                     <th style={{ width: 150 }}>Action</th>

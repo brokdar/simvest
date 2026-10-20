@@ -77,7 +77,7 @@ test.describe("Views — mobile", () => {
   test("E2E-M-VIEWS-005 — growth chart SVG fills container width without horizontal scroll", async ({
     page,
   }) => {
-    await page.goto("/chart")
+    await page.goto("/projection")
     // Wait for the SVG to be attached AND laid out before reading its rect.
     // The previous version used `document.querySelector(...).getBoundingClientRect()`
     // synchronously inside `page.evaluate` — under cold-load timing the SVG
@@ -115,7 +115,7 @@ test.describe("Views — mobile", () => {
   test("E2E-M-VIEWS-005b — tapping the forecast chart pins a tooltip within the viewport", async ({
     page,
   }) => {
-    await page.goto("/chart")
+    await page.goto("/projection")
 
     const svg = page.locator('[data-testid="growth-chart-svg"]')
     await expect(svg).toBeVisible()
@@ -145,7 +145,7 @@ test.describe("Views — mobile", () => {
   test("E2E-M-VIEWS-006 — growth chart scenario stats row stacks to single column", async ({
     page,
   }) => {
-    await page.goto("/chart")
+    await page.goto("/projection")
 
     const gridCols = await page.evaluate(() => {
       // chart-stats-grid uses .grid-4
@@ -241,7 +241,7 @@ test.describe("Views — mobile", () => {
     // The old Simulation "Free Sandbox / Goal Solver" tab strip was retired —
     // Simulation merged into Forecast and Goal Solver became the Planning view.
     // The Planning page exposes a horizontally scrollable strip of goal tiles.
-    await page.goto("/planning")
+    await page.goto("/goals")
 
     const goalStrip = page.locator('[data-testid="goal-strip"]')
     await expect(goalStrip).toBeVisible()
@@ -264,7 +264,7 @@ test.describe("Views — mobile", () => {
   test("E2E-M-VIEWS-010 — planning goal tile selection works on mobile", async ({
     page,
   }) => {
-    await page.goto("/planning")
+    await page.goto("/goals")
 
     const tiles = page.locator('[data-testid^="goal-tile-"]')
     await expect(tiles.first()).toBeVisible()
@@ -285,7 +285,7 @@ test.describe("Views — mobile", () => {
   test("E2E-M-VIEWS-011 — planning view has no horizontal scroll on mobile", async ({
     page,
   }) => {
-    await page.goto("/planning")
+    await page.goto("/goals")
     const overflow = await page.evaluate(
       () =>
         document.documentElement.scrollWidth >
@@ -298,7 +298,7 @@ test.describe("Views — mobile", () => {
   test("E2E-M-VIEWS-012 — goals cards stack to a single column on mobile", async ({
     page,
   }) => {
-    await page.goto("/planning")
+    await page.goto("/goals")
 
     const gridCols = await page.evaluate(() => {
       // .grid-2 in the planning view collapses to 1fr at max-width: 860px
@@ -306,7 +306,7 @@ test.describe("Views — mobile", () => {
       return el ? window.getComputedStyle(el).gridTemplateColumns : ""
     })
     // `1fr` resolves to a px value at runtime — assert single-column instead.
-    // Empty string means the .grid-2 element isn't on /planning anymore — treat as N/A.
+    // Empty string means the .grid-2 element isn't on /goals anymore — treat as N/A.
     if (gridCols) {
       const columnCount = gridCols.split(" ").filter(Boolean).length
       expect(columnCount).toBe(1)
@@ -322,7 +322,7 @@ test.describe("Views — mobile", () => {
   test("E2E-M-VIEWS-013 — goals page has no horizontal scroll", async ({
     page,
   }) => {
-    await page.goto("/planning")
+    await page.goto("/goals")
     const overflow = await page.evaluate(
       () =>
         document.documentElement.scrollWidth >
@@ -418,10 +418,11 @@ test.describe("Views — mobile", () => {
   // Parameterized: all routes — no horizontal scroll at iPhone width
   for (const route of [
     "/",
-    "/chart",
+    "/projection",
     "/entries",
-    "/simulation",
     "/goals",
+    "/income",
+    "/holdings",
     "/settings",
   ]) {
     test(`E2E-M-VIEWS-P — ${route} has no horizontal scroll at iPhone width`, async ({

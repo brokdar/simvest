@@ -14,7 +14,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { COMBINED_PORTFOLIO_ID } from "@/lib/types"
 
 type ActionDescriptor = {
   kind: EditorKind
@@ -26,11 +25,10 @@ type ActionDescriptor = {
 
 export function HeaderShell() {
   const pathname = usePathname()
-  const { selectedPortfolio, portfolios, holdings } = useData()
+  const { portfolios, holdings } = useData()
   const { requestNew } = useEditorIntentBus()
 
   const action = describeAction(pathname, {
-    isCombined: selectedPortfolio === COMBINED_PORTFOLIO_ID,
     hasPortfolios: portfolios.length > 0,
     hasHoldings: holdings.length > 0,
   })
@@ -54,10 +52,16 @@ export function HeaderShell() {
 
 // The portfolio switcher belongs in the header so the selection control is
 // always reachable — a view's empty-state early-return can no longer hide it
-// (the bug on /chart). It only appears on routes whose content actually
-// responds to the selection; /holdings (lists all portfolios), /planning
-// (goals carry their own scope) and /settings (global) ignore it.
-const PORTFOLIO_SCOPED_ROUTES = new Set(["/", "/chart", "/entries", "/income"])
+// (the bug on /projection). It only appears on routes whose content actually
+// responds to the selection; /goals (goals carry their own scope) and
+// /settings (global) ignore it.
+const PORTFOLIO_SCOPED_ROUTES = new Set([
+  "/",
+  "/projection",
+  "/entries",
+  "/holdings",
+  "/income",
+])
 function showsPortfolioSelector(pathname: string | null): boolean {
   return pathname !== null && PORTFOLIO_SCOPED_ROUTES.has(pathname)
 }
@@ -96,7 +100,7 @@ function HeaderActionButton({
 
 function describeAction(
   pathname: string | null,
-  ctx: { isCombined: boolean; hasPortfolios: boolean; hasHoldings: boolean }
+  ctx: { hasPortfolios: boolean; hasHoldings: boolean }
 ): ActionDescriptor | null {
   switch (pathname) {
     case "/entries":
@@ -105,9 +109,10 @@ function describeAction(
         label: "New entry",
         variant: "primary",
         testId: "action-new-entry",
-        disabledReason: ctx.isCombined
-          ? "Switch to a specific portfolio to add entries"
-          : undefined,
+        // In Combined it focuses the catch-up form (W1) — never a dead end.
+        disabledReason: ctx.hasPortfolios
+          ? undefined
+          : "Create a portfolio first",
       }
     case "/holdings":
       return {
@@ -127,7 +132,7 @@ function describeAction(
         testId: "action-new-dividend",
         disabledReason: ctx.hasHoldings ? undefined : "Add a holding first",
       }
-    case "/planning":
+    case "/goals":
       return {
         kind: "goal",
         label: "New goal",

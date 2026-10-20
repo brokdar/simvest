@@ -49,7 +49,7 @@ test("E2E-D-ENTRIES-001 — Page renders heading, subtitle with record count, an
   const headers = table.locator("thead th")
   const headerTexts = await headers.allTextContents()
   expect(headerTexts.some((t) => t.includes("Date"))).toBeTruthy()
-  expect(headerTexts.some((t) => t.includes("Invested"))).toBeTruthy()
+  expect(headerTexts.some((t) => t.includes("Added this month"))).toBeTruthy()
   expect(headerTexts.some((t) => t.includes("Portfolio value"))).toBeTruthy()
   expect(headerTexts.some((t) => t.includes("M/M"))).toBeTruthy()
   expect(headerTexts.some((t) => t.includes("Note"))).toBeTruthy()
@@ -165,23 +165,23 @@ test("E2E-D-ENTRIES-005 — Changing the bar chart window selector updates the v
   expect(countAll).toBeGreaterThan(count3y)
 })
 
-test("E2E-D-ENTRIES-EDIT-006 — Combined mode shows read-only banner, disables Edit table and topbar New entry", async ({
+test("E2E-D-ENTRIES-EDIT-006 — Combined mode leads with the catch-up form; the history grid stays read-only", async ({
   page,
 }) => {
   await page.goto("/entries")
   await page.waitForSelector('[data-testid="entries-table"]')
 
-  const banner = page.locator('[data-testid="combined-readonly-banner"]')
-  await expect(banner).toBeVisible()
-  const bannerText = await banner.textContent()
-  expect(bannerText).toContain("Combined view is read-only")
+  // W1 (P6): no read-only dead end — the catch-up form takes its place.
+  await expect(page.getByTestId("catchup-panel")).toBeVisible()
+  await expect(page.getByTestId("combined-readonly-banner")).toHaveCount(0)
 
   const editBtn = page.locator('[data-testid="btn-edit-table"]')
   await expect(editBtn).toBeVisible()
   await expect(editBtn).toBeDisabled()
 
+  // The topbar action now focuses the catch-up form instead of greying out.
   const newEntryBtn = page.locator('[data-testid="action-new-entry"]')
-  await expect(newEntryBtn).toBeDisabled()
+  await expect(newEntryBtn).toBeEnabled()
 
   // No per-row pencils anymore — read mode does not expose row-level edit
   // affordances.

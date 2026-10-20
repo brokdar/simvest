@@ -21,6 +21,12 @@ type Props = {
   testId?: string
   disabled?: boolean
   maxDate?: { year: number; month: number } // inclusive upper bound; defaults to "now"
+  /** Earliest year the year stepper reaches; defaults to 1970. */
+  minYear?: number
+  /** Extra per-month gate, e.g. "only months that have an entry". */
+  isMonthEnabled?: (year: number, month: number) => boolean
+  /** A month must stay picked — hides "Clear". */
+  required?: boolean
 }
 
 const MONTH_KEYS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
@@ -33,6 +39,9 @@ export function MonthYearPicker({
   testId,
   disabled = false,
   maxDate,
+  minYear = MIN_YEAR,
+  isMonthEnabled,
+  required = false,
 }: Props) {
   const now = new Date()
   const upper = maxDate ?? {
@@ -57,7 +66,8 @@ export function MonthYearPicker({
   function isMonthDisabled(year: number, monthIdx0: number): boolean {
     if (year > upper.year) return true
     if (year === upper.year && monthIdx0 + 1 > upper.month) return true
-    if (year < MIN_YEAR) return true
+    if (year < minYear) return true
+    if (isMonthEnabled && !isMonthEnabled(year, monthIdx0 + 1)) return true
     return false
   }
 
@@ -105,8 +115,8 @@ export function MonthYearPicker({
           <button
             type="button"
             aria-label="Previous year"
-            onClick={() => setViewYear((y) => Math.max(MIN_YEAR, y - 1))}
-            disabled={viewYear <= MIN_YEAR}
+            onClick={() => setViewYear((y) => Math.max(minYear, y - 1))}
+            disabled={viewYear <= minYear}
             className="btn btn-icon btn-ghost"
             style={{ height: 28, width: 28 }}
           >
@@ -179,7 +189,7 @@ export function MonthYearPicker({
             </div>
           ))}
         </div>
-        {value !== null && (
+        {value !== null && !required && (
           <button
             type="button"
             onClick={() => {

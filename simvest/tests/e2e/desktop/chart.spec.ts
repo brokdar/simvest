@@ -16,7 +16,7 @@
  * Tests use the actual source testids. Flagged in the final report.
  */
 import { test, expect } from "../fixtures"
-import { preselectPortfolio } from "../helpers"
+import { preselectPortfolio, setRange } from "../helpers"
 
 test.beforeEach(({}, testInfo) => {
   test.skip(testInfo.project.name !== "chromium-desktop", "desktop only")
@@ -40,12 +40,12 @@ test.afterEach(async ({ resetDb }) => {
 test("E2E-D-CHART-001 — Page renders heading, chart SVG, and 'NOW' divider", async ({
   page,
 }) => {
-  await page.goto("/chart")
+  await page.goto("/projection")
   await page.waitForSelector('[data-testid="growth-chart-svg"]')
 
   const heading = page.locator("h1.title")
   await expect(heading).toBeVisible()
-  await expect(heading).toHaveText("Forecast")
+  await expect(heading).toHaveText("Projection")
 
   const chartSvg = page.locator('[data-testid="growth-chart-svg"]')
   await expect(chartSvg).toBeVisible()
@@ -63,7 +63,7 @@ test("E2E-D-CHART-001 — Page renders heading, chart SVG, and 'NOW' divider", a
 
   // Legend items are visible as text within the chart card
   await expect(page.locator('text="Value (historical)"')).toBeVisible()
-  await expect(page.locator('text="Base projection"')).toBeVisible()
+  await expect(page.locator('text="Your track record"').first()).toBeVisible()
   await expect(page.locator('text="Optimistic"').first()).toBeVisible()
   await expect(page.locator('text="Conservative"').first()).toBeVisible()
 })
@@ -71,7 +71,7 @@ test("E2E-D-CHART-001 — Page renders heading, chart SVG, and 'NOW' divider", a
 test("E2E-D-CHART-002 — Historical line and projection fan are rendered in the SVG", async ({
   page,
 }) => {
-  await page.goto("/chart")
+  await page.goto("/projection")
   await page.waitForSelector('[data-testid="growth-chart-svg"]')
 
   const paths = page.locator('[data-testid="growth-chart-svg"] path')
@@ -89,7 +89,7 @@ test("E2E-D-CHART-002 — Historical line and projection fan are rendered in the
 test("E2E-D-CHART-003 — Dividend bars toggle on/off with the 'Show dividends' checkbox", async ({
   page,
 }) => {
-  await page.goto("/chart")
+  await page.goto("/projection")
   await page.waitForSelector('[data-testid="growth-chart-svg"]')
 
   const checkbox = page.locator('[data-testid="chart-show-dividends"]')
@@ -115,7 +115,7 @@ test("E2E-D-CHART-003 — Dividend bars toggle on/off with the 'Show dividends' 
 test("E2E-D-CHART-004 — Stats grid shows Horizon, Optimistic, Base, Conservative values", async ({
   page,
 }) => {
-  await page.goto("/chart")
+  await page.goto("/projection")
   await page.waitForSelector('[data-testid="growth-chart-svg"]')
 
   const statsGrid = page.locator('[data-testid="chart-stats-grid"]')
@@ -155,7 +155,7 @@ test("E2E-D-CHART-005 — Horizon slider changes the Horizon stat value (debounc
 }) => {
   // NOTE: spec references [data-testid="slider-horizon"] but source uses testId="chart-slider-horizon"
   // Using the actual testid from source.
-  await page.goto("/chart")
+  await page.goto("/projection")
   await page.waitForSelector('[data-testid="growth-chart-svg"]')
 
   const horizonStat = page.locator('[data-testid="stat-horizon"]')
@@ -173,11 +173,9 @@ test("E2E-D-CHART-005 — Horizon slider changes the Horizon stat value (debounc
   // Use arrow keys to nudge the slider — locator.press() handles focus + keystroke
   // atomically and works around React's value-tracker quirks with native setters.
   const slider = page.locator('[data-testid="chart-slider-horizon"]')
-  const diff = newYears - initialYears
-  const key = diff > 0 ? "ArrowRight" : "ArrowLeft"
-  for (let i = 0; i < Math.abs(diff); i++) {
-    await slider.press(key)
-  }
+  await setRange(slider, newYears)
+  // The sliders are a preview (W9): the write happens on Apply.
+  await page.getByTestId("assumptions-apply").click()
 
   const response = await patchResponse
   expect(response.status()).toBe(200)
@@ -202,7 +200,7 @@ test("E2E-D-CHART-006 — Conservative return slider fires a debounced PATCH", a
   page,
 }) => {
   // NOTE: spec references [data-testid="slider-conservative-return"] but source uses testId="chart-slider-conservative"
-  await page.goto("/chart")
+  await page.goto("/projection")
   await page.waitForSelector('[data-testid="growth-chart-svg"]')
 
   const patchResponse = page.waitForResponse(
@@ -213,9 +211,8 @@ test("E2E-D-CHART-006 — Conservative return slider fires a debounced PATCH", a
 
   const slider = page.locator('[data-testid="chart-slider-conservative"]')
   // step=0.1; nudge 5 steps (0.5) — direction doesn't matter for the assertion.
-  for (let i = 0; i < 5; i++) {
-    await slider.press("ArrowRight")
-  }
+  await setRange(slider, Number(await slider.inputValue()) + 0.5)
+  await page.getByTestId("assumptions-apply").click()
 
   const response = await patchResponse
   expect(response.status()).toBe(200)
@@ -228,7 +225,7 @@ test("E2E-D-CHART-007 — Monthly saving slider is READ-ONLY in Combined mode", 
   page,
 }) => {
   // Combined mode is default (selectedPortfolio === 0)
-  await page.goto("/chart")
+  await page.goto("/projection")
   await page.waitForSelector('[data-testid="growth-chart-svg"]')
 
   const scenarioCard = page.locator('[data-testid="scenario-assumptions"]')
@@ -258,7 +255,7 @@ test("E2E-D-CHART-008 — Monthly saving slider is EDITABLE for a specific portf
   // does not pass testId to SliderRow. We locate the slider inside the monthly-saving section
   // by label text. The testid is missing in source — flagged in report.
   await preselectPortfolio(page, 1)
-  await page.goto("/chart")
+  await page.goto("/projection")
   await page.waitForSelector('[data-testid="growth-chart-svg"]')
 
   // When not combined, the read-only block is NOT present
@@ -282,10 +279,8 @@ test("E2E-D-CHART-008 — Monthly saving slider is EDITABLE for a specific portf
   // Nudge the monthly saving slider (2nd range input in the scenario card).
   // step=50, nudge a few times.
   const monthlySaving = scenarioCard.locator('input[type="range"]').nth(1)
-  await monthlySaving.focus()
-  await monthlySaving.press("ArrowRight")
-  await monthlySaving.press("ArrowRight")
-  await monthlySaving.press("ArrowRight")
+  await setRange(monthlySaving, Number(await monthlySaving.inputValue()) + 150)
+  await page.getByTestId("assumptions-apply").click()
 
   const patchReq = await patchPromises
   const body = patchReq.postDataJSON() as Record<string, unknown>
@@ -295,7 +290,7 @@ test("E2E-D-CHART-008 — Monthly saving slider is EDITABLE for a specific portf
 test("E2E-D-CHART-009 — Milestones card is present with at least three coverage rows", async ({
   page,
 }) => {
-  await page.goto("/chart")
+  await page.goto("/projection")
   await page.waitForSelector('[data-testid="growth-chart-svg"]')
 
   const milestonesCard = page.locator('[data-testid="milestones-card"]')
@@ -308,19 +303,17 @@ test("E2E-D-CHART-009 — Milestones card is present with at least three coverag
   const rowCount = await milestoneRows.count()
   expect(rowCount).toBeGreaterThanOrEqual(3)
 
-  // Each milestone row contains either "in ~Xy" or "not within horizon"
+  // Each milestone row is "Reached", "in ~Xy · at €…" or "not within N years"
   for (let i = 0; i < rowCount; i++) {
     const rowText = await milestoneRows.nth(i).textContent()
-    const hasReached = rowText?.match(/in ~[\d.]+y/)
-    const hasNotReached = rowText?.includes("not within horizon")
-    expect(hasReached || hasNotReached).toBeTruthy()
+    expect(rowText).toMatch(/Reached|in ~[\d.,]+y|not within \d+ years/)
   }
 })
 
 test("E2E-D-CHART-010 — Goal lines appear on the chart for both seeded goals", async ({
   page,
 }) => {
-  await page.goto("/chart")
+  await page.goto("/projection")
   await page.waitForSelector('[data-testid="growth-chart-svg"]')
 
   // Goal lines are <line stroke-dasharray="4 4"> elements inside the SVG
@@ -341,7 +334,7 @@ test("E2E-D-CHART-010 — Goal lines appear on the chart for both seeded goals",
 test("E2E-D-CHART-011 — Goal milestone rows are present in the Milestones card", async ({
   page,
 }) => {
-  await page.goto("/chart")
+  await page.goto("/projection")
   await page.waitForSelector('[data-testid="growth-chart-svg"]')
 
   const milestonesCard = page.locator('[data-testid="milestones-card"]')
@@ -362,7 +355,8 @@ test("E2E-D-CHART-011 — Goal milestone rows are present in the Milestones card
     const row = goalRows.nth(i)
     const rowText = await row.textContent()
     expect(rowText).toMatch(/€[\d.,]+\/yr/)
-    const hasReached = rowText?.match(/~[\d.]+y/)
+    // Locale-agnostic: an earlier test on this worker may leave de-DE ("~7,8y").
+    const hasReached = rowText?.match(/~[\d.,]+y/)
     const hasNotReached = rowText?.includes("not reached")
     expect(hasReached || hasNotReached).toBeTruthy()
   }
@@ -377,7 +371,7 @@ test.fixme("E2E-D-CHART-012 — Crosshair tooltip appears on mouse-move over the
   // state when the mouse is over historical or projection regions. Flakiness stems from
   // getBoundingClientRect() returning different values depending on the viewport render
   // and any CSS transforms applied to the container.
-  await page.goto("/chart")
+  await page.goto("/projection")
   await page.waitForSelector('[data-testid="growth-chart-svg"]')
 
   const svgEl = page.locator('[data-testid="growth-chart-svg"]')
@@ -398,7 +392,7 @@ test.fixme("E2E-D-CHART-012 — Crosshair tooltip appears on mouse-move over the
   await expect(header).toBeVisible()
   const headerText = await header.textContent()
   const isHistorical = headerText?.match(/\w+ \d{2}/)
-  const isProjection = headerText?.match(/\+[\d.]+y · projected/)
+  const isProjection = headerText?.match(/\+[\d.,]+y · projected/)
   expect(isHistorical || isProjection).toBeTruthy()
 
   const rows = tooltip.locator(".tt-row")
@@ -409,7 +403,7 @@ test.fixme("E2E-D-CHART-012 — Crosshair tooltip appears on mouse-move over the
 test("E2E-D-CHART-013 — Combined view: Chart renders aggregate of both portfolios", async ({
   page,
 }) => {
-  await page.goto("/chart")
+  await page.goto("/projection")
   await page.evaluate(() => localStorage.clear())
   await page.reload()
   await page.waitForSelector('[data-testid="growth-chart-svg"]')
@@ -461,12 +455,10 @@ test("E2E-D-CHART-014 — empty portfolio shows empty state but the switcher sta
 
   // Select it for SSR, then load the Forecast page.
   await preselectPortfolio(page, created.id)
-  await page.goto("/chart")
+  await page.goto("/projection")
 
   // The view body shows the empty state and renders no chart for this portfolio…
-  await expect(
-    page.locator("text=This portfolio has no entries yet")
-  ).toBeVisible()
+  await expect(page.getByTestId("projection-empty")).toBeVisible()
   await expect(
     page.locator('[data-testid="growth-chart-svg"]')
   ).not.toBeVisible()
@@ -487,7 +479,7 @@ test("E2E-D-CHART-014 — empty portfolio shows empty state but the switcher sta
 test("E2E-D-CHART-015 — Nominal/real inflation toggle defaults off and switches on", async ({
   page,
 }) => {
-  await page.goto("/chart")
+  await page.goto("/projection")
   const toggle = page.locator('[data-testid="chart-inflation-adjusted"]')
   await expect(toggle).toBeVisible()
   // Default is nominal money — toggle starts unchecked.

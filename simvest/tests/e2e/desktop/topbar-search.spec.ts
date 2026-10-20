@@ -38,9 +38,9 @@ test.describe("Topbar search — desktop", () => {
       "Portfolios"
     )
     await expect(page.getByTestId("search-result").first()).toBeVisible()
-    // Portfolio result should show "Open chart"
+    // Portfolio result should show "Open projection" (C6)
     const portfoliosGroup = page.getByTestId("search-group-portfolios")
-    await expect(portfoliosGroup).toContainText("Open chart")
+    await expect(portfoliosGroup).toContainText("Open projection")
   })
 
   // E2E-D-SEARCH-003 — Goal results appear with correct subtext
@@ -64,7 +64,7 @@ test.describe("Topbar search — desktop", () => {
     await expect(goalsGroup).toContainText("/yr")
     await expect(goalsGroup).toContainText("by 2040")
     // Action hint
-    await expect(goalsGroup).toContainText("Open planning")
+    await expect(goalsGroup).toContainText("Open goal")
   })
 
   // E2E-D-SEARCH-004 — Entry results appear and show portfolio attribution
@@ -153,8 +153,8 @@ test.describe("Topbar search — desktop", () => {
     await expect(page.getByTestId("search-input")).toHaveValue("global")
   })
 
-  // E2E-D-SEARCH-008 — Clicking a portfolio result navigates to /chart and clears the input
-  test("E2E-D-SEARCH-008 — clicking a portfolio result navigates to /chart and clears the input", async ({
+  // E2E-D-SEARCH-008 — Clicking a portfolio result navigates to /projection and clears the input
+  test("E2E-D-SEARCH-008 — clicking a portfolio result navigates to /projection and clears the input", async ({
     page,
   }) => {
     await page.goto("/")
@@ -171,14 +171,14 @@ test.describe("Topbar search — desktop", () => {
       .first()
     await firstPortfolioResult.click()
 
-    await page.waitForURL("**/chart")
-    expect(page.url()).toContain("/chart")
+    await page.waitForURL("**/projection")
+    expect(page.url()).toContain("/projection")
     await expect(page.getByTestId("search-input")).toHaveValue("")
     await expect(page.locator('[role="listbox"]')).not.toBeAttached()
   })
 
-  // E2E-D-SEARCH-009 — Clicking a goal result navigates to /planning
-  test("E2E-D-SEARCH-009 — clicking a goal result navigates to /planning", async ({
+  // E2E-D-SEARCH-009 — Clicking a goal result navigates to /goals
+  test("E2E-D-SEARCH-009 — clicking a goal result navigates to /goals", async ({
     page,
   }) => {
     await page.goto("/")
@@ -194,8 +194,8 @@ test.describe("Topbar search — desktop", () => {
       .first()
     await firstGoalResult.click()
 
-    await page.waitForURL("**/planning")
-    expect(page.url()).toContain("/planning")
+    await page.waitForURL("**/goals")
+    expect(page.url()).toContain("/goals")
     await expect(page.getByTestId("search-input")).toHaveValue("")
   })
 
@@ -233,5 +233,56 @@ test.describe("Topbar search — desktop", () => {
     expect(box).not.toBeNull()
     expect(box!.width).toBeGreaterThan(0)
     expect(box!.height).toBeGreaterThan(0)
+  })
+})
+
+test.describe("Topbar search — holdings and years (P2)", () => {
+  test.skip(({ browserName }) => browserName !== "chromium", "desktop only")
+
+  test("E2E-D-SEARCH-012 — a holding name finds the holding and opens its payouts", async ({
+    page,
+  }) => {
+    await page.goto("/")
+    await page.getByTestId("search-input").fill("Allianz")
+    const group = page.getByTestId("search-group-holdings")
+    await expect(group).toBeVisible()
+    await expect(group).toContainText("Allianz SE")
+    await expect(group).toContainText("Open payouts")
+    await group.getByTestId("search-result").first().click()
+    await expect(page).toHaveURL(/\/income\?holding=\d+/)
+    await expect(page.getByTestId("income-holding-filter")).toContainText(
+      "Allianz SE"
+    )
+  })
+
+  test("E2E-D-SEARCH-013 — an ISIN finds its holding", async ({ page }) => {
+    await page.goto("/")
+    await page.getByTestId("search-input").fill("DE0008404005")
+    await expect(page.getByTestId("search-group-holdings")).toContainText(
+      "Allianz SE"
+    )
+  })
+
+  test("E2E-D-SEARCH-014 — a four-digit year finds that year's entries", async ({
+    page,
+  }) => {
+    await page.goto("/")
+    // Seed entries run Jan 2019 → Dec 2023; labels are "Jan ’21" style.
+    await page.getByTestId("search-input").fill("2021")
+    const group = page.getByTestId("search-group-entries")
+    await expect(group).toBeVisible()
+    const labels = await group.locator(".pf-dd-name").allTextContents()
+    expect(labels.length).toBeGreaterThan(0)
+    for (const l of labels) expect(l).toContain("’21")
+  })
+
+  test("E2E-D-SEARCH-015 — placeholder names holdings, which the search now covers", async ({
+    page,
+  }) => {
+    await page.goto("/")
+    await expect(page.getByTestId("search-input")).toHaveAttribute(
+      "placeholder",
+      /holdings/
+    )
   })
 })

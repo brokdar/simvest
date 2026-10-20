@@ -102,6 +102,7 @@ function makeGoal(id: number, overrides: Partial<GoalDTO> = {}): GoalDTO {
     portfolioId: null,
     swr: 4,
     yieldAssumed: null,
+    returnAssumed: null,
     ...overrides,
   }
 }
@@ -295,6 +296,7 @@ describe("mutations — goals", () => {
       portfolioId: null,
       swr: 4,
       yieldAssumed: null,
+      returnAssumed: null,
     })
 
     expect(state.goals).toHaveLength(1)
@@ -425,11 +427,10 @@ describe("mutations — settings + portfolio debounce flushes", () => {
     const { deps, adapter } = makeDeps()
     adapter.error(500, "transient")
 
-    // fire-and-forget — must not throw even though the adapter rejects
-    mutations.flushSettings(deps, { inflation: 3 })
-
-    // Allow the swallowed-rejection microtask to settle.
-    await new Promise((r) => setTimeout(r, 0))
+    // never rejects — resolves false so the UI can say the save didn't stick
+    await expect(mutations.flushSettings(deps, { inflation: 3 })).resolves.toBe(
+      false
+    )
 
     expect(adapter.requests[0]).toMatchObject({
       method: "PATCH",
@@ -443,8 +444,9 @@ describe("mutations — settings + portfolio debounce flushes", () => {
     const { deps, adapter } = makeDeps()
     adapter.okEmpty()
 
-    mutations.flushPortfolioPatch(deps, 7, { name: "Renamed" })
-    await new Promise((r) => setTimeout(r, 0))
+    await expect(
+      mutations.flushPortfolioPatch(deps, 7, { name: "Renamed" })
+    ).resolves.toBe(true)
 
     expect(adapter.requests[0]).toMatchObject({
       method: "PATCH",
@@ -514,5 +516,83 @@ describe("mutations — broker import", () => {
         },
       })
     ).rejects.toThrow(/decisions\.months is required/)
+  })
+})
+
+describe("logEntries — catch-up batch (W2)", () => {
+  it("UNIT-MUT-070 — one POST for every account; merges each saved row into its portfolio", async () => {
+    const { deps, state, adapter } = makeDeps({
+      portfolios: [
+        makePortfolio(1, { entries: [makeEntry(2026, 4)] }),
+        makePortfolio(2, { entries: [makeEntry(2026, 10, { value: 5 })] }),
+        makePortfolio(3),
+      ],
+    })
+    adapter.ok({
+      entries: [
+        { ...makeEntry(2026, 10, { id: 91, value: 155 }), portfolioId: 1 },
+        { ...makeEntry(2026, 10, { value: 6 }), portfolioId: 2 },
+      ],
+      counts: { added: 1, updated: 1 },
+    })
+    const rows = [
+      {
+        portfolioId: 1,
+        year: 2026,
+        month: 10,
+        day: 31,
+        invested: 600,
+        value: 155,
+        note: "",
+      },
+      {
+        portfolioId: 2,
+        year: 2026,
+        month: 10,
+        day: 31,
+        invested: 100,
+        value: 6,
+        note: "",
+      },
+    ]
+    const counts = await mutations.logEntries(deps, rows)
+    expect(counts).toEqual({ added: 1, updated: 1 })
+    expect(adapter.requests).toHaveLength(1)
+    expect(adapter.requests[0]).toMatchObject({
+      method: "POST",
+      url: "/api/entries/batch",
+      body: { entries: rows },
+    })
+    const [p1, p2, p3] = state.portfolios
+    expect(p1.entries.map((e) => [e.month, e.value])).toEqual([
+      [4, 100],
+      [10, 155],
+    ])
+    expect(p1.entries[1]).not.toHaveProperty("portfolioId")
+    expect(p2.entries).toHaveLength(1)
+    expect(p2.entries[0].value).toBe(6)
+    expect(p3.entries).toHaveLength(0)
+  })
+
+  it("UNIT-MUT-071 — a rejected batch changes nothing locally and surfaces the server's reason", async () => {
+    const { deps, state, adapter } = makeDeps({
+      portfolios: [makePortfolio(1, { entries: [makeEntry(2026, 4)] })],
+    })
+    const before = state.portfolios
+    adapter.error(400, "Row 1: a portfolio value is required")
+    await expect(
+      mutations.logEntries(deps, [
+        {
+          portfolioId: 1,
+          year: 2026,
+          month: 10,
+          day: 31,
+          invested: 0,
+          value: 1,
+          note: "",
+        },
+      ])
+    ).rejects.toThrow(/Row 1/)
+    expect(state.portfolios).toBe(before)
   })
 })
