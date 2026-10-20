@@ -1,0 +1,30 @@
+# Dev toolchain, run directly in WSL (no devcontainer). Exact versions pinned.
+#   mise install && mise run bootstrap     # once per machine
+# bun is the package manager and script runner; node stays as the runtime for
+# next and better-sqlite3 (native, not supported by bun's runtime).
+# e2e needs browser system libs (sudo ./simvest/node_modules/.bin/playwright install-deps chromium webkit).
+
+[tools]
+node = "24.21.0"
+bun = "1.4.3"
+prek = "0.5.5"
+
+[settings]
+lockfile = true
+
+[tasks.bootstrap]
+description = "Install git hooks, dependencies and the pinned Playwright browsers"
+run = """
+set -e
+prek install
+mise run deps
+"""
+
+[tasks.deps]
+description = "Install dependencies and the pinned Playwright browsers"
+run = """
+set -e
+cd simvest
+bun install --frozen-lockfile
+./node_modules/.bin/playwright install chromium webkit
+"""
