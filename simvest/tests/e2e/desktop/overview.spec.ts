@@ -36,11 +36,10 @@ test("E2E-D-OV-001 — Page renders the 'Overview' heading and subtitle", async 
   const subtitle = page.locator('[data-testid="overview-subtitle"]')
   await expect(subtitle).toBeVisible()
   const subtitleText = await subtitle.textContent()
-  // Subtitle uses the full entry date (e.g. "28 Dec 2023") so the year is
-  // never truncated to two digits — that earlier read as a day-of-month and
-  // looked broken on a financial dashboard.
+  // Subtitle uses the app-wide month format (fmtMonth → "Dec ’23"). The
+  // curly apostrophe is what stops "Dec 23" reading as a day-of-month.
   expect(subtitleText).toMatch(
-    /Updated \w+ \d{4} · €[\d,.]+\/month saving plan/
+    /Updated [A-Z][a-z]{2} ’\d{2} · €[\d,.]+\/month saving plan/
   )
 })
 
@@ -133,7 +132,7 @@ test("E2E-D-OV-005 — Value-vs-invested mini-chart SVG is rendered", async ({
     .filter({ hasText: /monthly entries/ })
   const subTextContent = await subText.first().textContent()
   // Subtext uses NBSP between count and unit so the count never wraps alone.
-  expect(subTextContent).toMatch(/\d+\s+monthly entries · [\d.]+\s+years/)
+  expect(subTextContent).toMatch(/\d+\s+monthly entries · [\d.,]+\s+years/)
 })
 
 test("E2E-D-OV-006 — Derived stats row shows historical return, best month, worst month", async ({
@@ -191,7 +190,7 @@ test("E2E-D-OV-007 — Goal progress section shows two goals from seed data", as
     const pct = item.locator('[data-testid="goal-pct"]')
     await expect(pct).toBeVisible()
     const pctText = await pct.textContent()
-    expect(pctText).toMatch(/[\d.]+%/)
+    expect(pctText).toMatch(/[\d.,]+%/)
 
     const subText = await item.locator(".muted.small").textContent()
     // Format: "€36.000/yr income · target 2040 · needs €1,3M"
@@ -252,7 +251,7 @@ test("E2E-D-OV-009 — Recent activity shows the last 4 entries in reverse order
   }
 
   // First row (most recent) label is the first child div containing the date.
-  // The date is rendered as formatEntryDate(year, month, day) → "28 Dec 2023".
+  // The date is rendered as fmtDate(year, month, day) → "28 Dec 2023".
   const firstRowLabel = await rows.nth(0).locator("> div").first().textContent()
   expect(firstRowLabel).toMatch(/\d{1,2} \w+ \d{4}/)
 })
@@ -297,11 +296,11 @@ test("E2E-D-OV-010 — Switching to a specific portfolio updates KPI values", as
     page.locator('[data-testid="portfolio-switcher-trigger"] .pf-dd-name')
   ).toHaveText(portfolio1Name ?? "")
 
-  // Subtitle still shows a valid "Updated ..." line (full 4-digit year).
+  // Subtitle still shows a valid "Updated ..." line (fmtMonth: "Dec ’23").
   const subtitle = page.locator('[data-testid="overview-subtitle"]')
   await expect(subtitle).toBeVisible()
   const subtitleText = await subtitle.textContent()
-  expect(subtitleText).toMatch(/Updated \w+ \d{4}/)
+  expect(subtitleText).toMatch(/Updated [A-Z][a-z]{2} ’\d{2}/)
 
   // Goal progress section still shows goals (count is global, not per-portfolio).
   // Other tests in the suite may seed additional goals on the shared e2e DB,

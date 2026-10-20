@@ -49,7 +49,7 @@ export function YAxis({
             x={left - 8}
             y={t.screen + 3}
             textAnchor="end"
-            fontSize="11"
+            fontSize="var(--fs-2xs)"
             fill="var(--neutral-400)"
             fontFamily="var(--font-body)"
           >
@@ -89,7 +89,7 @@ export function XAxis({
             x={t.x}
             y={baseline + 18}
             textAnchor="middle"
-            fontSize="11"
+            fontSize="var(--fs-2xs)"
             fill="var(--neutral-400)"
             fontFamily="var(--font-body)"
           >

@@ -28,6 +28,7 @@ import {
   type IncomeEventDTO,
   type PortfolioDTO,
 } from "@/lib/types"
+import { swatch } from "@/lib/palette"
 
 const TYPE_LABELS: Record<HoldingType, string> = {
   etf: "ETF",
@@ -38,14 +39,14 @@ const TYPE_LABELS: Record<HoldingType, string> = {
 
 const TYPE_TINT: Record<HoldingType, string> = {
   etf: "var(--primary-50)",
-  stock: "var(--warning-50, #FEF3C7)",
+  stock: "var(--amber-50)",
   bond: "var(--tertiary-50)",
   other: "var(--neutral-100)",
 }
 
 const TYPE_INK: Record<HoldingType, string> = {
   etf: "var(--primary)",
-  stock: "var(--warning, #92400E)",
+  stock: "var(--amber)",
   bond: "var(--tertiary)",
   other: "var(--neutral-600)",
 }
@@ -301,16 +302,18 @@ function PortfolioGroup({
               width: 10,
               height: 10,
               borderRadius: 2,
-              background: portfolio.color,
+              background: swatch(portfolio.color),
               flexShrink: 0,
             }}
           />
-          <div style={{ fontWeight: 600, fontSize: 14 }}>{portfolio.name}</div>
-          <span className="muted small" style={{ fontSize: 11 }}>
+          <div style={{ fontWeight: 600, fontSize: "var(--fs-md)" }}>
+            {portfolio.name}
+          </div>
+          <span className="muted small" style={{ fontSize: "var(--fs-2xs)" }}>
             {holdings.length} {holdings.length === 1 ? "holding" : "holdings"}
           </span>
         </div>
-        <div className="muted small mono" style={{ fontSize: 12 }}>
+        <div className="muted small mono" style={{ fontSize: "var(--fs-xs)" }}>
           {fmtEUR(groupTotal)} dividends to date
         </div>
       </div>
@@ -413,7 +416,6 @@ function PortfolioGroup({
                         <button
                           type="button"
                           className="btn btn-icon btn-ghost btn-sm"
-                          style={{ color: "var(--neg)" }}
                           aria-label={`Delete ${h.name}`}
                         >
                           <Icon name="trash" size={14} />

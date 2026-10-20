@@ -7,6 +7,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Icon } from "@/components/icon"
+import { fmtMonth, MONTH_SHORT } from "@/lib/dates"
 
 const MIN_YEAR = 1970
 
@@ -15,7 +16,6 @@ type Value = { year: number; month: number } | null
 type Props = {
   value: Value
   onChange: (next: Value) => void
-  locale: string
   placeholder?: string
   ariaLabel?: string
   testId?: string
@@ -25,21 +25,9 @@ type Props = {
 
 const MONTH_KEYS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
-function monthLabel(monthIdx: number, locale: string): string {
-  const d = new Date(2000, monthIdx, 1)
-  return d.toLocaleDateString(locale, { month: "short" })
-}
-
-function fullLabel(year: number, month: number, locale: string): string {
-  // month is 1-12 here
-  const d = new Date(year, month - 1, 1)
-  return d.toLocaleDateString(locale, { month: "short", year: "numeric" })
-}
-
 export function MonthYearPicker({
   value,
   onChange,
-  locale,
   placeholder = "Pick month",
   ariaLabel,
   testId,
@@ -64,7 +52,7 @@ export function MonthYearPicker({
   }
 
   const buttonLabel =
-    value !== null ? fullLabel(value.year, value.month, locale) : placeholder
+    value !== null ? fmtMonth(value.year, value.month) : placeholder
 
   function isMonthDisabled(year: number, monthIdx0: number): boolean {
     if (year > upper.year) return true
@@ -126,7 +114,7 @@ export function MonthYearPicker({
           </button>
           <div
             style={{
-              fontSize: 13,
+              fontSize: "var(--fs-sm)",
               fontWeight: 600,
               color: "var(--neutral-800)",
             }}
@@ -168,23 +156,23 @@ export function MonthYearPicker({
                     style={{
                       flex: 1,
                       padding: "6px 0",
-                      fontSize: 12,
+                      fontSize: "var(--fs-xs)",
                       fontWeight: 600,
                       borderRadius: 6,
                       border: "1px solid",
                       borderColor: selected ? "var(--primary)" : "transparent",
                       background: selected
-                        ? "var(--primary-50, #EFF6FF)"
+                        ? "var(--primary-50)"
                         : "transparent",
                       color: disabledMonth
                         ? "var(--neutral-300)"
                         : selected
                           ? "var(--primary)"
-                          : "var(--neutral-700)",
+                          : "var(--neutral-600)",
                       cursor: disabledMonth ? "not-allowed" : "pointer",
                     }}
                   >
-                    {monthLabel(m, locale)}
+                    {MONTH_SHORT[m]}
                   </button>
                 )
               })}
@@ -202,7 +190,7 @@ export function MonthYearPicker({
               marginTop: 10,
               width: "100%",
               padding: "6px",
-              fontSize: 12,
+              fontSize: "var(--fs-xs)",
               border: "1px solid var(--border)",
               borderRadius: 6,
               background: "transparent",

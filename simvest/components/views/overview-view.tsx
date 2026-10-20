@@ -9,9 +9,10 @@ import { Stat } from "@/components/slider-row"
 import { GoalProgressStrip } from "@/components/goal-progress-strip"
 import { OverviewChart } from "@/components/charts/overview-chart"
 import { lastValuedEntry, totalIncome, trailing12mIncome } from "@/lib/calc"
-import { formatEntryDate } from "@/lib/dates"
-import { fmtEUR, fmtPct } from "@/lib/format"
-import { COMBINED_PORTFOLIO_ID, labelFor } from "@/lib/types"
+import { fmtDate, fmtMonth } from "@/lib/dates"
+import { fmtEUR, fmtNum, fmtPct, fmtPctCapped, plural } from "@/lib/format"
+import { COMBINED_PORTFOLIO_ID } from "@/lib/types"
+import { swatch } from "@/lib/palette"
 
 function signClass(n: number): "pos" | "neg" | "muted" {
   if (n > 0) return "pos"
@@ -162,10 +163,8 @@ export function OverviewView() {
                 monthly — rendering a day-of-month next to a monthly KPI was
                 more precision than the underlying data supports. */}
             Updated{" "}
-            {lastEntry
-              ? labelFor(lastEntry.year, lastEntry.month, { fullYear: true })
-              : "—"}{" "}
-            · {fmtEUR(monthlySaving, { decimals: 0 })}/month saving plan
+            {lastEntry ? fmtMonth(lastEntry.year, lastEntry.month) : "—"} ·{" "}
+            {fmtEUR(monthlySaving, { decimals: 0 })}/month saving plan
           </div>
         </div>
       </div>
@@ -199,7 +198,7 @@ export function OverviewView() {
             </div>
             <Sparkline
               data={valSeriesNonNull}
-              color="#fff"
+              color="var(--hero-fg)"
               width={96}
               height={28}
               filled={false}
@@ -216,14 +215,23 @@ export function OverviewView() {
           <div className={`value mono ${signClass(kpi.gain)}`}>
             {fmtEUR(kpi.gain, { sign: true })}
           </div>
-          <div className={`delta ${signClass(kpi.cagr)}`}>
-            {kpi.cagr !== 0 && (
-              <span className="arrow" aria-hidden="true">
-                {signArrow(kpi.cagr)}
-              </span>
-            )}
-            {fmtPct(kpi.cagr, 2)} CAGR
-          </div>
+          {kpi.cagr === null ? (
+            <div className="delta muted" data-testid="kpi-net-gain-cagr">
+              CAGR · not enough history yet
+            </div>
+          ) : (
+            <div
+              className={`delta ${signClass(kpi.cagr)}`}
+              data-testid="kpi-net-gain-cagr"
+            >
+              {kpi.cagr !== 0 && (
+                <span className="arrow" aria-hidden="true">
+                  {signArrow(kpi.cagr)}
+                </span>
+              )}
+              {fmtPctCapped(kpi.cagr, 2)} CAGR
+            </div>
+          )}
         </div>
         <div className="kpi" data-testid="kpi-dividends">
           <div className="label">Dividend run-rate (12m)</div>
@@ -253,8 +261,9 @@ export function OverviewView() {
             <div>
               <h2 className="card-title">Value vs invested</h2>
               <div className="muted small" style={{ marginTop: 2 }}>
-                {active.entries.length}&nbsp;monthly entries ·{" "}
-                {(active.entries.length / 12).toFixed(1)}&nbsp;years
+                {active.entries.length}&nbsp;monthly{" "}
+                {plural(active.entries.length, "entry", "entries")} ·{" "}
+                {fmtNum(active.entries.length / 12, 1)}&nbsp;years
               </div>
             </div>
             <div className="legend">
@@ -359,7 +368,7 @@ export function OverviewView() {
                           display: "flex",
                           alignItems: "center",
                           gap: 8,
-                          fontSize: 13,
+                          fontSize: "var(--fs-sm)",
                           fontWeight: 500,
                         }}
                       >
@@ -369,7 +378,7 @@ export function OverviewView() {
                             width: 8,
                             height: 8,
                             borderRadius: 2,
-                            background: p.color,
+                            background: swatch(p.color),
                             display: "inline-block",
                           }}
                         />
@@ -377,16 +386,14 @@ export function OverviewView() {
                       </div>
                       <div className="mono small">
                         <strong>{fmtEUR(val)}</strong>{" "}
-                        <span className="muted">
-                          · {(pct * 100).toFixed(0)}%
-                        </span>
+                        <span className="muted">· {fmtPct(pct * 100, 0)}</span>
                       </div>
                     </div>
                     <div className="pbar">
                       <div
                         style={{
                           width: `${pct * 100}%`,
-                          background: p.color,
+                          background: swatch(p.color),
                         }}
                       />
                     </div>
@@ -420,8 +427,8 @@ export function OverviewView() {
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>
-                    {formatEntryDate(e.year, e.month, e.day)}
+                  <div style={{ fontWeight: 600, fontSize: "var(--fs-sm)" }}>
+                    {fmtDate(e.year, e.month, e.day)}
                   </div>
                   <div className="muted small">
                     {e.note || "Monthly update"}
@@ -430,7 +437,7 @@ export function OverviewView() {
                 <div style={{ textAlign: "right" }}>
                   <div
                     className="mono"
-                    style={{ fontWeight: 600, fontSize: 13 }}
+                    style={{ fontWeight: 600, fontSize: "var(--fs-sm)" }}
                   >
                     {fmtEUR(e.value)}
                   </div>

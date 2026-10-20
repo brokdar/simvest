@@ -10,6 +10,7 @@ import { useData } from "@/components/providers/data-provider"
 import { lastValuedEntry } from "@/lib/calc"
 import { fmtEUR } from "@/lib/format"
 import { Icon } from "@/components/icon"
+import { COMBINED_IDENTITY_HEX, swatch } from "@/lib/palette"
 
 type Option = {
   id: number
@@ -25,7 +26,7 @@ export function PortfolioSwitcher() {
     {
       id: 0,
       name: "Combined",
-      color: "#1F2937",
+      color: COMBINED_IDENTITY_HEX,
       // Non-breaking space keeps the count + label together when the dropdown
       // trigger wraps; pluralization avoids the cosmetic "1 portfolios" bug.
       sub: `${portfolios.length} ${portfolios.length === 1 ? "portfolio" : "portfolios"}`,
@@ -56,7 +57,7 @@ export function PortfolioSwitcher() {
           aria-expanded={open}
           data-testid="portfolio-switcher-trigger"
         >
-          <span className="dot" style={{ background: active.color }} />
+          <span className="dot" style={{ background: swatch(active.color) }} />
           <span className="pf-dd-label">
             <span className="pf-dd-name">{active.name}</span>
             <span className="pf-dd-sub">{active.sub}</span>
@@ -89,7 +90,7 @@ export function PortfolioSwitcher() {
             }}
             data-testid={`pf-opt-${o.id}`}
           >
-            <span className="dot" style={{ background: o.color }} />
+            <span className="dot" style={{ background: swatch(o.color) }} />
             <span className="pf-dd-label">
               <span className="pf-dd-name">{o.name}</span>
               <span className="pf-dd-sub">{o.sub}</span>

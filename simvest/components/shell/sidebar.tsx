@@ -14,7 +14,7 @@ export function Sidebar() {
           <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24">
             <path
               d="M4 18L10 12L14 16L20 6"
-              stroke="white"
+              stroke="var(--primary-foreground)"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"

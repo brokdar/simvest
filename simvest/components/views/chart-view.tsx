@@ -9,7 +9,7 @@ import {
 import { GrowthChart } from "@/components/growth-chart"
 import { CombinedDataNotice } from "@/components/combined-data-notice"
 import { MonthlySavingControl, SliderRow, Stat } from "@/components/slider-row"
-import { fmtEUR, fmtPct } from "@/lib/format"
+import { fmtEUR, fmtNum, fmtPct } from "@/lib/format"
 import { incomeByMonth, projectFuture, latestKnownValue } from "@/lib/calc"
 import type { GoalEvaluation, ProjectionPoint } from "@/lib/calc"
 import {
@@ -17,6 +17,8 @@ import {
   type GoalDTO,
   type SettingsDTO,
 } from "@/lib/types"
+import { swatch } from "@/lib/palette"
+import { fmtYearShort } from "@/lib/dates"
 
 export function ChartView() {
   const {
@@ -72,7 +74,7 @@ export function ChartView() {
       scopedGoals.map((g) => ({
         id: g.id,
         name: g.name,
-        color: g.color,
+        color: swatch(g.color),
         value: goalEvals[g.id]?.portfolioTargetValue ?? 0,
       })),
     [scopedGoals, goalEvals]
@@ -166,7 +168,7 @@ export function ChartView() {
                 display: "flex",
                 gap: 6,
                 alignItems: "center",
-                fontSize: 12,
+                fontSize: "var(--fs-xs)",
                 cursor: "pointer",
               }}
             >
@@ -183,7 +185,7 @@ export function ChartView() {
                 display: "flex",
                 gap: 6,
                 alignItems: "center",
-                fontSize: 12,
+                fontSize: "var(--fs-xs)",
                 cursor: "pointer",
               }}
             >
@@ -258,7 +260,7 @@ export function ChartView() {
             <Stat
               label="Horizon"
               value={`${settings.horizonYears} years`}
-              sub={`to '${String(new Date().getFullYear() + settings.horizonYears).slice(-2)}`}
+              sub={`to ${fmtYearShort(new Date().getFullYear() + settings.horizonYears)}`}
             />
           </div>
           <div data-testid="stat-optimistic">
@@ -325,7 +327,7 @@ export function ChartView() {
       </div>
 
       <div className="card card-pad" style={{ marginTop: 16 }}>
-        <h3 style={{ fontSize: 14, marginBottom: 10 }}>
+        <h3 style={{ fontSize: "var(--fs-md)", marginBottom: 10 }}>
           Contribution vs return
         </h3>
         <ContribBreakdown projection={projection.base} />
@@ -341,13 +343,13 @@ export function ChartView() {
               marginBottom: 14,
             }}
           >
-            <h3 style={{ fontSize: 15 }}>Planning assumptions</h3>
+            <h3 style={{ fontSize: "var(--fs-lg)" }}>Planning assumptions</h3>
             <span
               style={{
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 4,
-                fontSize: 11,
+                fontSize: "var(--fs-2xs)",
                 fontWeight: 500,
                 color: "var(--tertiary)",
                 background:
@@ -417,7 +419,9 @@ export function ChartView() {
         </div>
 
         <div className="card card-pad" data-testid="milestones-card">
-          <h3 style={{ fontSize: 15, marginBottom: 14 }}>Milestones</h3>
+          <h3 style={{ fontSize: "var(--fs-lg)", marginBottom: 14 }}>
+            Milestones
+          </h3>
           <Milestones
             projection={projection}
             settings={settings}
@@ -518,7 +522,7 @@ function Milestones({
     <div>
       {covers.map((c) => {
         const found = find(c.target)
-        const yearsOut = found ? (found.month / 12).toFixed(1) : "—"
+        const yearsOut = found ? fmtNum(found.month / 12, 1) : "—"
         return (
           <div
             key={c.label}
@@ -536,10 +540,10 @@ function Milestones({
                 width: 10,
                 height: 10,
                 borderRadius: 2,
-                background: c.color,
+                background: swatch(c.color),
               }}
             />
-            <div style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>
+            <div style={{ flex: 1, fontSize: "var(--fs-sm)", fontWeight: 500 }}>
               {c.label}
             </div>
             <div className="mono small" style={{ fontWeight: 600 }}>
@@ -554,7 +558,7 @@ function Milestones({
       })}
       <div
         style={{
-          fontSize: 11,
+          fontSize: "var(--fs-2xs)",
           letterSpacing: "0.04em",
           textTransform: "uppercase",
           fontWeight: 600,
@@ -582,16 +586,18 @@ function Milestones({
               width: 10,
               height: 10,
               borderRadius: 2,
-              background: g.color,
+              background: swatch(g.color),
             }}
           />
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{g.name}</div>
+            <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600 }}>
+              {g.name}
+            </div>
             <div className="muted small">{g.subLabel}</div>
           </div>
           <div className="mono small" style={{ fontWeight: 600 }}>
             {g.hit !== null ? (
-              `~${(g.hit / 12).toFixed(1)}y`
+              `~${fmtNum(g.hit / 12, 1)}y`
             ) : (
               <span className="muted">not reached</span>
             )}
@@ -642,7 +648,7 @@ function ScenarioCard({
         />
         <span
           style={{
-            fontSize: 12,
+            fontSize: "var(--fs-xs)",
             fontWeight: 600,
             color: "var(--neutral-500)",
             letterSpacing: "0.04em",
@@ -657,21 +663,21 @@ function ScenarioCard({
         style={{
           fontFamily: "var(--font-head)",
           fontWeight: 700,
-          fontSize: 26,
+          fontSize: "var(--fs-5xl)",
           letterSpacing: "-0.02em",
         }}
       >
         {fmtEUR(endValue, { compact: true })}
       </div>
       <div className="muted small mono">
-        {fmtPct(pct, 1)}/yr · {mult.toFixed(1)}× start
+        {fmtPct(pct, 1)}/yr · {fmtNum(mult, 1)}× start
       </div>
       <div className="hr" style={{ margin: "10px 0" }} />
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
-          fontSize: 12,
+          fontSize: "var(--fs-xs)",
         }}
       >
         <span className="muted">Invested</span>
@@ -681,7 +687,7 @@ function ScenarioCard({
         style={{
           display: "flex",
           justifyContent: "space-between",
-          fontSize: 12,
+          fontSize: "var(--fs-xs)",
           marginTop: 4,
         }}
       >
@@ -722,8 +728,8 @@ function ContribBreakdown({
             background: "var(--secondary-400)",
             display: "grid",
             placeItems: "center",
-            color: "#fff",
-            fontSize: 12,
+            color: "var(--surface)",
+            fontSize: "var(--fs-xs)",
             fontWeight: 600,
           }}
         >
@@ -736,8 +742,8 @@ function ContribBreakdown({
             background: "var(--primary)",
             display: "grid",
             placeItems: "center",
-            color: "#fff",
-            fontSize: 12,
+            color: "var(--primary-foreground)",
+            fontSize: "var(--fs-xs)",
             fontWeight: 600,
           }}
         >
@@ -749,7 +755,7 @@ function ContribBreakdown({
           display: "flex",
           justifyContent: "space-between",
           marginTop: 10,
-          fontSize: 13,
+          fontSize: "var(--fs-sm)",
           gap: 12,
           flexWrap: "wrap",
         }}

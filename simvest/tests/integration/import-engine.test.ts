@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { dividendEvents, entries, holdings, portfolios } from "@/lib/db/schema"
 import { ensureSeeded } from "@/lib/db/seed"
-import { createImportEngine } from "@/lib/import/engine"
+import { createImportEngine, looksBinary } from "@/lib/import/engine"
 
 const HEADER =
   '"datetime","date","account_type","category","type","asset_class","name","symbol","shares","price","amount","fee","tax","currency","original_amount","original_currency","fx_rate","description","transaction_id","counterparty_name","counterparty_iban","payment_reference","mcc_code"'
@@ -383,5 +383,68 @@ describe("importEngine.applyImport", () => {
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.status).toBe(400)
+  })
+})
+
+// D2 — unreadable input must fail at preview, never reach a success screen.
+describe("importEngine.previewImport — unreadable files (D2)", () => {
+  it("INT-IMPORT-D2-001 — a binary file (NUL bytes) is rejected as binary", () => {
+    // The first bytes of a PNG, as File.text() would hand them over.
+    const png = "�PNG\r\n\u001a\n\u0000\u0000\u0000\rIHDR\u0000\u0000"
+    const res = engine.previewImport({
+      broker: "trade_republic",
+      portfolioId: pid,
+      csv: png,
+    })
+    expect(res).toMatchObject({ ok: false, status: 400 })
+    if (!res.ok) expect(res.error).toMatch(/binary file/)
+  })
+
+  it("INT-IMPORT-D2-002 — invalid-UTF-8 noise (mostly U+FFFD) is rejected as binary", () => {
+    const noise = Array.from({ length: 400 }, (_, i) =>
+      i % 3 === 0 ? "�" : String.fromCharCode(33 + (i % 90))
+    ).join("")
+    const res = engine.previewImport({
+      broker: "bondora",
+      portfolioId: pid,
+      csv: noise,
+    })
+    expect(res).toMatchObject({ ok: false, status: 400 })
+    if (!res.ok) expect(res.error).toMatch(/binary file/)
+  })
+
+  it("INT-IMPORT-D2-003 — a one-line garbage text file yields 'No transactions found', not an empty preview", () => {
+    const res = engine.previewImport({
+      broker: "trade_republic",
+      portfolioId: pid,
+      csv: "hello world this is not a csv",
+    })
+    expect(res).toMatchObject({ ok: false, status: 400 })
+    if (!res.ok) expect(res.error).toMatch(/No transactions found/)
+  })
+
+  it("INT-IMPORT-D2-004 — a header-only Trade Republic CSV has nothing to import", () => {
+    const res = engine.previewImport({
+      broker: "trade_republic",
+      portfolioId: pid,
+      csv: HEADER,
+    })
+    expect(res.ok).toBe(false)
+  })
+
+  it("INT-IMPORT-D2-005 — a structurally wrong CSV keeps its specific missing-columns error", () => {
+    const res = engine.previewImport({
+      broker: "trade_republic",
+      portfolioId: pid,
+      csv: "foo,bar\n1,2\n3,4",
+    })
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error).toMatch(/missing required columns/)
+  })
+
+  it("INT-IMPORT-D2-006 — a German CSV with umlauts is not mistaken for binary", () => {
+    expect(looksBinary("Datum;Zahlungsart;Eingänge;Ausgänge;Guthaben\n")).toBe(
+      false
+    )
   })
 })

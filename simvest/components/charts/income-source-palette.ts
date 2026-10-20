@@ -11,10 +11,10 @@ export const SOURCE_PALETTE = [
   "var(--primary)",
   "var(--tertiary)",
   "var(--primary-400)",
-  "#A855F7",
-  "#F59E0B",
-  "#0EA5E9",
-  "#EC4899",
+  "var(--series-violet)",
+  "var(--series-orange)",
+  "var(--series-sky)",
+  "var(--series-pink)",
 ]
 export const OTHERS_COLOR = "var(--neutral-300)"
 

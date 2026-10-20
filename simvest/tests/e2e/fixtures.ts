@@ -9,13 +9,14 @@ import fs from "node:fs"
 import net from "node:net"
 import { fileURLToPath } from "node:url"
 import { seedFixture } from "./seed-fixture"
+import { E2E_DIST_DIR } from "./dist-dir"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const PROJECT_ROOT = path.resolve(__dirname, "..", "..")
 const STANDALONE_SERVER = path.resolve(
   PROJECT_ROOT,
-  ".next",
+  E2E_DIST_DIR,
   "standalone",
   "server.js"
 )
@@ -42,7 +43,7 @@ const BASE_PORT = 3100
  * Each worker:
  *   - Picks an isolated port + DB file from its `parallelIndex`.
  *   - Wipes its DB file, runs migrations, seeds the fixture.
- *   - Spawns its own `node .next/standalone/server.js` with `PORT` and
+ *   - Spawns its own `node .next-e2e/standalone/server.js` with `PORT` and
  *     `DATABASE_URL` env vars pointing at its own DB.
  *   - Polls the port until the server responds to /api/health.
  *   - Exposes the `baseURL` override + a `resetDb()` callback to tests.

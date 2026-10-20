@@ -356,8 +356,16 @@ export function detectMapping(
   hasHeader: boolean,
   columnCount: number
 ): MappingResult {
-  // No header → trust positional columns; no structural checks are possible.
+  // No header → positional columns; no structural checks are possible.
+  // D4: date + one number is a balance history, so a 2-column paste maps the
+  // number to Portfolio value (the paste UI lets the user remap columns).
   if (!hasHeader) {
+    if (columnCount === 2) {
+      return {
+        mapping: { date: 0, invested: null, value: 1, note: null },
+        structuralErrors: [],
+      }
+    }
     return {
       mapping: {
         date: 0,
@@ -412,6 +420,58 @@ export function detectMapping(
   return { mapping, structuralErrors }
 }
 
+/** What one pasted column means. Column 0 is always the date. */
+export type ColumnRole = "date" | "invested" | "value" | "note" | "ignore"
+
+export const COLUMN_ROLE_LABEL: Record<ColumnRole, string> = {
+  date: "Date",
+  invested: "Invested",
+  value: "Portfolio value",
+  note: "Note",
+  ignore: "Ignore",
+}
+
+/** One role per column, in column order — the inverse of `mappingFromRoles`. */
+export function rolesFromMapping(
+  mapping: ColumnMapping,
+  columnCount: number
+): ColumnRole[] {
+  return Array.from({ length: columnCount }, (_, i) => {
+    if (i === mapping.date) return "date"
+    if (i === mapping.invested) return "invested"
+    if (i === mapping.value) return "value"
+    if (i === mapping.note) return "note"
+    return "ignore"
+  })
+}
+
+/** Build a mapping from per-column roles; a role used twice is an error. */
+export function mappingFromRoles(roles: ColumnRole[]): {
+  mapping: ColumnMapping
+  errors: string[]
+} {
+  const mapping: ColumnMapping = {
+    date: 0,
+    invested: null,
+    value: null,
+    note: null,
+  }
+  const errors: string[] = []
+  const seen = new Set<ColumnRole>()
+  roles.forEach((role, i) => {
+    if (role === "ignore") return
+    if (seen.has(role)) {
+      errors.push(
+        `Two columns are set to ${COLUMN_ROLE_LABEL[role]} — pick a different meaning for one of them.`
+      )
+      return
+    }
+    seen.add(role)
+    mapping[role] = i
+  })
+  return { mapping, errors }
+}
+
 function formatExampleEur(n: number, locale: string): string {
   try {
     return `€${new Intl.NumberFormat(locale, {
@@ -421,6 +481,27 @@ function formatExampleEur(n: number, locale: string): string {
   } catch {
     return `€${Math.round(n)}`
   }
+}
+
+/**
+ * D1: a number written in the other convention gets its likely reading and
+ * a pointer to the "Numbers" switch — never a silent 100× / ÷1000.
+ */
+function numberError(
+  index: number,
+  column: string,
+  raw: string,
+  r: { error: string; suggestion?: number },
+  hints: FormatHints
+): string {
+  const example = exampleForNumberLocale(hints.numberLocale)
+  if (r.suggestion !== undefined) {
+    const meant = new Intl.NumberFormat(hints.numberLocale, {
+      maximumFractionDigits: 20,
+    }).format(r.suggestion)
+    return `Row ${index}, ${column}: did you mean ${meant} for "${raw}"? Numbers are read as ${hints.numberLocale} (e.g. ${example}) — switch “Numbers” above if your paste is written the other way.`
+  }
+  return `Row ${index}, ${column}: couldn't read "${raw}" as a number. Try ${example}.`
 }
 
 export function parseEntries(
@@ -495,7 +576,7 @@ export function parseEntries(
         messages.push({
           field: "invested",
           level: "error",
-          text: `Row ${index}, Invested: couldn't read "${investedRaw}" as a number. Try ${exampleForNumberLocale(hints.numberLocale)}.`,
+          text: numberError(index, "Invested", investedRaw, r, hints),
         })
       } else {
         investedParsed = r.value
@@ -511,7 +592,7 @@ export function parseEntries(
         messages.push({
           field: "value",
           level: "error",
-          text: `Row ${index}, Value: couldn't read "${valueRaw}" as a number. Try ${exampleForNumberLocale(hints.numberLocale)}.`,
+          text: numberError(index, "Value", valueRaw, r, hints),
         })
       } else {
         valueParsed = r.value

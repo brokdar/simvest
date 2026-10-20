@@ -1,8 +1,11 @@
 import { describe, it, expect } from "vitest"
 import {
+  describeChange,
   emptyDraft,
   fromEntry,
   isDirty,
+  newDraftMonths,
+  setCellError,
   nextMonthAfter,
   setCellValue,
   touchCell,
@@ -228,5 +231,88 @@ describe("setCellValue", () => {
     const next = setCellValue(d, "value", 7777)
     expect(next.value).toBe(7777)
     expect(next.touched.has("value")).toBe(true)
+  })
+})
+
+describe("cell parse errors (D1 in the grid)", () => {
+  it("UNIT-DRAFT-D1-001 — a cell error makes an otherwise untouched row dirty and invalid", () => {
+    const d = setCellError(
+      fromEntry(makeEntry(2026, 5)),
+      "value",
+      "Did you mean…"
+    )
+    expect(isDirty(d)).toBe(true)
+    expect(validate(d)).toBe("Fix the Portfolio value amount before saving.")
+  })
+  it("UNIT-DRAFT-D1-002 — clearing the error restores a clean, valid row", () => {
+    const d = setCellError(
+      setCellError(fromEntry(makeEntry(2026, 5)), "invested", "x"),
+      "invested",
+      null
+    )
+    expect(d.cellErrors).toEqual({})
+    expect(isDirty(d)).toBe(false)
+    expect(validate(d)).toBeNull()
+  })
+})
+
+describe("duplicate months among new drafts (D8)", () => {
+  it("UNIT-DRAFT-D8-001 — the second new draft for a month is invalid, the first is not", () => {
+    const a = emptyDraft("draft-1", { year: 2024, month: 1, day: 31 })
+    const b = emptyDraft("draft-2", { year: 2024, month: 1, day: 31 })
+    const months = newDraftMonths([a, b])
+    expect(validate(a, { newDraftMonths: months })).toBeNull()
+    expect(validate(b, { newDraftMonths: months })).toBe(
+      "Another new row is also for January 2024 — keep only one."
+    )
+  })
+  it("UNIT-DRAFT-D8-002 — once the other draft is gone the error no longer applies", () => {
+    const b = emptyDraft("draft-2", { year: 2024, month: 1, day: 31 })
+    expect(validate(b, { newDraftMonths: newDraftMonths([b]) })).toBeNull()
+  })
+  it("UNIT-DRAFT-D8-003 — 'already exists' names the month in words", () => {
+    const e = makeEntry(2024, 1)
+    const d = emptyDraft("draft-1", { year: 2024, month: 1, day: 31 })
+    expect(validate(d, { existingByMonth: new Map([["2024-1", e]]) })).toMatch(
+      /^An entry for January 2024 already exists/
+    )
+  })
+})
+
+describe("describeChange (D7)", () => {
+  it("UNIT-DRAFT-D7-001 — an edited value reads 'Portfolio value old → new'", () => {
+    const d = setCellValue(
+      fromEntry(makeEntry(2026, 5, { value: 15728.37 })),
+      "value",
+      15740.93
+    )
+    expect(describeChange(d)).toEqual({
+      month: "May 2026",
+      detail: "Portfolio value €15,728.37 → €15,740.93",
+    })
+  })
+  it("UNIT-DRAFT-D7-002 — a new row and a deletion are named too", () => {
+    expect(
+      describeChange(
+        emptyDraft(
+          "draft-1",
+          { year: 2026, month: 6, day: 30 },
+          { invested: 100 }
+        )
+      )
+    ).toEqual({ month: "June 2026", detail: "New entry — invested €100.00" })
+    expect(
+      describeChange({ ...fromEntry(makeEntry(2026, 4)), toDelete: true })
+    ).toEqual({ month: "April 2026", detail: "Delete this entry" })
+  })
+  it("UNIT-DRAFT-D7-003 — an unreadable cell is described, not shown as a stale number", () => {
+    const d = setCellError(
+      setCellValue(fromEntry(makeEntry(2026, 5)), "value", 15740.93),
+      "value",
+      "x"
+    )
+    expect(describeChange(d).detail).toBe(
+      "Portfolio value: an amount that couldn’t be read"
+    )
   })
 })

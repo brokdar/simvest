@@ -7,6 +7,7 @@ import {
   ok,
   type ValidationResult,
 } from "./_helpers"
+import { DEFAULT_IDENTITY_HEX } from "@/lib/palette"
 
 export type PortfolioCreate = {
   name: string
@@ -36,7 +37,7 @@ export function validatePortfolioCreate(
   const name = asNonEmptyString(body.name)
   if (name === null) return err("name is required")
 
-  const color = asString(body.color) || "#1E40AF"
+  const color = asString(body.color) || DEFAULT_IDENTITY_HEX
 
   const tmcRaw = asFiniteNumber(body.targetMonthlyContribution)
   const targetMonthlyContribution = tmcRaw !== null && tmcRaw >= 0 ? tmcRaw : 0

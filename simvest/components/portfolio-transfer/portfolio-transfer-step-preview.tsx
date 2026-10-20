@@ -91,7 +91,7 @@ export function PortfolioTransferStepPreview({
             >
               <span
                 style={{
-                  fontSize: 10.5,
+                  fontSize: "var(--fs-2xs)",
                   fontWeight: 600,
                   letterSpacing: "0.04em",
                   textTransform: "uppercase",
@@ -103,7 +103,7 @@ export function PortfolioTransferStepPreview({
               <span
                 className="mono"
                 style={{
-                  fontSize: 18,
+                  fontSize: "var(--fs-2xl)",
                   fontWeight: 600,
                   color: "var(--neutral-900)",
                 }}

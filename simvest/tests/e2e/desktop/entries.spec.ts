@@ -477,8 +477,11 @@ test("E2E-D-ENTRIES-EDIT-009 — Trade Republic merge: pasting (date, value) pre
   expect(dateText?.trim().length).toBeGreaterThan(0)
 
   // Determine the (year, month) of that row to paste a value-only update for
-  // the same month. dateText looks like "28 Dec 2023" or "28 Sept 2023".
-  const dateMatch = dateText!.trim().match(/^(\d{1,2}) (\w{3,5}) (\d{4})$/)
+  // the same month. dateText looks like "28 Dec 2023" (fmtDate — always a
+  // three-letter month, never "Sept").
+  const dateMatch = dateText!
+    .trim()
+    .match(/^(\d{1,2}) ([A-Z][a-z]{2}) (\d{4})$/)
   expect(dateMatch).not.toBeNull()
   const monthAbbr = dateMatch![2].slice(0, 3)
   const monthIdx =
@@ -606,4 +609,76 @@ test("E2E-D-ENTRIES-006 — Export downloads a CSV of the scoped entries with th
   expect(lines[0]).toBe("year,month,day,label,invested,value,note")
   // Seed has 60 monthly entries for portfolio 1 → header + body rows.
   expect(lines.length).toBeGreaterThan(1)
+})
+
+test("E2E-D-ENTRIES-D7-001 — Discard dialog names the month and old → new value", async ({
+  page,
+}) => {
+  await page.request.patch("/api/settings", { data: { locale: "de-DE" } })
+  await preselectPortfolio(page, 1)
+  await page.goto("/entries")
+  const firstRow = page
+    .locator('[data-testid="entries-table"] tbody tr')
+    .first()
+  const before = (await firstRow.locator("td").nth(2).innerText()).trim()
+  await page.getByTestId("btn-edit-table").click()
+  const id = (await firstRow.getAttribute("data-testid"))!.replace(
+    "entry-row-",
+    ""
+  )
+  const cell = page.getByTestId(`cell-value-${id}`)
+  await cell.fill("15740,93")
+  await cell.blur()
+  await page.getByTestId("entries-grid-cancel").click()
+
+  const dialog = page.getByTestId("entries-grid-discard-dialog")
+  await expect(dialog).toBeVisible()
+  // Seed's newest month is Dec 2023 (60 months from Jan 2019).
+  await expect(dialog.getByRole("heading")).toHaveText(
+    "Discard your change to December 2023?"
+  )
+  await expect(page.getByTestId("entries-grid-discard-list")).toContainText(
+    `Portfolio value ${before} → €15.740,93`
+  )
+  // The reassurance line stays.
+  await expect(dialog).toContainText("Saved entries are not affected.")
+})
+
+test("E2E-D-ENTRIES-D8-001 — duplicate-month error clears when the offending row is removed", async ({
+  page,
+}) => {
+  await preselectPortfolio(page, 1)
+  await page.goto("/entries")
+  await page.getByTestId("btn-edit-table").click()
+  // Two "Add row" clicks both land on the month after the last entry.
+  await page.getByTestId("btn-add-row").click()
+  await page.getByTestId("btn-add-row").click()
+  const drafts = page.locator(
+    '[data-testid="entries-table"] tbody tr[data-draft="true"]'
+  )
+  await expect(drafts).toHaveCount(2)
+
+  let posted = false
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().includes("/entries")) posted = true
+  })
+  await page.getByTestId("entries-grid-save").click()
+  const error = page.getByTestId("row-error-draft-2")
+  await expect(error).toContainText(
+    "Another new row is also for January 2024 — keep only one."
+  )
+  const status = page.getByTestId("entries-grid-status")
+  await expect(status).toHaveText("1 row needs a fix before saving.")
+  expect(posted).toBe(false)
+
+  await page.getByTestId("row-remove-draft-2").click()
+  await expect(error).toHaveCount(0)
+  await expect(status).not.toContainText("fix")
+  await expect(status).toHaveText("1 change pending.")
+
+  const save = page.waitForResponse(
+    (r) => r.request().method() === "POST" && r.url().includes("/entries")
+  )
+  await page.getByTestId("entries-grid-save").click()
+  expect((await save).ok()).toBe(true)
 })

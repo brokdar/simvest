@@ -22,7 +22,7 @@ export function FieldLabel({
       htmlFor={htmlFor}
       style={{
         display: "block",
-        fontSize: 12,
+        fontSize: "var(--fs-xs)",
         fontWeight: 600,
         color: "var(--neutral-600)",
         marginBottom: 6,

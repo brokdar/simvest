@@ -2,6 +2,7 @@
 
 import { Icon } from "@/components/icon"
 import type { ImportApplied } from "@/lib/import/types"
+import { fmtCount } from "@/lib/format"
 
 type Props = {
   result: ImportApplied
@@ -29,25 +30,41 @@ export function ImportStepSummary({ result, onClose }: Props) {
     },
   ]
 
+  const written =
+    result.entriesUpserted +
+    result.holdingsCreated +
+    result.dividendsInserted +
+    result.interestInserted
+  // Never celebrate an import that changed nothing (D2).
+  const tone = written > 0 ? "good" : "info"
+
   return (
     <div
       style={{ display: "flex", flexDirection: "column", gap: 14 }}
       data-testid="import-summary"
+      data-written={written}
     >
       <div
         className="card card-pad"
+        data-testid="import-summary-banner"
         style={{
-          background: "var(--pos-50, #ECFDF5)",
-          borderColor: "var(--pos, #059669)",
-          color: "var(--pos, #059669)",
-          fontSize: 13,
+          background: `var(--${tone}-bg)`,
+          borderColor: `var(--${tone}-border)`,
+          color: `var(--${tone})`,
+          fontSize: "var(--fs-sm)",
           fontWeight: 600,
           display: "flex",
           alignItems: "center",
           gap: 10,
         }}
       >
-        <Icon name="check" size={18} /> Import complete
+        {written > 0 ? (
+          <>
+            <Icon name="check" size={18} /> Import complete
+          </>
+        ) : (
+          <>Nothing changed — everything in this file was already in Simvest.</>
+        )}
       </div>
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -70,8 +87,7 @@ export function ImportStepSummary({ result, onClose }: Props) {
       {result.warnings.length > 0 && (
         <details>
           <summary className="muted small" style={{ cursor: "pointer" }}>
-            {result.warnings.length} warning
-            {result.warnings.length === 1 ? "" : "s"}
+            {fmtCount(result.warnings.length, "warning", "warnings")}
           </summary>
           <ul
             className="muted small"

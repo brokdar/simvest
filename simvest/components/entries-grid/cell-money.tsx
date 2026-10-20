@@ -6,6 +6,8 @@ import { useResolvedLocale } from "@/components/use-resolved-locale"
 type Props = {
   value: number | null
   onChange: (next: number | null) => void
+  /** A typed amount couldn't be read (or was fixed: `null`). */
+  onError: (error: string | null) => void
   ariaLabel: string
   testId?: string
   dirty: boolean
@@ -17,6 +19,7 @@ type Props = {
 export function CellMoney({
   value,
   onChange,
+  onError,
   ariaLabel,
   testId,
   dirty,
@@ -38,7 +41,17 @@ export function CellMoney({
     >
       <MoneyInput
         value={value}
-        onChange={(v) => onChange(v)}
+        // A rejected amount reports an error and leaves the stored number
+        // alone — never let it fall through as null / 0 (D1).
+        onChange={(v, err) => {
+          if (err !== null) {
+            onError(err)
+            return
+          }
+          onError(null)
+          onChange(v)
+        }}
+        echo="compact"
         locale={locale}
         ariaLabel={ariaLabel}
         testId={testId}

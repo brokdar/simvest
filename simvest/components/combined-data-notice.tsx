@@ -1,7 +1,7 @@
 "use client"
 
 import type { StaleContributor } from "@/lib/calc"
-import { labelFor } from "@/lib/types"
+import { fmtMonth } from "@/lib/dates"
 
 /**
  * One-line disclosure shown on the combined view when one or more portfolios
@@ -15,7 +15,7 @@ export function CombinedDataNotice({ stale }: { stale: StaleContributor[] }) {
   if (stale.length === 0) return null
 
   const list = stale
-    .map((s) => `${s.name} (${labelFor(s.lastYear, s.lastMonth)})`)
+    .map((s) => `${s.name} (${fmtMonth(s.lastYear, s.lastMonth)})`)
     .join(", ")
   const verb = stale.length === 1 ? "hasn’t" : "haven’t"
 
@@ -30,11 +30,11 @@ export function CombinedDataNotice({ stale }: { stale: StaleContributor[] }) {
         padding: "10px 12px",
         marginBottom: 16,
         borderRadius: 10,
-        fontSize: 13,
+        fontSize: "var(--fs-sm)",
         lineHeight: 1.45,
-        color: "var(--warning)",
-        background: "color-mix(in srgb, var(--warning) 8%, transparent)",
-        border: "1px solid color-mix(in srgb, var(--warning) 30%, transparent)",
+        color: "var(--warn)",
+        background: "color-mix(in srgb, var(--warn) 8%, transparent)",
+        border: "1px solid color-mix(in srgb, var(--warn) 30%, transparent)",
       }}
     >
       <svg

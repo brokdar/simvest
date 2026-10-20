@@ -19,6 +19,8 @@ import { toCsv, type CsvColumn } from "@/lib/export/to-csv"
 import { COMBINED_PORTFOLIO_ID, type EntryDTO } from "@/lib/types"
 import { ImportFlow } from "@/components/import/import-flow"
 import { PasteImportFlow } from "@/components/import/paste-import-flow"
+import { swatch } from "@/lib/palette"
+import { fmtCount } from "@/lib/format"
 
 export function EntriesView() {
   const {
@@ -90,7 +92,8 @@ export function EntriesView() {
             style={{ marginTop: 4 }}
             data-testid="entries-subtitle"
           >
-            Inline-editable history · {active.entries.length} records
+            Inline-editable history ·{" "}
+            {fmtCount(active.entries.length, "record", "records")}
           </div>
         </div>
         <div
@@ -152,7 +155,7 @@ export function EntriesView() {
             padding: 14,
             marginBottom: 12,
             background: "var(--primary-50)",
-            borderColor: "#C7D2FE",
+            borderColor: "var(--primary-200)",
           }}
           data-testid="combined-readonly-banner"
         >
@@ -162,7 +165,7 @@ export function EntriesView() {
               alignItems: "center",
               gap: 10,
               color: "var(--primary)",
-              fontSize: 13,
+              fontSize: "var(--fs-sm)",
             }}
           >
             <Icon name="info" size={16} />
@@ -174,7 +177,7 @@ export function EntriesView() {
 
       <EntriesBarChart
         entries={active.entries}
-        color={active.color}
+        color={swatch(active.color)}
         dividendsByMonth={dividendIndex}
       />
 

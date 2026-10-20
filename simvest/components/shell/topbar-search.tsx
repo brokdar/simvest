@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Icon } from "@/components/icon"
 import { useData } from "@/components/providers/data-provider"
-import { fmtEUR } from "@/lib/format"
+import { fmtCount, fmtEUR } from "@/lib/format"
 import type { GoalDTO } from "@/lib/types"
+import { swatch } from "@/lib/palette"
 
 function goalSubLabel(g: GoalDTO): string {
   const yearTail = `by ${g.targetYear}`
@@ -77,7 +78,7 @@ export function TopbarSearch() {
         name: p.name,
         color: p.color,
         sub: p.entries.length
-          ? `${fmtEUR(p.entries.at(-1)!.value, { compact: true })} · ${p.entries.length} entries`
+          ? `${fmtEUR(p.entries.at(-1)!.value, { compact: true })} · ${fmtCount(p.entries.length, "entry", "entries")}`
           : "no entries yet",
       }))
 
@@ -227,7 +228,7 @@ function ResultGroups({
           {portfolios.map((h, i) =>
             h.kind === "portfolio" ? (
               <ResultRow key={`p${i}`} onClick={() => onChoose(h)}>
-                <span className="dot" style={{ background: h.color }} />
+                <span className="dot" style={{ background: swatch(h.color) }} />
                 <div className="pf-dd-label">
                   <span className="pf-dd-name">{h.name}</span>
                   <span className="pf-dd-sub">{h.sub}</span>
@@ -243,7 +244,7 @@ function ResultGroups({
           {goals.map((h, i) =>
             h.kind === "goal" ? (
               <ResultRow key={`g${i}`} onClick={() => onChoose(h)}>
-                <span className="dot" style={{ background: h.color }} />
+                <span className="dot" style={{ background: swatch(h.color) }} />
                 <div className="pf-dd-label">
                   <span className="pf-dd-name">{h.name}</span>
                   <span className="pf-dd-sub">{h.sub}</span>
@@ -302,7 +303,7 @@ function Group({
     <div style={{ marginTop: 4 }} data-testid={testId}>
       <div
         style={{
-          fontSize: 10.5,
+          fontSize: "var(--fs-2xs)",
           fontWeight: 600,
           letterSpacing: "0.08em",
           textTransform: "uppercase",
