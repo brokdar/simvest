@@ -10,7 +10,7 @@ paths:
 
 ## Architecture: per-worker DB + per-worker server
 
-Each Playwright worker spawns its **own** `node .next/standalone/server.js` on `3100 + parallelIndex` against its **own** SQLite file (`data/.e2e/worker-<idx>.db`). There is no shared `webServer` and no shared database. The worker-scoped fixture in `tests/e2e/fixtures.ts` (auto-runs for every spec) handles the entire lifecycle: seed → spawn → wait for `/api/health` → expose `baseURL` and `resetDb` → SIGTERM + cleanup on teardown.
+Each Playwright worker spawns its **own** `node .next-e2e/standalone/server.js` on `3100 + parallelIndex` against its **own** SQLite file (`data/.e2e/worker-<idx>.db`). There is no shared `webServer` and no shared database. The worker-scoped fixture in `tests/e2e/fixtures.ts` (auto-runs for every spec) handles the entire lifecycle: seed → spawn → wait for `/api/health` → expose `baseURL` and `resetDb` → SIGTERM + cleanup on teardown.
 
 This is what makes `fullyParallel: true` actually safe. The fixture is documented inline; the architectural rationale is in `simvest/E2E_PARALLEL_ISOLATION.md`.
 
@@ -38,7 +38,7 @@ test.afterEach(async ({ resetDb }) => {
 
 ## `next build` runs once; per-worker servers spawn from it
 
-`globalSetup` in `tests/e2e/global-setup.ts` runs `next build` once, copies `.next/static` + `public/` into `.next/standalone/`, and exits. The per-worker fixture then spawns one server per worker against that standalone output. Pass `E2E_SKIP_BUILD=1` to skip the rebuild on warm iteration (use after a first cold run that succeeds).
+`globalSetup` in `tests/e2e/global-setup.ts` runs `next build` once into its own distDir `.next-e2e/` (so it never clobbers a running dev server's `.next`), copies `.next-e2e/static` + `public/` into `.next-e2e/standalone/`, and exits. The per-worker fixture then spawns one server per worker against that standalone output. Pass `E2E_SKIP_BUILD=1` to skip the rebuild on warm iteration (use after a first cold run that succeeds).
 
 Implications:
 - All API routes are dynamic-by-default at runtime, so no static-prerender races on the fresh SQLite WAL.

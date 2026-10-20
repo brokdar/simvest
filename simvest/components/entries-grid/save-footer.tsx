@@ -33,7 +33,7 @@ export function SaveFooter({
         background: "var(--surface)",
         border: "1px solid var(--border)",
         borderRadius: "var(--r-lg, 12px)",
-        boxShadow: "0 6px 24px -10px rgba(15, 23, 42, 0.18)",
+        boxShadow: "var(--sh-footer)",
         flexWrap: "wrap",
       }}
     >
@@ -41,7 +41,7 @@ export function SaveFooter({
         role="status"
         aria-live="polite"
         data-testid="entries-grid-status"
-        style={{ fontSize: 13, color: "var(--neutral-600)" }}
+        style={{ fontSize: "var(--fs-sm)", color: "var(--neutral-600)" }}
       >
         {saveStatus ??
           (dirtyCount === 0

@@ -11,6 +11,7 @@ import type {
   DividendBasis,
 } from "@/lib/types"
 import { COMBINED_PORTFOLIO_ID, labelFor } from "@/lib/types"
+import { COMBINED_IDENTITY_HEX } from "@/lib/palette"
 
 export type KPIs = {
   value: number
@@ -101,7 +102,7 @@ export function aggregatePortfoliosWithCoverage(
       portfolio: {
         id: COMBINED_ID,
         name: "Combined",
-        color: "#1F2937",
+        color: COMBINED_IDENTITY_HEX,
         targetMonthlyContribution: 0,
         startingValue: 0,
         startingDate: null,
@@ -227,7 +228,7 @@ export function aggregatePortfoliosWithCoverage(
     portfolio: {
       id: COMBINED_ID,
       name: "Combined",
-      color: "#1F2937",
+      color: COMBINED_IDENTITY_HEX,
       targetMonthlyContribution: combinedContribution,
       startingValue: combinedStartingValue,
       startingDate: combinedStartingDate,

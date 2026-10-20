@@ -11,8 +11,8 @@ import {
   type CellKey,
   type DraftRow,
 } from "@/components/entries-grid/draft-row"
-import { formatEntryDate } from "@/lib/dates"
-import { labelFor, type EntryDTO } from "@/lib/types"
+import { fmtDate, fmtMonthLong } from "@/lib/dates"
+import type { EntryDTO } from "@/lib/types"
 
 type Props = {
   entry: EntryDTO | null
@@ -102,16 +102,17 @@ export function EditableRow({
 
   const rowOpacity = isToDelete ? 0.45 : 1
   const rowDecoration = isToDelete ? "line-through" : "none"
-  // Short label used in per-row aria-labels (e.g. "Note for Dec 23") so screen
-  // readers can disambiguate which row's input has focus.
-  const monthLabel = labelFor(display.year, display.month)
+  // Spelled-out month for per-row aria-labels ("Note for April 2026") so
+  // screen readers can tell which row's input has focus — "Apr 26" read
+  // aloud sounds like a day of the month.
+  const monthLabel = fmtMonthLong(display.year, display.month)
 
   if (!editMode) {
     return (
       <tr data-testid={`entry-row-${testIdSuffix}`}>
         <td className="td-date">
           <div style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
-            {formatEntryDate(display.year, display.month, display.day)}
+            {fmtDate(display.year, display.month, display.day)}
           </div>
         </td>
         <td className="num td-invested" data-label="Invested">
@@ -227,7 +228,6 @@ export function EditableRow({
                 <button
                   type="button"
                   className="btn btn-icon btn-ghost btn-sm"
-                  style={{ color: "var(--neg)" }}
                   aria-label="Delete entry"
                   data-testid={`row-delete-${testIdSuffix}`}
                   onClick={onRequestDelete}
@@ -256,8 +256,8 @@ export function EditableRow({
             <div
               role="alert"
               style={{
-                color: "var(--danger, #B91C1C)",
-                fontSize: 12,
+                color: "var(--critical)",
+                fontSize: "var(--fs-xs)",
                 paddingLeft: 20,
               }}
             >

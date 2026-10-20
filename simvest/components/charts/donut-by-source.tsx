@@ -5,6 +5,7 @@ import { aggregateIncomeBySource } from "@/lib/calc"
 import { fmtEUR, fmtPct } from "@/lib/format"
 import type { DividendBasis, IncomeEventDTO, IncomeKind } from "@/lib/types"
 import { OTHERS_COLOR, SOURCE_PALETTE } from "./income-source-palette"
+import { svgNum } from "@/lib/charts/svg"
 
 type Props = {
   events: IncomeEventDTO[]
@@ -153,7 +154,7 @@ export function DonutBySource({
                   cursor: isOthers ? "default" : "pointer",
                   textAlign: "left",
                   fontFamily: "inherit",
-                  fontSize: 12,
+                  fontSize: "var(--fs-xs)",
                   opacity: dim ? 0.45 : 1,
                   transition: "opacity 120ms ease, background-color 120ms ease",
                 }}
@@ -183,7 +184,7 @@ export function DonutBySource({
                 </span>
                 <span
                   className="mono muted"
-                  style={{ fontSize: 11, whiteSpace: "nowrap" }}
+                  style={{ fontSize: "var(--fs-2xs)", whiteSpace: "nowrap" }}
                 >
                   {fmtPct(s.pct, 1)}
                 </span>
@@ -275,7 +276,7 @@ function Donut({
         x={cx}
         y={cy - 6}
         textAnchor="middle"
-        fontSize="11"
+        fontSize="var(--fs-2xs)"
         fill="var(--neutral-400)"
         fontFamily="var(--font-body)"
         style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}
@@ -286,7 +287,7 @@ function Donut({
         x={cx}
         y={cy + 16}
         textAnchor="middle"
-        fontSize="18"
+        fontSize="var(--fs-2xl)"
         fontWeight={700}
         fill="var(--neutral-800)"
         fontFamily="var(--font-head)"
@@ -314,10 +315,10 @@ function donutSlicePath(
   const x4 = Math.cos(start) * innerR
   const y4 = Math.sin(start) * innerR
   return [
-    `M ${x1.toFixed(2)} ${y1.toFixed(2)}`,
-    `A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`,
-    `L ${x3.toFixed(2)} ${y3.toFixed(2)}`,
-    `A ${innerR} ${innerR} 0 ${largeArc} 0 ${x4.toFixed(2)} ${y4.toFixed(2)}`,
+    `M ${svgNum(x1, 2)} ${svgNum(y1, 2)}`,
+    `A ${outerR} ${outerR} 0 ${largeArc} 1 ${svgNum(x2, 2)} ${svgNum(y2, 2)}`,
+    `L ${svgNum(x3, 2)} ${svgNum(y3, 2)}`,
+    `A ${innerR} ${innerR} 0 ${largeArc} 0 ${svgNum(x4, 2)} ${svgNum(y4, 2)}`,
     "Z",
   ].join(" ")
 }

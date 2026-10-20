@@ -2,7 +2,7 @@
 
 import { useMemo } from "react"
 import { Icon } from "@/components/icon"
-import { fmtEUR } from "@/lib/format"
+import { fmtCount, fmtEUR } from "@/lib/format"
 import { labelFor } from "@/lib/types"
 import type { ImportDecisions, ImportPreview } from "@/lib/import/types"
 import { ActionButton, Checkbox, Empty, Section, StatsBar } from "./review-ui"
@@ -82,14 +82,16 @@ export function ImportStepPreview({
           className="card"
           style={{
             padding: "8px 12px",
-            background: "var(--warning-50, #FEF3C7)",
-            borderColor: "var(--warning, #92400E)",
-            fontSize: 12,
+            background: "var(--warn-bg)",
+            borderColor: "var(--warn-border)",
+            fontSize: "var(--fs-xs)",
             flexShrink: 0,
           }}
           data-testid="import-warnings"
         >
-          <strong>{preview.warnings.length} warnings:</strong>
+          <strong>
+            {fmtCount(preview.warnings.length, "warning", "warnings")}:
+          </strong>
           <ul style={{ marginTop: 4, marginLeft: 18 }}>
             {preview.warnings.slice(0, 3).map((w, i) => (
               <li key={i}>{w}</li>
@@ -148,7 +150,10 @@ export function ImportStepPreview({
                         <td className="num mono">
                           {fmtEUR(m.newInvested)}
                           {investedChanged && (
-                            <div className="muted" style={{ fontSize: 10.5 }}>
+                            <div
+                              className="muted"
+                              style={{ fontSize: "var(--fs-2xs)" }}
+                            >
                               was {fmtEUR(m.currentInvested)}
                             </div>
                           )}
@@ -160,7 +165,10 @@ export function ImportStepPreview({
                             fmtEUR(m.newValue)
                           )}
                           {valueChanged && (
-                            <div className="muted" style={{ fontSize: 10.5 }}>
+                            <div
+                              className="muted"
+                              style={{ fontSize: "var(--fs-2xs)" }}
+                            >
                               was {fmtEUR(m.currentValue as number)}
                             </div>
                           )}
@@ -197,7 +205,7 @@ export function ImportStepPreview({
         </Section>
 
         <Section
-          title={`Income events — ${dividendCount} dividends, ${interestCount} interest${
+          title={`Income events — ${fmtCount(dividendCount, "dividend", "dividends")}, ${fmtCount(interestCount, "interest payment", "interest payments")}${
             alreadyImported > 0 ? ` (${alreadyImported} already imported)` : ""
           }`}
         >
@@ -229,7 +237,7 @@ export function ImportStepPreview({
                         <span
                           className="chip"
                           style={{
-                            fontSize: 10.5,
+                            fontSize: "var(--fs-2xs)",
                             background:
                               e.kind === "dividend"
                                 ? "var(--primary-50)"
@@ -246,7 +254,7 @@ export function ImportStepPreview({
                         {e.alreadyImported && (
                           <span
                             className="muted small"
-                            style={{ marginLeft: 6, fontSize: 10 }}
+                            style={{ marginLeft: 6, fontSize: "var(--fs-3xs)" }}
                           >
                             already imported
                           </span>
@@ -288,7 +296,7 @@ export function ImportStepPreview({
                         <span
                           className="chip small"
                           style={{
-                            fontSize: 10.5,
+                            fontSize: "var(--fs-2xs)",
                             background: h.exists
                               ? "var(--neutral-100)"
                               : "var(--tertiary-50)",

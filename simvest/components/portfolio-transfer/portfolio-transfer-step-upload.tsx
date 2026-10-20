@@ -41,7 +41,7 @@ export function PortfolioTransferStepUpload({
           aria-disabled={submitting || undefined}
         >
           <Icon name="upload" size={18} />
-          <span style={{ fontSize: 13 }}>
+          <span style={{ fontSize: "var(--fs-sm)" }}>
             {fileName
               ? `${fileName} — ${fmtNum(fileSize / 1024, 1, locale)} KB`
               : "Choose a Simvest portfolio export (.json)…"}

@@ -4,7 +4,7 @@ import { useMemo } from "react"
 import { Sparkline } from "@/components/sparkline"
 import { bucketEventsForSparkline, eventAmount, inferCadence } from "@/lib/calc"
 import { fmtEUR, fmtPct } from "@/lib/format"
-import { formatEntryDate, fromISODate } from "@/lib/dates"
+import { fmtDate, fromISODate } from "@/lib/dates"
 import {
   CADENCE_LABEL,
   type DividendBasis,
@@ -199,9 +199,7 @@ export function PerHoldingTable({
                   {fmtEUR(r.received)}
                 </td>
                 <td className="small td-ph-lastpaid" data-label="Last paid">
-                  {date
-                    ? formatEntryDate(date.year, date.month, date.day)
-                    : "—"}
+                  {date ? fmtDate(date.year, date.month, date.day) : "—"}
                 </td>
                 <td className="num mono td-ph-count" data-label="Count">
                   {r.count}
@@ -324,7 +322,7 @@ function Th({
           cursor: "pointer",
           textTransform: "uppercase",
           letterSpacing: "0.05em",
-          fontSize: 11,
+          fontSize: "var(--fs-2xs)",
           fontWeight: 600,
         }}
         aria-label={`Sort by ${label}`}

@@ -43,9 +43,9 @@ export function KpiRow({
   const deltaSign = yoy.deltaAbs > 0 ? "+" : yoy.deltaAbs < 0 ? "−" : ""
   const deltaColor =
     yoy.deltaAbs > 0
-      ? "var(--pos, var(--tertiary))"
+      ? "var(--good)"
       : yoy.deltaAbs < 0
-        ? "var(--neg, var(--danger))"
+        ? "var(--critical)"
         : "var(--neutral-400)"
   const deltaClass =
     yoy.deltaAbs > 0 ? "pos" : yoy.deltaAbs < 0 ? "neg" : "muted"
@@ -59,7 +59,7 @@ export function KpiRow({
       <div className="kpi accent" data-testid="kpi-inc-total">
         <div className="label">Total ({basis})</div>
         <div className="value mono">{fmtEUR(totalScoped)}</div>
-        <div className="delta" style={{ color: "rgba(255,255,255,0.85)" }}>
+        <div className="delta" style={{ color: "var(--hero-fg-soft)" }}>
           Since inception
         </div>
       </div>

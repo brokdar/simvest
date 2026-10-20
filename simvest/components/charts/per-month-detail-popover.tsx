@@ -45,7 +45,7 @@ export function PerMonthDetailPopover({
         width: "100%",
         minWidth: 0,
         color: "var(--neutral-800)",
-        fontSize: 12,
+        fontSize: "var(--fs-xs)",
         fontVariantNumeric: "tabular-nums",
       }}
     >
@@ -59,12 +59,12 @@ export function PerMonthDetailPopover({
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <div style={{ fontWeight: 700, fontSize: 13 }}>
+        <div style={{ fontWeight: 700, fontSize: "var(--fs-sm)" }}>
           {labelFor(year, month)}
         </div>
         <div style={{ textAlign: "right" }}>
           <div style={{ fontWeight: 700 }}>{fmtEUR(total)}</div>
-          <div className="muted" style={{ fontSize: 11 }}>
+          <div className="muted" style={{ fontSize: "var(--fs-2xs)" }}>
             {count} {count === 1 ? "payout" : "payouts"}
           </div>
         </div>

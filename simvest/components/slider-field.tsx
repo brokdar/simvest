@@ -3,6 +3,7 @@
 import { useId, useState } from "react"
 import { MoneyInput } from "@/components/money-input"
 import { formatMoney, parseMoney } from "@/lib/locale"
+import { snapToStep } from "@/lib/format"
 import { useResolvedLocale } from "@/components/use-resolved-locale"
 
 export type ValueKind = "money" | "percent" | "integer"
@@ -76,7 +77,11 @@ export function SliderField({
         }}
       >
         <span
-          style={{ fontSize: 13, fontWeight: 500, color: "var(--neutral-600)" }}
+          style={{
+            fontSize: "var(--fs-sm)",
+            fontWeight: 500,
+            color: "var(--neutral-600)",
+          }}
         >
           {label}
         </span>
@@ -123,12 +128,19 @@ export function SliderField({
         step={step}
         value={value}
         style={{ ["--fill" as string]: `${fill}%` } as React.CSSProperties}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
+        // Snap drags to the step grid (anchored at the comfortable min, not
+        // the stretched track) so float noise never reaches the field.
+        onChange={(e) =>
+          onChange(snapToStep(parseFloat(e.target.value), step, sliderMin))
+        }
         onKeyDown={(e) => e.stopPropagation()}
         data-testid={testId ? `${testId}-slider` : undefined}
       />
       {hint && (
-        <div className="muted small" style={{ fontSize: 11, marginTop: 6 }}>
+        <div
+          className="muted small"
+          style={{ fontSize: "var(--fs-2xs)", marginTop: 6 }}
+        >
           {hint}
         </div>
       )}
@@ -257,7 +269,7 @@ function PlainNumberInput({
               right: 10,
               top: "50%",
               transform: "translateY(-50%)",
-              fontSize: 13,
+              fontSize: "var(--fs-sm)",
               color: "var(--neutral-400)",
               pointerEvents: "none",
             }}
@@ -271,8 +283,8 @@ function PlainNumberInput({
           id={errorId}
           role="alert"
           style={{
-            fontSize: 11,
-            color: "var(--danger, #B91C1C)",
+            fontSize: "var(--fs-2xs)",
+            color: "var(--critical)",
             lineHeight: 1.4,
           }}
         >

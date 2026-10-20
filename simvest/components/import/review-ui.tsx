@@ -37,7 +37,7 @@ export function StatsBar({
         >
           <span
             style={{
-              fontSize: 10.5,
+              fontSize: "var(--fs-2xs)",
               fontWeight: 600,
               letterSpacing: "0.04em",
               textTransform: "uppercase",
@@ -49,7 +49,7 @@ export function StatsBar({
           <span
             className="mono"
             style={{
-              fontSize: 18,
+              fontSize: "var(--fs-2xl)",
               fontWeight: 600,
               color: "var(--neutral-900)",
             }}
@@ -57,7 +57,10 @@ export function StatsBar({
             {s.value}
           </span>
           {s.hint && (
-            <span className="muted" style={{ fontSize: 10.5, lineHeight: 1.2 }}>
+            <span
+              className="muted"
+              style={{ fontSize: "var(--fs-2xs)", lineHeight: 1.2 }}
+            >
               {s.hint}
             </span>
           )}
@@ -78,7 +81,7 @@ export function Section({
     <div>
       <div
         style={{
-          fontSize: 11,
+          fontSize: "var(--fs-2xs)",
           fontWeight: 700,
           letterSpacing: "0.04em",
           textTransform: "uppercase",
@@ -129,12 +132,12 @@ export function ActionButton({
       data-testid={testId}
       style={{
         padding: "4px 10px",
-        fontSize: 12,
+        fontSize: "var(--fs-xs)",
         fontWeight: 600,
         borderRadius: 6,
         border: `1px solid ${active ? "var(--primary)" : "var(--border)"}`,
         background: active ? "var(--primary)" : "var(--surface)",
-        color: active ? "white" : "var(--neutral-700)",
+        color: active ? "var(--primary-foreground)" : "var(--neutral-600)",
         cursor: "pointer",
       }}
     >
@@ -160,7 +163,7 @@ export function Checkbox({
         display: "flex",
         alignItems: "center",
         gap: 6,
-        fontSize: 12,
+        fontSize: "var(--fs-xs)",
         cursor: "pointer",
       }}
     >

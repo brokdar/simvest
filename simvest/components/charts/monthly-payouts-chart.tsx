@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { aggregateIncomeByMonthSource, filterEventsByMonth } from "@/lib/calc"
 import { niceTicks } from "@/lib/charts/scales"
-import { fmtEUR } from "@/lib/format"
+import { fmtAxisEUR, fmtEUR } from "@/lib/format"
 import {
   type DividendBasis,
   type IncomeEventDTO,
@@ -11,6 +11,7 @@ import {
 } from "@/lib/types"
 import { MonthDetailTooltip } from "./month-detail-tooltip"
 import { buildSourceColors, OTHERS_COLOR } from "./income-source-palette"
+import { svgNum } from "@/lib/charts/svg"
 
 type Props = {
   events: IncomeEventDTO[]
@@ -128,6 +129,8 @@ export function MonthlyPayoutsChart({
   const lineScale = niceTicks(0, maxLineRaw || 1, 3)
   const barMax = Math.max(1, barScale.max)
   const lineMax = Math.max(1, lineScale.max)
+  const fmtBarTick = fmtAxisEUR(barScale.ticks)
+  const fmtLineTick = fmtAxisEUR(lineScale.ticks)
 
   // Band scale: each month owns a slot of width `band`, and everything tied to
   // that month (bar, line vertex, tick label, hit target) is centered on the
@@ -145,13 +148,12 @@ export function MonthlyPayoutsChart({
 
   const linePath = trailing12
     .map(
-      (v, i) =>
-        (i === 0 ? "M" : "L") + x(i).toFixed(1) + " " + yLine(v).toFixed(1)
+      (v, i) => (i === 0 ? "M" : "L") + svgNum(x(i)) + " " + svgNum(yLine(v))
     )
     .join(" ")
   const areaPath =
     trailing12.length > 0
-      ? `${linePath} L ${x(trailing12.length - 1).toFixed(1)} ${baseY.toFixed(1)} L ${x(0).toFixed(1)} ${baseY.toFixed(1)} Z`
+      ? `${linePath} L ${svgNum(x(trailing12.length - 1))} ${svgNum(baseY)} L ${svgNum(x(0))} ${svgNum(baseY)} Z`
       : ""
 
   const highlightActive = highlightedHoldingId !== null
@@ -245,11 +247,11 @@ export function MonthlyPayoutsChart({
               x={pad.l - 8}
               y={yBar(t) + 3}
               textAnchor="end"
-              fontSize="10"
+              fontSize="var(--fs-3xs)"
               fill="var(--neutral-400)"
               fontFamily="var(--font-body)"
             >
-              {fmtEUR(t, { compact: true })}
+              {fmtBarTick(t)}
             </text>
           </g>
         ))}
@@ -260,11 +262,11 @@ export function MonthlyPayoutsChart({
             x={W - pad.r + 6}
             y={yLine(t) + 3}
             textAnchor="start"
-            fontSize="10"
+            fontSize="var(--fs-3xs)"
             fill="var(--primary-500)"
             fontFamily="var(--font-body)"
           >
-            {fmtEUR(t, { compact: true })}
+            {fmtLineTick(t)}
           </text>
         ))}
 
@@ -383,7 +385,7 @@ export function MonthlyPayoutsChart({
               x={x(i)}
               y={baseY + 18}
               textAnchor="middle"
-              fontSize="11"
+              fontSize="var(--fs-2xs)"
               fill="var(--neutral-400)"
               fontFamily="var(--font-body)"
             >

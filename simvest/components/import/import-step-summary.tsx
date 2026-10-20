@@ -2,6 +2,7 @@
 
 import { Icon } from "@/components/icon"
 import type { ImportApplied } from "@/lib/import/types"
+import { fmtCount } from "@/lib/format"
 
 type Props = {
   result: ImportApplied
@@ -37,10 +38,10 @@ export function ImportStepSummary({ result, onClose }: Props) {
       <div
         className="card card-pad"
         style={{
-          background: "var(--pos-50, #ECFDF5)",
-          borderColor: "var(--pos, #059669)",
-          color: "var(--pos, #059669)",
-          fontSize: 13,
+          background: "var(--good-bg)",
+          borderColor: "var(--good-border)",
+          color: "var(--good)",
+          fontSize: "var(--fs-sm)",
           fontWeight: 600,
           display: "flex",
           alignItems: "center",
@@ -70,8 +71,7 @@ export function ImportStepSummary({ result, onClose }: Props) {
       {result.warnings.length > 0 && (
         <details>
           <summary className="muted small" style={{ cursor: "pointer" }}>
-            {result.warnings.length} warning
-            {result.warnings.length === 1 ? "" : "s"}
+            {fmtCount(result.warnings.length, "warning", "warnings")}
           </summary>
           <ul
             className="muted small"

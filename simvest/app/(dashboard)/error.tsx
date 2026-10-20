@@ -23,7 +23,10 @@ export default function DashboardError({
         role="alert"
         aria-live="polite"
       >
-        <h1 className="title" style={{ marginBottom: 6, fontSize: 20 }}>
+        <h1
+          className="title"
+          style={{ marginBottom: 6, fontSize: "var(--fs-3xl)" }}
+        >
           Something went wrong
         </h1>
         <p className="muted small" style={{ marginBottom: 16 }}>

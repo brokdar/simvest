@@ -1,10 +1,11 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { fmtEUR, fmtPct } from "@/lib/format"
+import { fmtAxisEUR, fmtEUR, fmtNum, fmtPct } from "@/lib/format"
 import { niceTicks } from "@/lib/charts/scales"
 import { useChartTouch } from "@/components/charts/use-chart-touch"
 import type { ProjectionPoint } from "@/lib/calc"
+import { svgNum } from "@/lib/charts/svg"
 
 // Conservative tooltip half-width used to keep it inside the plot on a narrow
 // chart. The real tooltip can be wider, but this prevents edge overflow.
@@ -63,6 +64,7 @@ export function SolverChart({
   )
   const yScale = niceTicks(0, yMaxRaw, 5)
   const yMax = yScale.max
+  const fmtYTick = fmtAxisEUR(yScale.ticks)
 
   const x = (m: number) => pad.l + (m / Math.max(1, n)) * iw
   const y = (v: number) => pad.t + ih - (v / (yMax || 1)) * ih
@@ -70,7 +72,7 @@ export function SolverChart({
   const pathFor = (arr: ProjectionPoint[]) => {
     let d = `M ${pad.l} ${y(startValue)}`
     for (let i = 0; i < arr.length; i++) {
-      d += ` L ${x(i + 1).toFixed(1)} ${y(arr[i].value).toFixed(1)}`
+      d += ` L ${svgNum(x(i + 1))} ${svgNum(y(arr[i].value))}`
     }
     return d
   }
@@ -78,10 +80,10 @@ export function SolverChart({
   const areaBetween = (upper: ProjectionPoint[], lower: ProjectionPoint[]) => {
     let d = `M ${pad.l} ${y(startValue)}`
     for (let i = 0; i < upper.length; i++) {
-      d += ` L ${x(i + 1).toFixed(1)} ${y(upper[i].value).toFixed(1)}`
+      d += ` L ${svgNum(x(i + 1))} ${svgNum(y(upper[i].value))}`
     }
     for (let i = lower.length - 1; i >= 0; i--) {
-      d += ` L ${x(i + 1).toFixed(1)} ${y(lower[i].value).toFixed(1)}`
+      d += ` L ${svgNum(x(i + 1))} ${svgNum(y(lower[i].value))}`
     }
     d += ` L ${pad.l} ${y(startValue)} Z`
     return d
@@ -143,12 +145,9 @@ export function SolverChart({
   // overview chart's live region. Debounced via a string dep (stable by value)
   // with the only setState inside the timer, so no synchronous effect cascade.
   const ariaSummary = hover
-    ? `+${(hover.months / 12).toFixed(1)} years: Optimistic ${fmtEUR(
-        hover.opt,
-        {
-          compact: true,
-        }
-      )}, Expected ${fmtEUR(hover.exp, {
+    ? `+${fmtNum(hover.months / 12, 1)} years: Optimistic ${fmtEUR(hover.opt, {
+        compact: true,
+      })}, Expected ${fmtEUR(hover.exp, {
         compact: true,
       })}, Conservative ${fmtEUR(hover.cons, { compact: true })}`
     : ""
@@ -258,7 +257,7 @@ export function SolverChart({
           x={pad.l + 8}
           y={targetLabelY}
           textAnchor="start"
-          fontSize="11"
+          fontSize="var(--fs-2xs)"
           fontWeight="600"
           fill="var(--neutral-800)"
           fontFamily="var(--font-body)"
@@ -276,7 +275,7 @@ export function SolverChart({
               cx={reachedX}
               cy={reachedY}
               r="5"
-              fill="#fff"
+              fill="var(--surface)"
               stroke="var(--primary)"
               strokeWidth="2.5"
             />
@@ -284,7 +283,7 @@ export function SolverChart({
               x={reachedX + (reachedNearRight ? 4 : 0)}
               y={reachedY - 12}
               textAnchor={reachedAnchor}
-              fontSize="10.5"
+              fontSize="var(--fs-2xs)"
               fontWeight="600"
               fill="var(--primary)"
               fontFamily="var(--font-body)"
@@ -303,7 +302,7 @@ export function SolverChart({
           cy={y(startValue)}
           r="4"
           fill="var(--primary)"
-          stroke="#fff"
+          stroke="var(--surface)"
           strokeWidth="2"
         />
 
@@ -319,7 +318,7 @@ export function SolverChart({
                 cx={x(n)}
                 cy={y(e.v)}
                 r={i === 1 ? 5 : 3.5}
-                fill="#fff"
+                fill="var(--surface)"
                 stroke={e.c}
                 strokeWidth={i === 1 ? 2.5 : 2}
               />
@@ -340,7 +339,7 @@ export function SolverChart({
               cx={x(hover.i + 1)}
               cy={y(hover.exp)}
               r="4.5"
-              fill="#fff"
+              fill="var(--surface)"
               stroke="var(--primary)"
               strokeWidth="2"
             />
@@ -348,7 +347,7 @@ export function SolverChart({
               cx={x(hover.i + 1)}
               cy={y(hover.cons)}
               r="3"
-              fill="#fff"
+              fill="var(--surface)"
               stroke="var(--secondary-400)"
               strokeWidth="2"
             />
@@ -356,7 +355,7 @@ export function SolverChart({
               cx={x(hover.i + 1)}
               cy={y(hover.opt)}
               r="3"
-              fill="#fff"
+              fill="var(--surface)"
               stroke="var(--tertiary)"
               strokeWidth="2"
             />
@@ -369,11 +368,11 @@ export function SolverChart({
             x={pad.l - 12}
             y={y(t) + 4}
             textAnchor="end"
-            fontSize={narrow ? "10" : "11"}
+            fontSize={narrow ? "var(--fs-3xs)" : "var(--fs-2xs)"}
             fill="var(--neutral-400)"
             fontFamily="var(--font-body)"
           >
-            {fmtEUR(t, { compact: true })}
+            {fmtYTick(t)}
           </text>
         ))}
 
@@ -383,7 +382,7 @@ export function SolverChart({
             x={x(t.m)}
             y={pad.t + ih + 22}
             textAnchor="middle"
-            fontSize={narrow ? "10" : "11"}
+            fontSize={narrow ? "var(--fs-3xs)" : "var(--fs-2xs)"}
             fill="var(--neutral-400)"
             fontFamily="var(--font-body)"
           >
@@ -417,9 +416,7 @@ export function SolverChart({
                 transform: "translate(-50%, 0)",
               }}
             >
-              <div className="tt-h">
-                +{(hover.months / 12).toFixed(1)} years
-              </div>
+              <div className="tt-h">+{fmtNum(hover.months / 12, 1)} years</div>
               <div className="tt-row">
                 <span className="l">
                   <span
@@ -454,9 +451,9 @@ export function SolverChart({
                 style={{
                   marginTop: 6,
                   paddingTop: 6,
-                  borderTop: "1px solid rgba(255,255,255,0.15)",
-                  fontSize: 11,
-                  color: "rgba(255,255,255,0.7)",
+                  borderTop: "1px solid var(--tooltip-divider)",
+                  fontSize: "var(--fs-2xs)",
+                  color: "var(--tooltip-fg-muted)",
                 }}
               >
                 Target: {fmtEUR(portfolioTarget, { compact: true })} ·{" "}

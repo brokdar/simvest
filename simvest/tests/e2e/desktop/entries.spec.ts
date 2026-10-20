@@ -477,8 +477,11 @@ test("E2E-D-ENTRIES-EDIT-009 — Trade Republic merge: pasting (date, value) pre
   expect(dateText?.trim().length).toBeGreaterThan(0)
 
   // Determine the (year, month) of that row to paste a value-only update for
-  // the same month. dateText looks like "28 Dec 2023" or "28 Sept 2023".
-  const dateMatch = dateText!.trim().match(/^(\d{1,2}) (\w{3,5}) (\d{4})$/)
+  // the same month. dateText looks like "28 Dec 2023" (fmtDate — always a
+  // three-letter month, never "Sept").
+  const dateMatch = dateText!
+    .trim()
+    .match(/^(\d{1,2}) ([A-Z][a-z]{2}) (\d{4})$/)
   expect(dateMatch).not.toBeNull()
   const monthAbbr = dateMatch![2].slice(0, 3)
   const monthIdx =

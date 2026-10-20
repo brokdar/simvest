@@ -10,8 +10,8 @@ import {
 import { Icon } from "@/components/icon"
 import { useDataActions } from "@/components/providers/data-provider"
 import { useResolvedLocale } from "@/components/use-resolved-locale"
-import { fmtEUR } from "@/lib/format"
-import { resolveEntryDay } from "@/lib/dates"
+import { fmtCount, fmtEUR } from "@/lib/format"
+import { fmtMonth, resolveEntryDay } from "@/lib/dates"
 import {
   detectFormat,
   detectMapping,
@@ -304,10 +304,10 @@ export function PasteImportFlow({
             className="card"
             style={{
               padding: 10,
-              background: "var(--neg-50, #FEF2F2)",
-              borderColor: "var(--neg)",
-              color: "var(--neg)",
-              fontSize: 13,
+              background: "var(--critical-bg)",
+              borderColor: "var(--critical-border)",
+              color: "var(--critical)",
+              fontSize: "var(--fs-sm)",
             }}
             data-testid="paste-error"
           >
@@ -350,7 +350,7 @@ export function PasteImportFlow({
                 border: "1px solid var(--border)",
                 borderRadius: 8,
                 fontFamily: "var(--font-mono)",
-                fontSize: 12,
+                fontSize: "var(--fs-xs)",
                 resize: "vertical",
               }}
             />
@@ -362,7 +362,7 @@ export function PasteImportFlow({
                   gap: 14,
                   alignItems: "center",
                   flexWrap: "wrap",
-                  fontSize: 12,
+                  fontSize: "var(--fs-xs)",
                   color: "var(--neutral-600)",
                 }}
                 data-testid="paste-detection"
@@ -444,10 +444,10 @@ export function PasteImportFlow({
                 className="card"
                 style={{
                   padding: 10,
-                  background: "var(--neg-50, #FEF2F2)",
-                  borderColor: "var(--neg)",
-                  color: "var(--neg)",
-                  fontSize: 13,
+                  background: "var(--critical-bg)",
+                  borderColor: "var(--critical-border)",
+                  color: "var(--critical)",
+                  fontSize: "var(--fs-sm)",
                 }}
                 data-testid="paste-structural-error"
               >
@@ -510,15 +510,15 @@ export function PasteImportFlow({
                 className="card"
                 style={{
                   padding: 10,
-                  background: "var(--warn-50, #FFFBEB)",
-                  borderColor: "var(--warn, #B45309)",
-                  fontSize: 12.5,
+                  background: "var(--warn-bg)",
+                  borderColor: "var(--warn-border)",
+                  fontSize: "var(--fs-xs)",
                 }}
                 data-testid="paste-warnings"
               >
                 <details>
                   <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-                    {warnings.length} warning{warnings.length === 1 ? "" : "s"}
+                    {fmtCount(warnings.length, "warning", "warnings")}
                   </summary>
                   <ul style={{ margin: "6px 0 0 18px", lineHeight: 1.5 }}>
                     {warnings.slice(0, 8).map((w, i) => (
@@ -535,7 +535,7 @@ export function PasteImportFlow({
             <Section title="Rows">
               <table
                 className="table"
-                style={{ fontSize: 12 }}
+                style={{ fontSize: "var(--fs-xs)" }}
                 data-testid="paste-preview"
               >
                 <thead>
@@ -558,10 +558,7 @@ export function PasteImportFlow({
                         data-status={r.status}
                         style={{ opacity: skip ? 0.5 : 1 }}
                       >
-                        <td>
-                          {r.parsed!.year}-
-                          {String(r.parsed!.month).padStart(2, "0")}
-                        </td>
+                        <td>{fmtMonth(r.parsed!.year, r.parsed!.month)}</td>
                         <td className="num mono">
                           {fmtEUR(r.parsed!.invested)}
                         </td>
@@ -623,7 +620,9 @@ export function PasteImportFlow({
                 data-testid="paste-apply"
               >
                 <Icon name="check" size={14} />{" "}
-                {submitting ? "Applying…" : `Apply ${rowsToWrite.length} rows`}
+                {submitting
+                  ? "Applying…"
+                  : `Apply ${fmtCount(rowsToWrite.length, "row", "rows")}`}
               </button>
             </div>
           </div>
@@ -638,10 +637,10 @@ export function PasteImportFlow({
             <div
               className="card card-pad"
               style={{
-                background: "var(--pos-50, #ECFDF5)",
-                borderColor: "var(--pos, #059669)",
-                color: "var(--pos, #059669)",
-                fontSize: 13,
+                background: "var(--good-bg)",
+                borderColor: "var(--good-border)",
+                color: "var(--good)",
+                fontSize: "var(--fs-sm)",
                 fontWeight: 600,
                 display: "flex",
                 alignItems: "center",

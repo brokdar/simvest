@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { DataProvider } from "@/components/providers/data-provider"
 import { getInitialData } from "@/lib/db/queries"
+import { ThemeSync } from "@/components/providers/theme"
+import { THEME_INIT_SCRIPT } from "@/lib/theme"
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -46,7 +48,13 @@ export default async function RootLayout({
       suppressHydrationWarning
       className={cn(inter.variable, manrope.variable)}
     >
+      <head>
+        {/* Applies the stored light/dark preference before first paint, so a
+            dark-theme reload never flashes white. See lib/theme.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body>
+        <ThemeSync />
         <TooltipProvider delayDuration={200}>
           <DataProvider initial={initial}>{children}</DataProvider>
         </TooltipProvider>

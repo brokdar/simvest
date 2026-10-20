@@ -1,5 +1,7 @@
 "use client"
 
+import { svgNum } from "@/lib/charts/svg"
+
 type Props = {
   data: number[]
   color?: string
@@ -24,9 +26,7 @@ export function Sparkline({
     height - ((v - min) / range) * (height - 4) - 2,
   ])
   const path = pts
-    .map(
-      (p, i) => (i === 0 ? "M" : "L") + p[0].toFixed(1) + " " + p[1].toFixed(1)
-    )
+    .map((p, i) => (i === 0 ? "M" : "L") + svgNum(p[0]) + " " + svgNum(p[1]))
     .join(" ")
   const area = path + ` L ${width} ${height} L 0 ${height} Z`
   return (

@@ -1,6 +1,6 @@
 "use client"
 
-import { fmtNum } from "@/lib/format"
+import { fmtNum, snapToStep } from "@/lib/format"
 import { useResolvedLocale } from "@/components/use-resolved-locale"
 
 type Props = {
@@ -29,8 +29,12 @@ export function SliderRow({
   const { locale } = useResolvedLocale()
   // fmtNum is locale-cached; subscribing here makes the slider re-render
   // when the user switches Number format, picking up the new separator.
-  const display = fmtNum(value, 1, locale)
-  const fill = ((value - min) / (max - min)) * 100
+  // Snap to the step grid so float noise from the range input or the DB
+  // (4.900000095367432) never reaches the readout, the aria-valuenow or
+  // storage.
+  const snapped = snapToStep(value, step, min)
+  const display = fmtNum(snapped, 1, locale)
+  const fill = ((snapped - min) / (max - min)) * 100
   return (
     <div style={{ padding: "10px 0", borderTop: "1px solid var(--border)" }}>
       <div
@@ -42,7 +46,7 @@ export function SliderRow({
       >
         <span
           style={{
-            fontSize: 13,
+            fontSize: "var(--fs-sm)",
             fontWeight: 500,
             color: "var(--neutral-600)",
           }}
@@ -51,7 +55,7 @@ export function SliderRow({
         </span>
         <span
           className="mono"
-          style={{ fontSize: 13, fontWeight: 700 }}
+          style={{ fontSize: "var(--fs-sm)", fontWeight: 700 }}
           data-testid={testId ? `${testId}-value` : undefined}
         >
           {prefix}
@@ -66,9 +70,11 @@ export function SliderRow({
         min={min}
         max={max}
         step={step}
-        value={value}
+        value={snapped}
         style={{ ["--fill" as string]: `${fill}%` } as React.CSSProperties}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
+        onChange={(e) =>
+          onChange(snapToStep(parseFloat(e.target.value), step, min))
+        }
         onKeyDown={(e) => e.stopPropagation()}
         data-testid={testId}
       />
@@ -108,18 +114,21 @@ export function MonthlySavingControl({
         >
           <span
             style={{
-              fontSize: 13,
+              fontSize: "var(--fs-sm)",
               fontWeight: 500,
               color: "var(--neutral-600)",
             }}
           >
             Monthly saving (sum)
           </span>
-          <span className="mono" style={{ fontSize: 13, fontWeight: 700 }}>
+          <span
+            className="mono"
+            style={{ fontSize: "var(--fs-sm)", fontWeight: 700 }}
+          >
             €{fmtNum(value, 0, locale)}
           </span>
         </div>
-        <div className="muted small" style={{ fontSize: 11 }}>
+        <div className="muted small" style={{ fontSize: "var(--fs-2xs)" }}>
           Switch to a specific portfolio in the dropdown to edit its
           contribution.
         </div>
@@ -157,7 +166,7 @@ export function Stat({
         style={{
           letterSpacing: "0.04em",
           textTransform: "uppercase",
-          fontSize: 11,
+          fontSize: "var(--fs-2xs)",
           fontWeight: 600,
         }}
       >
@@ -168,7 +177,7 @@ export function Stat({
         style={{
           fontFamily: "var(--font-head)",
           fontWeight: 700,
-          fontSize: 20,
+          fontSize: "var(--fs-3xl)",
           letterSpacing: "-0.01em",
           margin: "4px 0",
         }}

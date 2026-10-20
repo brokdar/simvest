@@ -148,7 +148,7 @@ export function MoneyInput({
             left: 10,
             top: "50%",
             transform: "translateY(-50%)",
-            fontSize: 13,
+            fontSize: "var(--fs-sm)",
             color: "var(--neutral-400)",
             pointerEvents: "none",
           }}
@@ -199,8 +199,8 @@ export function MoneyInput({
           id={errorId}
           role="alert"
           style={{
-            fontSize: 11,
-            color: "var(--danger, #B91C1C)",
+            fontSize: "var(--fs-2xs)",
+            color: "var(--critical)",
             lineHeight: 1.4,
           }}
         >

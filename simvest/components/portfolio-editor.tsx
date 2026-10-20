@@ -14,15 +14,10 @@ import { MoneyInput } from "@/components/money-input"
 import { MonthYearPicker } from "@/components/month-year-picker"
 import { useEditorForm } from "@/components/use-editor-form"
 import { useResolvedLocale } from "@/components/use-resolved-locale"
+import { IDENTITY_COLORS, swatch } from "@/lib/palette"
+import { fmtCount } from "@/lib/format"
 
-const PALETTE = [
-  "#1E40AF",
-  "#059669",
-  "#7C3AED",
-  "#0F766E",
-  "#B45309",
-  "#334155",
-]
+const PALETTE = IDENTITY_COLORS.map((c) => c.hex)
 
 export type PortfolioEditorPayload = {
   name: string
@@ -304,7 +299,7 @@ export function PortfolioEditor({
                         width: 28,
                         height: 28,
                         borderRadius: 8,
-                        background: c,
+                        background: swatch(c),
                         border: `2px solid ${form.color === c ? "var(--neutral-800)" : "transparent"}`,
                         cursor: "pointer",
                       }}
@@ -397,7 +392,6 @@ export function PortfolioEditor({
                                   startingDate: undefined,
                                 })
                             }}
-                            locale={locale}
                             placeholder="Pick month"
                             testId="starting-date-picker"
                           />
@@ -469,16 +463,22 @@ function ConfirmRecompute({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <p
-        style={{ fontSize: 13, color: "var(--neutral-700)", lineHeight: 1.55 }}
+        style={{
+          fontSize: "var(--fs-sm)",
+          color: "var(--neutral-600)",
+          lineHeight: 1.55,
+        }}
       >
         Changing the starting balance will recompute gain and CAGR figures
         across all{" "}
         <strong style={{ color: "var(--neutral-800)" }}>
-          {entryCount} {entryCount === 1 ? "entry" : "entries"}
+          {fmtCount(entryCount, "entry", "entries")}
         </strong>
         . Existing entries themselves are not modified.
       </p>
-      <p style={{ fontSize: 12, color: "var(--neutral-500)" }}>Continue?</p>
+      <p style={{ fontSize: "var(--fs-xs)", color: "var(--neutral-500)" }}>
+        Continue?
+      </p>
       <DialogFooter>
         <button
           type="button"
@@ -525,7 +525,7 @@ function ModeRadio({
         gap: 10,
         alignItems: "flex-start",
         padding: "8px 10px",
-        background: selected ? "var(--primary-50, #EFF6FF)" : "transparent",
+        background: selected ? "var(--primary-50)" : "transparent",
         border: `1px solid ${selected ? "var(--primary)" : "var(--border)"}`,
         borderRadius: 8,
         textAlign: "left",
@@ -559,11 +559,17 @@ function ModeRadio({
       </span>
       <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <span
-          style={{ fontSize: 13, fontWeight: 600, color: "var(--neutral-800)" }}
+          style={{
+            fontSize: "var(--fs-sm)",
+            fontWeight: 600,
+            color: "var(--neutral-800)",
+          }}
         >
           {label}
         </span>
-        <span style={{ fontSize: 11, color: "var(--neutral-500)" }}>
+        <span
+          style={{ fontSize: "var(--fs-2xs)", color: "var(--neutral-500)" }}
+        >
           {hint}
         </span>
       </span>
@@ -576,8 +582,8 @@ function FieldError({ children }: { children: React.ReactNode }) {
     <div
       role="alert"
       style={{
-        fontSize: 11,
-        color: "var(--danger)",
+        fontSize: "var(--fs-2xs)",
+        color: "var(--critical)",
         marginTop: 4,
         lineHeight: 1.4,
       }}

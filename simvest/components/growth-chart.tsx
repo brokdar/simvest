@@ -1,13 +1,15 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { fmtEUR } from "@/lib/format"
-import { addCalendarMonths, entryTimestamp } from "@/lib/dates"
+import { fmtAxisEUR, fmtEUR, fmtNum } from "@/lib/format"
+import { addCalendarMonths, entryTimestamp, fmtYearShort } from "@/lib/dates"
 import { axisLayout, niceMax } from "@/lib/charts/scales"
 import { XAxis, YAxis } from "@/components/charts/axis"
 import { useChartTouch } from "@/components/charts/use-chart-touch"
 import type { EntryDTO } from "@/lib/types"
 import type { MonthCoverage, ProjectionPoint } from "@/lib/calc"
+import { swatch } from "@/lib/palette"
+import { svgNum } from "@/lib/charts/svg"
 
 // Below this container width the fixed desktop height reads as a cramped, overly
 // tall column on a phone — shrink to a portrait-friendly height instead.
@@ -203,10 +205,7 @@ export function GrowthChart({
         continue
       }
       parts.push(
-        (needsMove ? "M" : "L") +
-          x(start + i).toFixed(1) +
-          " " +
-          y(v).toFixed(1)
+        (needsMove ? "M" : "L") + svgNum(x(start + i)) + " " + svgNum(y(v))
       )
       needsMove = false
     }
@@ -227,7 +226,7 @@ export function GrowthChart({
       const b = arr[i]
       if (a === null || b === null || !pick(i)) continue
       parts.push(
-        `M${x(i - 1).toFixed(1)} ${y(a).toFixed(1)} L${x(i).toFixed(1)} ${y(b).toFixed(1)}`
+        `M${svgNum(x(i - 1))} ${svgNum(y(a))} L${svgNum(x(i))} ${svgNum(y(b))}`
       )
     }
     return parts.join(" ")
@@ -236,19 +235,16 @@ export function GrowthChart({
     const top = topArr
       .map(
         (v, i) =>
-          (i === 0 ? "M" : "L") +
-          x(start + i).toFixed(1) +
-          " " +
-          y(v).toFixed(1)
+          (i === 0 ? "M" : "L") + svgNum(x(start + i)) + " " + svgNum(y(v))
       )
       .join(" ")
     const bot = botArr
       .map(
         (_, i) =>
           "L" +
-          x(start + botArr.length - 1 - i).toFixed(1) +
+          svgNum(x(start + botArr.length - 1 - i)) +
           " " +
-          y(botArr[botArr.length - 1 - i]).toFixed(1)
+          svgNum(y(botArr[botArr.length - 1 - i]))
       )
       .join(" ")
     return top + " " + bot + " Z"
@@ -257,15 +253,12 @@ export function GrowthChart({
     const top = arr
       .map(
         (v, i) =>
-          (i === 0 ? "M" : "L") +
-          x(start + i).toFixed(1) +
-          " " +
-          y(v).toFixed(1)
+          (i === 0 ? "M" : "L") + svgNum(x(start + i)) + " " + svgNum(y(v))
       )
       .join(" ")
     return (
       top +
-      ` L ${x(start + arr.length - 1).toFixed(1)} ${y(0).toFixed(1)} L ${x(start).toFixed(1)} ${y(0).toFixed(1)} Z`
+      ` L ${svgNum(x(start + arr.length - 1))} ${svgNum(y(0))} L ${svgNum(x(start))} ${svgNum(y(0))} Z`
     )
   }
 
@@ -289,7 +282,7 @@ export function GrowthChart({
     for (let i = 0; i < totalMonths; i += monthStride) {
       let label: string
       if (i < histCount) {
-        label = `’${String(entries[i].year).slice(-2)}`
+        label = fmtYearShort(entries[i].year)
       } else if (lastHist) {
         const proj = i - histCount
         const target = addCalendarMonths(
@@ -298,7 +291,7 @@ export function GrowthChart({
           lastHist.day,
           proj + 1
         )
-        label = `’${String(target.year).slice(-2)}`
+        label = fmtYearShort(target.year)
       } else {
         label = ""
       }
@@ -375,7 +368,7 @@ export function GrowthChart({
     const cons = valueCons[pi]
     const opt = valueOpt[pi]
     const inv = projInvested[pi]
-    const dYears = ((pi + 1) / 12).toFixed(1)
+    const dYears = fmtNum((pi + 1) / 12, 1)
     return {
       x: x(i),
       y: y(base),
@@ -449,7 +442,14 @@ export function GrowthChart({
       ? fmtEUR(g.value, { compact: true })
       : `${g.name} · ${fmtEUR(g.value, { compact: true })}`
     const width = narrow ? 58 : 92
-    goalPills.push({ id: g.id, color: g.color, lineY, labelY, text, width })
+    goalPills.push({
+      id: g.id,
+      color: swatch(g.color),
+      lineY,
+      labelY,
+      text,
+      width,
+    })
   }
 
   const dividerX = x(Math.max(0, histCount - 1))
@@ -486,7 +486,7 @@ export function GrowthChart({
           ticks={yTicks}
           left={pad.l}
           right={W - pad.r}
-          formatLabel={(v) => fmtEUR(v, { compact: true })}
+          formatLabel={fmtAxisEUR(yTicks.map((t) => t.value))}
         />
 
         <XAxis
@@ -510,7 +510,7 @@ export function GrowthChart({
               x2={W - pad.r}
               y1={p.lineY}
               y2={p.lineY}
-              stroke={p.color}
+              stroke={swatch(p.color)}
               strokeDasharray="4 4"
               strokeWidth="1.5"
               opacity="0.7"
@@ -522,13 +522,13 @@ export function GrowthChart({
                 width={p.width}
                 height="20"
                 rx="4"
-                fill={p.color}
+                fill={swatch(p.color)}
               />
               <text
                 x={-p.width + 6}
                 y="3"
-                fontSize="11"
-                fill="#fff"
+                fontSize="var(--fs-2xs)"
+                fill="var(--surface)"
                 fontWeight="600"
                 fontFamily="var(--font-body)"
               >
@@ -659,9 +659,9 @@ export function GrowthChart({
             x="27"
             y="3"
             textAnchor="middle"
-            fontSize="10.5"
+            fontSize="var(--fs-2xs)"
             fontWeight="700"
-            fill="#fff"
+            fill="var(--surface)"
             fontFamily="var(--font-body)"
             letterSpacing="0.04em"
           >
@@ -684,7 +684,7 @@ export function GrowthChart({
                 cx={hover.x}
                 cy={hover.y}
                 r="4.5"
-                fill="#fff"
+                fill="var(--surface)"
                 stroke="var(--primary)"
                 strokeWidth="2"
               />
@@ -698,7 +698,7 @@ export function GrowthChart({
             cy={y(lastHist.value)}
             r="4"
             fill="var(--primary)"
-            stroke="#fff"
+            stroke="var(--surface)"
             strokeWidth="2"
           />
         )}

@@ -136,7 +136,7 @@ export function DividendEditor({
           <div
             role="alert"
             className="small"
-            style={{ color: "var(--neg)" }}
+            style={{ color: "var(--critical)" }}
             data-testid="dividend-editor-error"
           >
             {submitError}

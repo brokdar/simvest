@@ -5,36 +5,52 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ---- Design tokens (Simvest) ----
-   Brand palette + neutrals + typography. ShadCN's expected variables
-   (--primary, --background, --card, ...) are mapped to these design
-   values so the installed primitives keep working without restyling.
+   The one token layer. Documented in docs/design-tokens.md — read that
+   before adding a token. Every colour a component paints comes from here and
+   is defined for BOTH themes: `:root` is light, `.dark` (set on <html> by
+   lib/theme.ts) is dark. Components never carry raw hex / rgb() or px font
+   sizes; tests/unit/design-tokens.test.ts enforces it.
+
+   ShadCN's expected variables (--primary, --background, --card, ...) are
+   mapped onto these values so installed primitives follow both themes.
 */
 :root {
-  /* Brand palette */
+  color-scheme: light;
+
+  /* Brand accent (blue). --primary is text/lines/fills; --primary-foreground
+     is anything drawn ON a --primary fill. */
   --primary: #1e40af;
-  --primary-600: #1e40af;
+  --primary-hover: #1a3799;
   --primary-500: #2951c8;
   --primary-400: #4f74d9;
+  --primary-300: #93a9e8;
+  --primary-200: #c7d2fe;
   --primary-100: #dbe4f7;
   --primary-50: #eef2fb;
   --primary-foreground: #ffffff;
 
+  /* Slate — secondary surfaces (hover, chips, tracks) and the invested line */
   --secondary: #334155;
-  --secondary-600: #334155;
   --secondary-400: #64748b;
   --secondary-200: #cbd5e1;
   --secondary-100: #e2e8f0;
   --secondary-50: #f1f5f9;
-  --secondary-foreground: #1f2937;
 
+  /* Green — brand secondary (gain fills, bond tags). For "good" STATE use
+     --good, not this. */
   --tertiary: #059669;
   --tertiary-400: #34b27f;
-  --tertiary-100: #d1fae5;
   --tertiary-50: #ecfdf5;
 
-  --neutral: #1f2937;
+  /* Amber — categorical only (the "stock" holding tag). For "warning" STATE
+     use --warn. */
+  --amber: #b45309;
+  --amber-50: #fef3c7;
+
+  /* Neutrals. High numbers are ink (text), low numbers are washes (fills).
+     The dark theme inverts the ramp, so the roles hold in both themes. */
+  --neutral-900: #111827;
   --neutral-800: #1f2937;
-  --neutral-700: #374151;
   --neutral-600: #374151;
   --neutral-500: #4b5563;
   --neutral-400: #6b7280;
@@ -43,19 +59,91 @@
   --neutral-100: #e5e7eb;
   --neutral-50: #f3f4f6;
 
+  /* Surfaces */
   --bg: #fafbfc;
   --surface: #ffffff;
-  --surface-muted: #f7f8fa;
   --border: #e6e8ec;
   --border-strong: #d1d5db;
+  --overlay: rgba(15, 23, 42, 0.45);
+  --scrim: rgba(0, 0, 0, 0.8);
+  --scrollbar-thumb: #d8dce3;
+  --scrollbar-thumb-hover: #b9bfc9;
 
-  --danger: #b91c1c;
-  --warning: #b45309;
+  /* Semantic state — distinct from the brand accent. Usage rule:
+       --critical  something is actually wrong (failed save, invalid input,
+                   a loss). Never for "not done yet".
+       --warn      needs attention soon, nothing is broken (stale import,
+                   an approaching deadline you're behind on).
+       --good      on track / gained / succeeded.
+       --info      neutral, informational — including "you haven't entered
+                   this month's data yet".
+     Each has a -bg (banner/chip wash) and -border. */
+  --good: #059669;
+  --good-bg: #ecfdf5;
+  --good-border: #a7f3d0;
+  --warn: #b45309;
+  --warn-bg: #fffbeb;
+  --warn-border: #fde68a;
+  --critical: #b91c1c;
+  --critical-bg: #fef2f2;
+  --critical-border: #fecaca;
+  --info: #0369a1;
+  --info-bg: #f0f9ff;
+  --info-border: #bae6fd;
+
+  /* Hero KPI card (the filled "Portfolio value" tile) */
+  --hero-bg: var(--primary);
+  --hero-fg: #ffffff;
+  --hero-fg-soft: rgba(255, 255, 255, 0.85);
+  --hero-fg-muted: rgba(255, 255, 255, 0.7);
+  --hero-chip-bg: rgba(255, 255, 255, 0.16);
+
+  /* Chart tooltips — an inverted (dark) chip in both themes */
+  --tooltip-bg: #1f2937;
+  --tooltip-border: transparent;
+  --tooltip-fg: #ffffff;
+  --tooltip-fg-soft: rgba(255, 255, 255, 0.8);
+  --tooltip-fg-muted: rgba(255, 255, 255, 0.65);
+  --tooltip-divider: rgba(255, 255, 255, 0.15);
+  --tooltip-chip-border: rgba(255, 255, 255, 0.4);
+  --tooltip-good: #86efac;
+  --tooltip-critical: #fca5a5;
+
+  /* Identity colours: what a stored portfolio/goal hex renders as (see
+     lib/palette.ts → swatch()). Light values equal the stored hex. */
+  --id-blue: #1e40af;
+  --id-green: #059669;
+  --id-purple: #7c3aed;
+  --id-teal: #0f766e;
+  --id-amber: #b45309;
+  --id-slate: #334155;
+  --id-ink: #1f2937;
+
+  /* Extra categorical series (income-by-source palette, slots 4-7) */
+  --series-violet: #a855f7;
+  --series-orange: #f59e0b;
+  --series-sky: #0ea5e9;
+  --series-pink: #ec4899;
 
   /* Type */
   --font-head: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Type scale (px). The only font sizes allowed — see docs/design-tokens.md
+     for which role each step plays. */
+  --fs-3xs: 10px;
+  --fs-2xs: 11px;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-lg: 15px;
+  --fs-xl: 16px;
+  --fs-2xl: 18px;
+  --fs-3xl: 20px;
+  --fs-4xl: 22px;
+  --fs-5xl: 26px;
+  --fs-6xl: 28px;
 
   /* Radii */
   --r-xs: 4px;
@@ -66,9 +154,12 @@
   --radius: 0.625rem;
 
   /* Shadow */
+  --sh-xs: 0 1px 2px rgba(0, 0, 0, 0.06);
   --sh-sm: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 1px rgba(16, 24, 40, 0.02);
   --sh-md: 0 4px 12px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
   --sh-lg: 0 12px 32px rgba(16, 24, 40, 0.08), 0 2px 4px rgba(16, 24, 40, 0.04);
+  --sh-footer: 0 6px 24px -10px rgba(15, 23, 42, 0.18);
+  --sh-inset-mark: inset 0 -2px 0 rgba(0, 0, 0, 0.15);
 
   /* ---- ShadCN variable mapping ----
      ShadCN components reference these names — keep them aligned with
@@ -83,24 +174,106 @@
   --muted-foreground: var(--neutral-400);
   --accent: var(--secondary-50);
   --accent-foreground: var(--neutral-800);
-  --destructive: var(--danger);
+  --destructive: var(--critical);
   --input: var(--border);
   --ring: var(--primary-100);
 
   --sidebar: var(--surface);
   --sidebar-foreground: var(--neutral-800);
   --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar-primary-foreground: var(--primary-foreground);
   --sidebar-accent: var(--secondary-50);
   --sidebar-accent-foreground: var(--neutral-800);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--primary-100);
+}
 
-  --chart-1: var(--primary);
-  --chart-2: var(--tertiary);
-  --chart-3: var(--secondary-400);
-  --chart-4: var(--primary-400);
-  --chart-5: var(--tertiary-400);
+/* ---- Dark theme ----
+   Same token names, dark values. Only colours change here — never sizes.
+   Contrast targets: body text ≥ 7:1 on --surface, muted text ≥ 4.5:1,
+   chart strokes and identity colours ≥ 3:1. */
+.dark {
+  color-scheme: dark;
+
+  --primary: #7c9cf5;
+  --primary-hover: #9bb4f8;
+  --primary-500: #8aa6f6;
+  --primary-400: #a5b8fa;
+  --primary-300: #5f7bd0;
+  --primary-200: #34437a;
+  --primary-100: #2c3b6b;
+  --primary-50: #1b2440;
+  --primary-foreground: #0b1430;
+
+  --secondary: #cbd5e1;
+  --secondary-400: #94a3b8;
+  --secondary-200: #3b4658;
+  --secondary-100: #2a3242;
+  --secondary-50: #1d2330;
+
+  --tertiary: #34d399;
+  --tertiary-400: #6ee7b7;
+  --tertiary-50: #11291f;
+
+  --amber: #fbbf24;
+  --amber-50: #2d2410;
+
+  --neutral-900: #f3f5f8;
+  --neutral-800: #e4e8ee;
+  --neutral-600: #c3c9d4;
+  --neutral-500: #a4acba;
+  --neutral-400: #8a93a3;
+  --neutral-300: #6b7383;
+  --neutral-200: #3a4252;
+  --neutral-100: #2a3140;
+  --neutral-50: #1f2531;
+
+  --bg: #0f131a;
+  --surface: #161b24;
+  --border: #262d3a;
+  --border-strong: #354055;
+  --overlay: rgba(0, 0, 0, 0.6);
+  --scrollbar-thumb: #343c4b;
+  --scrollbar-thumb-hover: #4a5366;
+
+  --good: #34d399;
+  --good-bg: #11291f;
+  --good-border: #1f5a43;
+  --warn: #fbbf24;
+  --warn-bg: #2a210f;
+  --warn-border: #5c4716;
+  --critical: #f87171;
+  --critical-bg: #2c1618;
+  --critical-border: #6b2a2e;
+  --info: #38bdf8;
+  --info-bg: #0c2433;
+  --info-border: #1d4d68;
+
+  --hero-bg: #23409e;
+
+  --tooltip-bg: #2b3344;
+  --tooltip-border: #3a4457;
+  --tooltip-fg: #f3f5f8;
+
+  --id-blue: #7c9cf5;
+  --id-green: #34d399;
+  --id-purple: #a78bfa;
+  --id-teal: #2dd4bf;
+  --id-amber: #fbbf24;
+  --id-slate: #94a3b8;
+  --id-ink: #e4e8ee;
+
+  --series-violet: #c084fc;
+  --series-orange: #fb923c;
+  --series-sky: #38bdf8;
+  --series-pink: #f472b6;
+
+  --sh-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --sh-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 1px rgba(0, 0, 0, 0.25);
+  --sh-md: 0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --sh-lg: 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --sh-footer: 0 6px 24px -10px rgba(0, 0, 0, 0.6);
+  --sh-inset-mark: inset 0 -2px 0 rgba(0, 0, 0, 0.25);
 }
 
 @theme inline {
@@ -126,12 +299,6 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
 
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -192,12 +359,12 @@ h4 {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #d8dce3;
+  background: var(--scrollbar-thumb);
   border-radius: 8px;
   border: 2px solid var(--bg);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #b9bfc9;
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* ---- App shell ---- */
@@ -234,7 +401,7 @@ h4 {
   position: relative;
   display: grid;
   place-items: center;
-  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+  box-shadow: var(--sh-inset-mark);
 }
 .brand-mark svg {
   display: block;
@@ -242,19 +409,19 @@ h4 {
 .brand-name {
   font-family: var(--font-head);
   font-weight: 800;
-  font-size: 18px;
+  font-size: var(--fs-2xl);
   letter-spacing: -0.02em;
   color: var(--neutral-800);
 }
 .brand-sub {
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   color: var(--neutral-400);
   margin-top: -2px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 .nav-section {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   color: var(--neutral-400);
@@ -267,7 +434,7 @@ h4 {
   gap: 10px;
   padding: 9px 12px;
   border-radius: var(--r-sm);
-  font-size: 13.5px;
+  font-size: var(--fs-md);
   font-weight: 500;
   color: var(--neutral-600);
   cursor: pointer;
@@ -315,7 +482,7 @@ h4 {
   gap: 18px;
 }
 .crumbs {
-  font-size: 13px;
+  font-size: var(--fs-sm);
   color: var(--neutral-400);
 }
 .crumbs strong {
@@ -341,7 +508,7 @@ h4 {
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--overlay);
 }
 .drawer-panel {
   position: fixed;
@@ -353,7 +520,7 @@ h4 {
   height: 100dvh;
   background: var(--surface);
   border-right: 1px solid var(--border);
-  box-shadow: var(--sh-lg, 0 10px 40px rgba(0, 0, 0, 0.18));
+  box-shadow: var(--sh-lg);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -417,7 +584,7 @@ h4 {
   margin: 0 auto;
 }
 .view h1.title {
-  font-size: 26px;
+  font-size: var(--fs-5xl);
   letter-spacing: -0.02em;
 }
 
@@ -443,7 +610,7 @@ textarea,
   height: 36px;
   padding: 0 14px;
   border-radius: var(--r-sm);
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   border: 1px solid transparent;
   cursor: pointer;
@@ -461,10 +628,10 @@ textarea,
 }
 .btn-primary {
   background: var(--primary);
-  color: #fff;
+  color: var(--primary-foreground);
 }
 .btn-primary:hover:not(:disabled) {
-  background: #1a3799;
+  background: var(--primary-hover);
 }
 .btn-secondary {
   background: var(--secondary-50);
@@ -473,13 +640,6 @@ textarea,
 }
 .btn-secondary:hover:not(:disabled) {
   background: var(--secondary-100);
-}
-.btn-inverted {
-  background: var(--neutral-800);
-  color: #fff;
-}
-.btn-inverted:hover:not(:disabled) {
-  background: #111827;
 }
 .btn-outlined {
   background: transparent;
@@ -499,7 +659,7 @@ textarea,
 .btn-sm {
   height: 30px;
   padding: 0 10px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 .btn-icon {
   width: 36px;
@@ -514,26 +674,26 @@ textarea,
   height: 24px;
   padding: 0 10px;
   border-radius: 999px;
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   background: var(--secondary-50);
   color: var(--neutral-600);
   border: 1px solid var(--border);
 }
 .chip.positive {
-  background: var(--tertiary-50);
-  color: var(--tertiary);
-  border-color: #a7f3d0;
+  background: var(--good-bg);
+  color: var(--good);
+  border-color: var(--good-border);
 }
 .chip.negative {
-  background: #fef2f2;
-  color: var(--danger);
-  border-color: #fecaca;
+  background: var(--critical-bg);
+  color: var(--critical);
+  border-color: var(--critical-border);
 }
 .chip.primary {
   background: var(--primary-50);
   color: var(--primary);
-  border-color: #c7d2fe;
+  border-color: var(--primary-200);
 }
 
 .card {
@@ -559,7 +719,7 @@ textarea,
   overflow: hidden;
 }
 .kpi .label {
-  font-size: 11.5px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   color: var(--neutral-400);
   letter-spacing: 0.04em;
@@ -568,12 +728,12 @@ textarea,
 .kpi .value {
   font-family: var(--font-head);
   font-weight: 700;
-  font-size: 28px;
+  font-size: var(--fs-6xl);
   letter-spacing: -0.02em;
   color: var(--neutral-800);
 }
 .kpi .delta {
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -584,30 +744,30 @@ textarea,
   font-feature-settings: "tnum" 1;
 }
 .kpi .delta .arrow {
-  font-size: 10px;
+  font-size: var(--fs-3xs);
   line-height: 1;
 }
 .kpi.accent {
-  background: var(--primary);
-  color: #fff;
+  background: var(--hero-bg);
+  color: var(--hero-fg);
   border-color: transparent;
 }
 .kpi.accent .label {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--hero-fg-muted);
 }
 .kpi.accent .value {
-  color: #fff;
+  color: var(--hero-fg);
 }
 /* On the accent (blue) KPI tile, .pos/.neg green/red text fails WCAG
-   contrast against #1e40af. Render the delta as a translucent chip with
+   contrast against the hero blue. Render the delta as a translucent chip with
    white text so the gain/loss sign is conveyed via the chip + arrow
    glyph rather than color alone. */
 .kpi.accent .delta,
 .kpi.accent .delta.pos,
 .kpi.accent .delta.neg,
 .kpi.accent .delta.muted {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.16);
+  color: var(--hero-fg);
+  background: var(--hero-chip-bg);
   padding: 3px 8px;
   border-radius: 999px;
   width: max-content;
@@ -616,7 +776,7 @@ textarea,
 
 .card-title {
   font-family: var(--font-head);
-  font-size: 16px;
+  font-size: var(--fs-xl);
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--neutral-800);
@@ -633,12 +793,12 @@ textarea,
   color: var(--neutral-400);
 }
 .empty-state .empty-title {
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--neutral-600);
 }
 .empty-state .empty-sub {
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--neutral-400);
 }
 .empty-state button {
@@ -656,7 +816,7 @@ textarea,
   border: 0;
   background: transparent;
   padding: 6px 12px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--neutral-500);
   border-radius: 6px;
@@ -671,14 +831,14 @@ textarea,
 
 .seg-control {
   display: inline-flex;
-  background: var(--neutral-100, #f1f5f9);
+  background: var(--neutral-100);
   padding: 3px;
   border-radius: 8px;
   gap: 2px;
 }
 .seg-control-option {
   padding: 5px 12px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   border-radius: 6px;
   border: none;
@@ -690,7 +850,7 @@ textarea,
 .seg-control-option[data-active="true"] {
   background: var(--surface);
   color: var(--neutral-800);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--sh-xs);
 }
 
 /* Shared keyboard focus indicator: applied to interactive elements that
@@ -717,7 +877,7 @@ textarea,
   border-radius: var(--r-sm);
   border: 1px solid var(--border);
   background: var(--surface);
-  font-size: 13px;
+  font-size: var(--fs-sm);
   color: var(--neutral-800);
   width: 100%;
   font-family: inherit;
@@ -770,17 +930,17 @@ textarea,
    `aria-live="polite"` at the call site. */
 .alert-card {
   padding: 10px;
-  background: var(--neg-50);
-  border-color: var(--neg);
-  color: var(--neg);
-  font-size: 13px;
+  background: var(--critical-bg);
+  border-color: var(--critical-border);
+  color: var(--critical);
+  font-size: var(--fs-sm);
 }
 .success-card {
   padding: 14px;
-  background: var(--pos-50);
-  border-color: var(--pos);
-  color: var(--pos);
-  font-size: 13px;
+  background: var(--good-bg);
+  border-color: var(--good-border);
+  color: var(--good);
+  font-size: var(--fs-sm);
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -815,7 +975,7 @@ input[type="range"].slider::-webkit-slider-thumb {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--surface);
   border: 2px solid var(--primary);
   box-shadow: var(--sh-sm);
   cursor: grab;
@@ -824,7 +984,7 @@ input[type="range"].slider::-moz-range-thumb {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--surface);
   border: 2px solid var(--primary);
   cursor: grab;
 }
@@ -836,7 +996,7 @@ input[type="range"].slider::-moz-range-thumb {
 }
 .table th {
   text-align: left;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   font-weight: 600;
@@ -845,7 +1005,7 @@ input[type="range"].slider::-moz-range-thumb {
   border-bottom: 1px solid var(--border);
 }
 .table td {
-  font-size: 13px;
+  font-size: var(--fs-sm);
   color: var(--neutral-800);
   padding: 12px;
   border-bottom: 1px solid var(--border);
@@ -903,7 +1063,7 @@ input[type="range"].slider::-moz-range-thumb {
   gap: 6px;
   padding: 2px 8px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   background: var(--secondary-50);
   color: var(--neutral-500);
@@ -917,11 +1077,12 @@ input[type="range"].slider::-moz-range-thumb {
 .chart-tooltip {
   position: absolute;
   pointer-events: none;
-  background: var(--neutral-800);
-  color: #fff;
+  background: var(--tooltip-bg);
+  color: var(--tooltip-fg);
+  border: 1px solid var(--tooltip-border);
   border-radius: 8px;
   padding: 10px 12px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   box-shadow: var(--sh-lg);
   top: 0;
   left: 0;
@@ -932,10 +1093,10 @@ input[type="range"].slider::-moz-range-thumb {
 .chart-tooltip .tt-h {
   font-weight: 700;
   margin-bottom: 4px;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--tooltip-fg-muted);
 }
 .chart-tooltip .tt-row {
   display: flex;
@@ -946,7 +1107,7 @@ input[type="range"].slider::-moz-range-thumb {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--tooltip-fg-soft);
 }
 .chart-tooltip .tt-row .d {
   width: 8px;
@@ -1018,24 +1179,24 @@ input[type="range"].slider::-moz-range-thumb {
   color: var(--neutral-400);
 }
 .small {
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 .mono {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }
 .pos {
-  color: var(--tertiary);
+  color: var(--good);
 }
 .neg {
-  color: var(--danger);
+  color: var(--critical);
 }
 
 .legend {
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--neutral-500);
 }
 .legend .it {
@@ -1100,12 +1261,12 @@ input[type="range"].slider::-moz-range-thumb {
   flex: 1;
 }
 .pf-dd-name {
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--neutral-800);
 }
 .pf-dd-sub {
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   color: var(--neutral-400);
   margin-top: 2px;
   font-variant-numeric: tabular-nums;
@@ -1157,7 +1318,7 @@ input[type="range"].slider::-moz-range-thumb {
   background: transparent;
   padding: 8px 14px;
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--neutral-500);
   border-radius: 7px;
@@ -1335,10 +1496,10 @@ input[type="range"].slider::-moz-range-thumb {
   }
   .tabs-bar button {
     padding: 7px 10px;
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
   .view h1.title {
-    font-size: 22px;
+    font-size: var(--fs-4xl);
   }
   /* iOS Safari zooms the viewport on focus of any text input under 16px.
      Bump the app's text inputs (MoneyInput's .input-bare, and ShadCN's
@@ -1347,7 +1508,7 @@ input[type="range"].slider::-moz-range-thumb {
   .input-bare,
   [data-slot="input"],
   .settings-day-input {
-    font-size: 16px;
+    font-size: var(--fs-xl);
   }
 }
 
@@ -1398,7 +1559,7 @@ input[type="range"].slider::-moz-range-thumb {
     order: 1;
     flex: 1 1 calc(100% - 96px);
     padding-left: 0;
-    font-size: 14px;
+    font-size: var(--fs-md);
     align-self: center;
   }
   .entries-table td.td-actions {
@@ -1431,7 +1592,7 @@ input[type="range"].slider::-moz-range-thumb {
     content: attr(data-label);
     display: block;
     margin-bottom: 1px;
-    font-size: 10px;
+    font-size: var(--fs-3xs);
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -1510,7 +1671,7 @@ input[type="range"].slider::-moz-range-thumb {
     flex: 1 1 calc(100% - 150px);
     min-width: 0;
     padding-left: 0;
-    font-size: 14px;
+    font-size: var(--fs-md);
   }
   .holdings-table .holding-name-text {
     max-width: none;
@@ -1541,7 +1702,7 @@ input[type="range"].slider::-moz-range-thumb {
     content: attr(data-label);
     display: block;
     margin-bottom: 1px;
-    font-size: 10px;
+    font-size: var(--fs-3xs);
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -1603,7 +1764,7 @@ input[type="range"].slider::-moz-range-thumb {
     flex: 1 1 calc(100% - 84px);
     min-width: 0;
     padding-left: 0;
-    font-size: 14px;
+    font-size: var(--fs-md);
   }
   .per-holding-table td.td-ph-name button {
     max-width: 100% !important;
@@ -1628,7 +1789,7 @@ input[type="range"].slider::-moz-range-thumb {
     border-radius: 999px;
     background: var(--secondary-50);
     border: 1px solid var(--border);
-    font-size: 11.5px;
+    font-size: var(--fs-2xs);
     color: var(--neutral-600);
   }
   /* Body: labelled rows, two per line. */
@@ -1660,7 +1821,7 @@ input[type="range"].slider::-moz-range-thumb {
     content: attr(data-label);
     display: block;
     margin-bottom: 1px;
-    font-size: 10px;
+    font-size: var(--fs-3xs);
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -1699,7 +1860,7 @@ input[type="range"].slider::-moz-range-thumb {
     order: 1;
     flex: 0 0 auto;
     padding-left: 0;
-    font-size: 14px;
+    font-size: var(--fs-md);
   }
   .recent-payouts-table td.td-rp-kind {
     order: 2;
@@ -1718,7 +1879,7 @@ input[type="range"].slider::-moz-range-thumb {
   .recent-payouts-table td.td-rp-amount {
     order: 5;
     flex: 1 1 100%;
-    font-size: 15px;
+    font-size: var(--fs-lg);
     font-weight: 600;
   }
   .recent-payouts-table td.td-rp-note {
@@ -1732,7 +1893,7 @@ input[type="range"].slider::-moz-range-thumb {
     content: attr(data-label);
     display: block;
     margin-bottom: 1px;
-    font-size: 10px;
+    font-size: var(--fs-3xs);
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -2055,9 +2216,9 @@ input[type="range"].slider::-moz-range-thumb {
 .skeleton {
   background: linear-gradient(
     90deg,
-    var(--neutral-100, #f1f5f9) 0%,
-    var(--neutral-200, #e2e8f0) 50%,
-    var(--neutral-100, #f1f5f9) 100%
+    var(--neutral-100) 0%,
+    var(--neutral-200) 50%,
+    var(--neutral-100) 100%
   );
   background-size: 200% 100%;
   border-radius: 4px;

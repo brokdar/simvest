@@ -1,8 +1,7 @@
 "use client"
 
 import { MonthYearPicker } from "@/components/month-year-picker"
-import { formatEntryDate, resolveEntryDay } from "@/lib/dates"
-import { useResolvedLocale } from "@/components/use-resolved-locale"
+import { fmtDate, resolveEntryDay } from "@/lib/dates"
 
 type Props = {
   year: number
@@ -23,11 +22,10 @@ export function CellDate({
   onChange,
   testId,
 }: Props) {
-  const { locale } = useResolvedLocale()
   if (!isDraft) {
     return (
       <div style={{ fontWeight: 600 }} data-testid={testId}>
-        {formatEntryDate(year, month, day)}
+        {fmtDate(year, month, day)}
       </div>
     )
   }
@@ -39,7 +37,6 @@ export function CellDate({
         const d = resolveEntryDay(defaultEntryDay, next.year, next.month)
         onChange({ year: next.year, month: next.month, day: d })
       }}
-      locale={locale}
       testId={testId}
       ariaLabel="Month"
     />

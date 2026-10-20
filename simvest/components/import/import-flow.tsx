@@ -150,10 +150,10 @@ export function ImportFlow({ open, onOpenChange, portfolioId }: Props) {
             className="card"
             style={{
               padding: 10,
-              background: "var(--neg-50, #FEF2F2)",
-              borderColor: "var(--neg)",
-              color: "var(--neg)",
-              fontSize: 13,
+              background: "var(--critical-bg)",
+              borderColor: "var(--critical-border)",
+              color: "var(--critical)",
+              fontSize: "var(--fs-sm)",
             }}
             data-testid="import-error"
           >

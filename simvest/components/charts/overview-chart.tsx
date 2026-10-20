@@ -10,11 +10,13 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react"
-import { fmtEUR } from "@/lib/format"
+import { fmtAxisEUR, fmtCount, fmtEUR } from "@/lib/format"
 import { axisLayout, niceMax } from "@/lib/charts/scales"
 import { XAxis, YAxis } from "@/components/charts/axis"
 import { useChartTouch } from "@/components/charts/use-chart-touch"
 import type { EntryDTO } from "@/lib/types"
+import { fmtYearShort } from "@/lib/dates"
+import { svgNum } from "@/lib/charts/svg"
 
 // Mirrors the GrowthChart precedent — narrow initial width avoids a horizontal
 // page scroll on the mobile first paint (393px viewport - 64px sidebar ≈ 329px).
@@ -150,9 +152,9 @@ export const OverviewChart = memo(function OverviewChart({
     for (let i = 0; i < invested.length; i++) {
       parts.push(
         (i === 0 ? "M" : "L") +
-          scaleX(i).toFixed(1) +
+          svgNum(scaleX(i)) +
           " " +
-          scaleY(invested[i]).toFixed(1)
+          svgNum(scaleY(invested[i]))
       )
     }
     return parts.join(" ")
@@ -168,10 +170,7 @@ export const OverviewChart = memo(function OverviewChart({
         continue
       }
       parts.push(
-        (needsMove ? "M" : "L") +
-          scaleX(i).toFixed(1) +
-          " " +
-          scaleY(v).toFixed(1)
+        (needsMove ? "M" : "L") + svgNum(scaleX(i)) + " " + svgNum(scaleY(v))
       )
       needsMove = false
     }
@@ -196,15 +195,15 @@ export const OverviewChart = memo(function OverviewChart({
           for (let k = runStart; k <= end; k++) {
             top.push(
               (k === runStart ? "M" : "L") +
-                scaleX(k).toFixed(1) +
+                svgNum(scaleX(k)) +
                 " " +
-                scaleY(values[k]!).toFixed(1)
+                svgNum(scaleY(values[k]!))
             )
           }
           const bot: string[] = []
           for (let k = end; k >= runStart; k--) {
             bot.push(
-              "L" + scaleX(k).toFixed(1) + " " + scaleY(invested[k]).toFixed(1)
+              "L" + svgNum(scaleX(k)) + " " + svgNum(scaleY(invested[k]))
             )
           }
           parts.push(top.join(" ") + " " + bot.join(" ") + " Z")
@@ -221,13 +220,11 @@ export const OverviewChart = memo(function OverviewChart({
   // tint so it only paints where value > invested.
   const clipAboveD = useMemo(() => {
     if (n === 0) return ""
-    const left = scaleX(0).toFixed(1)
-    const right = scaleX(n - 1).toFixed(1)
+    const left = svgNum(scaleX(0))
+    const right = svgNum(scaleX(n - 1))
     const parts = [`M${left} ${PAD.t}`, `L${right} ${PAD.t}`]
     for (let i = n - 1; i >= 0; i--) {
-      parts.push(
-        "L" + scaleX(i).toFixed(1) + " " + scaleY(invested[i]).toFixed(1)
-      )
+      parts.push("L" + svgNum(scaleX(i)) + " " + svgNum(scaleY(invested[i])))
     }
     parts.push("Z")
     return parts.join(" ")
@@ -236,16 +233,16 @@ export const OverviewChart = memo(function OverviewChart({
   // Region strictly below the invested polyline — used to mask the red tint.
   const clipBelowD = useMemo(() => {
     if (n === 0) return ""
-    const left = scaleX(0).toFixed(1)
-    const right = scaleX(n - 1).toFixed(1)
-    const bottom = (PAD.t + ih).toFixed(1)
+    const left = svgNum(scaleX(0))
+    const right = svgNum(scaleX(n - 1))
+    const bottom = svgNum(PAD.t + ih)
     const parts: string[] = []
     for (let i = 0; i < n; i++) {
       parts.push(
         (i === 0 ? "M" : "L") +
-          scaleX(i).toFixed(1) +
+          svgNum(scaleX(i)) +
           " " +
-          scaleY(invested[i]).toFixed(1)
+          svgNum(scaleY(invested[i]))
       )
     }
     parts.push(`L${right} ${bottom}`, `L${left} ${bottom}`, "Z")
@@ -274,7 +271,7 @@ export const OverviewChart = memo(function OverviewChart({
     const monthStride = yearStride * 12
     const out: { x: number; label: string }[] = []
     for (let i = 0; i < n; i += monthStride) {
-      out.push({ x: scaleX(i), label: `’${String(entries[i].year).slice(-2)}` })
+      out.push({ x: scaleX(i), label: fmtYearShort(entries[i].year) })
     }
     return out
   }, [entries, n, iw, scaleX])
@@ -293,13 +290,15 @@ export const OverviewChart = memo(function OverviewChart({
     const value = values[activeIdx]
     const inv = invested[activeIdx]
     const net = value !== null ? value - inv : null
-    // Net row uses brighter palette tints (tertiary-400 / a rose tint) so the
-    // text passes WCAG contrast against the navy tooltip background. The
+    // Net row uses the tooltip's own good/critical tints so the text passes
+    // WCAG contrast against the (dark, in both themes) tooltip chip. The
     // semantic dot stays in the deeper accent for color-coded identification.
     const netDotColor =
       net !== null && net < 0 ? "var(--destructive)" : "var(--tertiary)"
     const netValueColor =
-      net !== null && net < 0 ? "#fca5a5" : "var(--tertiary-400)"
+      net !== null && net < 0
+        ? "var(--tooltip-critical)"
+        : "var(--tooltip-good)"
     return {
       i: activeIdx,
       x: scaleX(activeIdx),
@@ -309,16 +308,16 @@ export const OverviewChart = memo(function OverviewChart({
         {
           k: "Value",
           v: fmtEUR(value),
-          // Use the lighter primary tint for the swatch — #1E40AF on
-          // --neutral-800 has ~2:1 contrast, which makes the dot disappear.
+          // Use the lighter primary tint for the swatch — the brand blue on
+          // the tooltip chip has ~2:1 contrast, which makes the dot disappear.
           dotColor: "var(--primary-400)",
-          valueColor: "#ffffff",
+          valueColor: "var(--tooltip-fg)",
         },
         {
           k: "Invested",
           v: fmtEUR(inv),
           dotColor: "var(--secondary-400)",
-          valueColor: "rgba(255, 255, 255, 0.92)",
+          valueColor: "var(--tooltip-fg-soft)",
         },
         {
           k: "Net",
@@ -333,12 +332,12 @@ export const OverviewChart = memo(function OverviewChart({
   const ariaSummary = useMemo(() => {
     if (n === 0) return "No portfolio data."
     if (lastIdx < 0 || lastValue === null) {
-      return `${n} months of portfolio history, no recorded values yet.`
+      return `${fmtCount(n, "month", "months")} of portfolio history, no recorded values yet.`
     }
     const inv = invested[lastIdx]
     const delta = lastValue - inv
     const status = delta >= 0 ? "in profit" : "in loss"
-    return `${n} months of portfolio history. Latest value ${fmtEUR(lastValue)} versus ${fmtEUR(inv)} cumulatively invested (${status} by ${fmtEUR(Math.abs(delta))}).`
+    return `${fmtCount(n, "month", "months")} of portfolio history. Latest value ${fmtEUR(lastValue)} versus ${fmtEUR(inv)} cumulatively invested (${status} by ${fmtEUR(Math.abs(delta))}).`
   }, [n, lastIdx, lastValue, invested])
 
   // Debounce the live-region announcement so a mouse scrub doesn't queue an
@@ -492,7 +491,7 @@ export const OverviewChart = memo(function OverviewChart({
           ticks={yTicks}
           left={PAD.l}
           right={W - PAD.r}
-          formatLabel={(v) => fmtEUR(v, { compact: true })}
+          formatLabel={fmtAxisEUR(yTicks.map((t) => t.value))}
         />
 
         <XAxis ticks={xTicks} baseline={PAD.t + ih} />

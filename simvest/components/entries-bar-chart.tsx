@@ -1,10 +1,11 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { fmtEUR } from "@/lib/format"
+import { fmtAxisEUR, fmtEUR } from "@/lib/format"
 import { niceTicks } from "@/lib/charts/scales"
 import { entryTimestamp } from "@/lib/dates"
 import type { EntryDTO } from "@/lib/types"
+import { svgNum } from "@/lib/charts/svg"
 
 type Hover = {
   i: number
@@ -75,6 +76,9 @@ export function EntriesBarChart({
   const investMin = investScale.min
   const investMax = investScale.max
   const investDomain = investMax - investMin || 1
+  // One unit per axis (see fmtAxisEUR) — never "+€8.000" beside "+€14k".
+  const fmtInvestTick = fmtAxisEUR(investScale.ticks, { sign: true })
+  const fmtValueTick = fmtAxisEUR(valueScale.ticks)
 
   const ts = visible.map((e) => entryTimestamp(e.year, e.month, e.day))
   const tMin = ts[0]
@@ -110,7 +114,7 @@ export function EntriesBarChart({
       continue
     }
     vPathParts.push(
-      (needsMove ? "M" : "L") + x(i).toFixed(1) + " " + yValue(v).toFixed(1)
+      (needsMove ? "M" : "L") + svgNum(x(i)) + " " + svgNum(yValue(v))
     )
     needsMove = false
   }
@@ -190,7 +194,7 @@ export function EntriesBarChart({
         }}
       >
         <div>
-          <h3 style={{ fontSize: 15 }}>
+          <h3 style={{ fontSize: "var(--fs-lg)" }}>
             Monthly contributions vs portfolio value
           </h3>
           <div className="muted small" style={{ marginTop: 2 }}>
@@ -313,7 +317,7 @@ export function EntriesBarChart({
                 y={yTop}
                 width={barW}
                 height={height}
-                fill={isNeg ? "var(--danger)" : color}
+                fill={isNeg ? "var(--critical)" : color}
                 fillOpacity={isHovered ? 1 : isNeg ? 0.8 : 0.75}
                 rx="2"
               />
@@ -341,7 +345,7 @@ export function EntriesBarChart({
               cy={yValue(visible[lastKnown].value!)}
               r="4"
               fill="var(--neutral-800)"
-              stroke="#fff"
+              stroke="var(--surface)"
               strokeWidth="2"
             />
           )}
@@ -351,7 +355,7 @@ export function EntriesBarChart({
               cx={x(hover.i)}
               cy={yValue(hover.ent.value)}
               r="5"
-              fill="#fff"
+              fill="var(--surface)"
               stroke="var(--neutral-800)"
               strokeWidth="2"
             />
@@ -363,11 +367,11 @@ export function EntriesBarChart({
               x={pad.l - 12}
               y={yInv(t) + 4}
               textAnchor="end"
-              fontSize="11"
+              fontSize="var(--fs-2xs)"
               fill="var(--neutral-400)"
               fontFamily="var(--font-body)"
             >
-              {t === 0 ? "€0" : fmtEUR(t, { compact: true, sign: true })}
+              {fmtInvestTick(t)}
             </text>
           ))}
           {valueScale.ticks.map((t, i) => (
@@ -376,11 +380,11 @@ export function EntriesBarChart({
               x={W - pad.r + 12}
               y={yValue(t) + 4}
               textAnchor="start"
-              fontSize="11"
+              fontSize="var(--fs-2xs)"
               fill="var(--neutral-400)"
               fontFamily="var(--font-body)"
             >
-              {fmtEUR(t, { compact: true })}
+              {fmtValueTick(t)}
             </text>
           ))}
 
@@ -391,7 +395,7 @@ export function EntriesBarChart({
                 x={x(i)}
                 y={pad.t + ih + 22}
                 textAnchor="middle"
-                fontSize={narrow ? "10" : "11"}
+                fontSize={narrow ? "var(--fs-3xs)" : "var(--fs-2xs)"}
                 fill="var(--neutral-400)"
                 fontFamily="var(--font-body)"
               >
@@ -406,7 +410,7 @@ export function EntriesBarChart({
                 x={pad.l - 12}
                 y={pad.t - 10}
                 textAnchor="end"
-                fontSize="10"
+                fontSize="var(--fs-3xs)"
                 fill="var(--neutral-400)"
                 fontFamily="var(--font-body)"
                 letterSpacing="0.08em"
@@ -418,7 +422,7 @@ export function EntriesBarChart({
                 x={W - pad.r + 12}
                 y={pad.t - 10}
                 textAnchor="start"
-                fontSize="10"
+                fontSize="var(--fs-3xs)"
                 fill="var(--neutral-400)"
                 fontFamily="var(--font-body)"
                 letterSpacing="0.08em"
@@ -463,7 +467,7 @@ export function EntriesBarChart({
                       className="d"
                       style={{
                         background:
-                          hover.ent.invested < 0 ? "var(--danger)" : color,
+                          hover.ent.invested < 0 ? "var(--critical)" : color,
                       }}
                     />
                     {hover.ent.invested < 0 ? "Withdrawn" : "Invested"}
@@ -477,14 +481,17 @@ export function EntriesBarChart({
                         className="d"
                         style={{
                           background: "transparent",
-                          border: "1px solid rgba(255,255,255,0.4)",
+                          border: "1px solid var(--tooltip-chip-border)",
                         }}
                       />
                       M/M change
                     </span>
                     <span
                       style={{
-                        color: hover.delta >= 0 ? "#86EFAC" : "#FCA5A5",
+                        color:
+                          hover.delta >= 0
+                            ? "var(--tooltip-good)"
+                            : "var(--tooltip-critical)",
                       }}
                     >
                       {fmtEUR(hover.delta, { sign: true })}
@@ -508,9 +515,9 @@ export function EntriesBarChart({
                     style={{
                       marginTop: 6,
                       paddingTop: 6,
-                      borderTop: "1px solid rgba(255,255,255,0.15)",
-                      color: "rgba(255,255,255,0.7)",
-                      fontSize: 11,
+                      borderTop: "1px solid var(--tooltip-divider)",
+                      color: "var(--tooltip-fg-muted)",
+                      fontSize: "var(--fs-2xs)",
                       maxWidth: 240,
                       whiteSpace: "normal",
                     }}

@@ -22,7 +22,7 @@ import { SaveFooter } from "@/components/entries-grid/save-footer"
 import { nextMonthAfter } from "@/components/entries-grid/draft-row"
 import type { UseEditableEntries } from "@/components/entries-grid/use-editable-entries"
 import type { EntryDTO, PortfolioDTO, SettingsDTO } from "@/lib/types"
-import { formatEntryDate } from "@/lib/dates"
+import { fmtDate } from "@/lib/dates"
 
 type Props = {
   portfolio: PortfolioDTO
@@ -334,7 +334,7 @@ export function EditableEntriesTable({
               {pendingDelete ? (
                 <>
                   This will mark the{" "}
-                  {formatEntryDate(
+                  {fmtDate(
                     pendingDelete.year,
                     pendingDelete.month,
                     pendingDelete.day
