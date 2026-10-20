@@ -77,7 +77,7 @@ To back up, copy the SQLite file out of the volume. To start fresh, remove the `
 Simvest can ingest your existing history rather than starting from scratch:
 
 - **In-app import** — the import flow accepts broker exports and generic CSVs (`/api/import`). Parsers ship for **Trade Republic** and **Bondora (Go & Grow)**.
-- **Excel one-shot** — run `npm run import:excel` from `simvest/` to ingest a `Depotentwicklung.xlsx`-style workbook.
+- **Excel one-shot** — run `bun run import:excel` from `simvest/` to ingest a `Depotentwicklung.xlsx`-style workbook.
 
 ## Repository layout
 
@@ -85,7 +85,7 @@ Simvest can ingest your existing history rather than starting from scratch:
 .
 ├── simvest/            # The Next.js application (see simvest/README.md)
 ├── docs/               # Feature specifications and design notes
-├── .devcontainer/      # VS Code dev container (Node + TypeScript, Docker-in-Docker)
+├── mise.toml           # Pinned dev toolchain (Node, prek)
 ├── .github/            # CI workflows (quality gate, e2e, Docker) and Dependabot
 ├── docker-compose.yml  # Self-hosting entrypoint
 └── CLAUDE.md           # Architecture & conventions guide

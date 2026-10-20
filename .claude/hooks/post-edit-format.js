@@ -20,7 +20,7 @@ process.stdin.on('end', () => {
 
     if (appDir) {
       try {
-        execFileSync('npx', ['prettier', '--write', filePath], {
+        execFileSync('bun', ['run', 'prettier', '--write', filePath], {
           cwd: appDir,
           timeout: 15000,
           stdio: ['ignore', 'pipe', 'pipe'],

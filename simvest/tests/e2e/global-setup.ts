@@ -37,7 +37,7 @@ export default async function globalSetup() {
   if (fs.existsSync(dotNext))
     fs.rmSync(dotNext, { recursive: true, force: true })
 
-  runOrThrow("npx", ["next", "build"])
+  runOrThrow("bun", ["run", "next", "build"])
 
   // The standalone output doesn't include static assets or public/ — copy
   // them in so the spawned server can serve them.
