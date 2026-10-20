@@ -6,6 +6,7 @@ import {
   fmtEUR,
   fmtNum,
   fmtPct,
+  fmtPctCapped,
   plural,
   setActiveLocale,
   snapToStep,
@@ -319,5 +320,18 @@ describe("snapToStep (F5)", () => {
   it("UNIT-FMT-073 — passes non-finite values and bad steps through", () => {
     expect(Number.isNaN(snapToStep(NaN, 0.1))).toBe(true)
     expect(snapToStep(4.91, 0)).toBe(4.91)
+  })
+})
+
+describe("fmtPctCapped (N6)", () => {
+  it("UNIT-FMT-CAP-001 — ordinary values format like fmtPct", () => {
+    expect(fmtPctCapped(11.234, 2, 999, "de-DE")).toBe("11,23%")
+  })
+  it("UNIT-FMT-CAP-002 — absurd magnitudes are capped, never 31 digits", () => {
+    expect(fmtPctCapped(1.2e33, 2, 999, "de-DE")).toBe("> 999%")
+    expect(fmtPctCapped(-5000, 2, 999, "en-US")).toBe("< -999%")
+  })
+  it("UNIT-FMT-CAP-003 — null renders a dash", () => {
+    expect(fmtPctCapped(null)).toBe("—")
   })
 })

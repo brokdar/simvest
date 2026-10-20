@@ -51,9 +51,13 @@ export type BrokerParser = {
 
 // ── Server-side preview / commit types ──────────────────────────────────────
 
+/** See `classifyMonth` in `./month-status`. */
+export type ImportMonthStatus = "new" | "correction" | "unchanged"
+
 export type ImportPreviewMonth = {
   year: number
   month: number
+  status: ImportMonthStatus
   newInvested: number
   currentInvested: number
   /** Month-end value the import would write, or null if the broker reports none. */

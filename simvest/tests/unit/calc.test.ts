@@ -3,6 +3,7 @@ import {
   aggregatePortfolios,
   aggregatePortfoliosWithCoverage,
   computeKPIs,
+  MIN_CAGR_MONTHS,
   incomeByMonth,
   historicalAnnualReturnWithSource,
   latestKnownValue,
@@ -232,7 +233,7 @@ describe("computeKPIs", () => {
       invested: 0,
       gain: 0,
       gainPct: 0,
-      cagr: 0,
+      cagr: null,
     })
   })
 
@@ -268,7 +269,7 @@ describe("computeKPIs", () => {
     expect(computeKPIs(portfolio).gainPct).toBe(0)
   })
 
-  it("UNIT-CALC-014 — cagr is 0 when invested is 0", () => {
+  it("UNIT-CALC-014 — cagr is null when invested is 0", () => {
     const portfolio: PortfolioDTO = {
       id: 5,
       name: "ZeroInvested",
@@ -278,7 +279,7 @@ describe("computeKPIs", () => {
       startingDate: null,
       entries: [entry(2024, 1, 0, 500)],
     }
-    expect(computeKPIs(portfolio).cagr).toBe(0)
+    expect(computeKPIs(portfolio).cagr).toBeNull()
   })
 
   it("UNIT-CALC-015 — value=0 uses Math.max(value,1) in cagr denominator — result is finite", () => {
@@ -289,13 +290,72 @@ describe("computeKPIs", () => {
       targetMonthlyContribution: 0,
       startingValue: 0,
       startingDate: null,
-      entries: [entry(2024, 1, 100, 0)],
+      entries: [
+        entry(2024, 1, 100, 0),
+        entry(2024, 2, 0, 0),
+        entry(2024, 3, 0, 0),
+      ],
     }
     const cagr = computeKPIs(portfolio).cagr
-    expect(isFinite(cagr)).toBe(true)
-    expect(isNaN(cagr)).toBe(false)
-    // With Math.max(0,1)/100 = 1/100 over 1 month (1/12 year), CAGR ≈ -100%
-    expect(cagr).toBeCloseTo(-100, 0)
+    expect(cagr).not.toBeNull()
+    expect(Number.isFinite(cagr)).toBe(true)
+    // (1/100)^(1/0.25) - 1 ≈ -100%
+    expect(cagr!).toBeCloseTo(-100, 0)
+  })
+
+  // N6 — a fresh portfolio must not annualise one month into a 31-digit %.
+  it("UNIT-CALC-016 — one entry: CAGR suppressed (not enough history)", () => {
+    const portfolio: PortfolioDTO = {
+      id: 6,
+      name: "Fresh",
+      color: "#000",
+      targetMonthlyContribution: 0,
+      startingValue: 0,
+      startingDate: null,
+      entries: [entry(2026, 4, 100, 100000)],
+    }
+    expect(computeKPIs(portfolio).cagr).toBeNull()
+  })
+
+  it("UNIT-CALC-017 — startingDate one month before the only entry: still suppressed (was ~1e36%)", () => {
+    const portfolio: PortfolioDTO = {
+      id: 7,
+      name: "Fresh",
+      color: "#000",
+      targetMonthlyContribution: 0,
+      startingValue: 1000,
+      startingDate: "2026-03-01",
+      entries: [entry(2026, 4, 0, 1e6)],
+    }
+    expect(computeKPIs(portfolio).cagr).toBeNull()
+  })
+
+  it("UNIT-CALC-018 — exactly MIN_CAGR_MONTHS of history computes a finite CAGR", () => {
+    const portfolio: PortfolioDTO = {
+      id: 8,
+      name: "Three",
+      color: "#000",
+      targetMonthlyContribution: 0,
+      startingValue: 1000,
+      startingDate: "2026-01-01",
+      entries: [entry(2026, 4, 0, 1100)],
+    }
+    expect(MIN_CAGR_MONTHS).toBe(3)
+    const cagr = computeKPIs(portfolio).cagr
+    expect(cagr).toBeCloseTo((Math.pow(1.1, 4) - 1) * 100, 6)
+  })
+
+  it("UNIT-CALC-019 — a startingDate after the last entry (negative span) is suppressed, not NaN", () => {
+    const portfolio: PortfolioDTO = {
+      id: 9,
+      name: "Odd",
+      color: "#000",
+      targetMonthlyContribution: 0,
+      startingValue: 1000,
+      startingDate: "2027-01-01",
+      entries: [entry(2026, 4, 0, 1100)],
+    }
+    expect(computeKPIs(portfolio).cagr).toBeNull()
   })
 })
 

@@ -888,6 +888,59 @@ textarea,
 }
 
 /*
+ * Money field echo (D5): "= €1.234,56" — what the field will store, shown
+ * while typing. On its own line under the field, or — `data-in-field`, for
+ * the dense entries grid when the cell is wide enough — inside the field's
+ * right edge so the row never shifts. It never covers other content.
+ */
+.money-echo {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--info-border);
+  background: var(--info-bg);
+  color: var(--info);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.money-echo-amount {
+  font-weight: 600;
+}
+.money-echo[data-in-field] {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+/* Wraps inside the field's width instead of widening a table column. */
+.money-error {
+  width: 0;
+  min-width: 100%;
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+  color: var(--critical);
+  text-align: left;
+}
+.money-suggest {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/*
  * Visually-hidden-but-focusable. Use on form controls whose visible UI is
  * a sibling element (the portfolio-transfer file input lives inside a
  * styled <label> dropzone — `display: none` would yank it out of the
@@ -2231,5 +2284,142 @@ input[type="range"].slider::-moz-range-thumb {
   }
   100% {
     background-position: -200% 0;
+  }
+}
+
+/* Discard-changes dialog (D7): one line per pending change. */
+.discard-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+.discard-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  background: var(--neutral-50);
+  border: 1px solid var(--border);
+}
+.discard-list strong {
+  color: var(--neutral-800);
+  font-weight: 600;
+}
+.discard-list span {
+  color: var(--neutral-600);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Import preview month rows (D3). A correction (statement ≠ stored) is the
+ * row that needs your eyes, so it gets the warn wash and an old-value line;
+ * an unchanged month is quiet.
+ */
+.import-month-row[data-status="correction"] td {
+  background: var(--warn-bg);
+}
+.import-month-row[data-status="correction"] td:first-child {
+  box-shadow: inset 3px 0 0 var(--warn);
+}
+.import-month-row[data-status="unchanged"] td {
+  color: var(--neutral-500);
+}
+.import-was {
+  font-size: var(--fs-2xs);
+  color: var(--warn);
+  font-weight: 500;
+}
+.import-status-chip {
+  display: inline-block;
+  margin-top: 2px;
+  padding: 0 6px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--neutral-50);
+  color: var(--neutral-500);
+}
+.import-status-chip[data-status="new"] {
+  border-color: var(--info-border);
+  background: var(--info-bg);
+  color: var(--info);
+}
+.import-status-chip[data-status="correction"] {
+  border-color: var(--warn-border);
+  background: var(--surface);
+  color: var(--warn);
+}
+
+/* Paste data: per-column meaning for a header-less paste (D4). */
+.paste-columns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: var(--neutral-50);
+  border: 1px solid var(--border);
+  font-size: var(--fs-xs);
+  color: var(--neutral-600);
+}
+.paste-columns-title {
+  font-weight: 600;
+  color: var(--neutral-800);
+}
+.paste-column {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.paste-column-sample {
+  max-width: 10ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.import-action-col {
+  width: 180px;
+}
+.import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+@media (max-width: 640px) {
+  /* Stack Replace / Skip so the month table fits a phone without a
+     sideways scroll. */
+  .import-action-col {
+    width: auto;
+  }
+  .import-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+.import-months th:first-child,
+.import-months td:first-child {
+  padding-left: 16px;
+}
+@media (max-width: 640px) {
+  .import-months th,
+  .import-months td {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+  .import-months td {
+    font-size: var(--fs-xs);
+  }
+  .import-months th:first-child,
+  .import-months td:first-child {
+    padding-left: 10px;
   }
 }

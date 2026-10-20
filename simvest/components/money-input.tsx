@@ -1,6 +1,7 @@
 "use client"
 
-import { useId, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
+import { fmtEUR } from "@/lib/format"
 import { formatMoney, parseMoneyExpression } from "@/lib/locale"
 
 const CURRENCY_NAMES: Record<string, string> = {
@@ -42,6 +43,14 @@ type Props = {
    * stays pinned left regardless.
    */
   align?: "left" | "right"
+  /**
+   * Where the parsed echo (`= €1.234,56`) appears while typing. `"inline"`
+   * (default) puts it on its own line under the field; `"compact"` puts it
+   * inside the field's right edge when the field is wide enough (the dense
+   * entries grid on desktop — no row shift) and falls back to its own line
+   * under the field otherwise. It never floats over other content.
+   */
+  echo?: "inline" | "compact"
 }
 
 export function MoneyInput({
@@ -58,13 +67,33 @@ export function MoneyInput({
   testId,
   autoFocus,
   align = "left",
+  echo = "inline",
 }: Props) {
   const errorId = useId()
+  const echoId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
+  const fieldRef = useRef<HTMLDivElement>(null)
+  // `compact` echo: is the field wide enough to hold the typed amount and
+  // the echo side by side? Measured, because grid cells change width with
+  // the viewport (≈257px at 1440, ≈150px in a phone card).
+  const [roomy, setRoomy] = useState(false)
+  useEffect(() => {
+    if (echo !== "compact" || align !== "left") return
+    const el = fieldRef.current
+    if (!el || typeof ResizeObserver === "undefined") return
+    const ro = new ResizeObserver(([entry]) =>
+      setRoomy(entry.contentRect.width >= COMPACT_MIN_WIDTH)
+    )
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [echo, align])
   const [text, setText] = useState<string>(() =>
     initialText(value, locale, decimals, allowEmpty)
   )
   const [error, setError] = useState<string | null>(null)
+  // D1: the value the parser thinks was meant when the input was written in
+  // the other number convention. Only ever applied by an explicit tap.
+  const [suggestion, setSuggestion] = useState<number | null>(null)
   const [focused, setFocused] = useState(false)
   const [lastValue, setLastValue] = useState<number | null>(value)
   const [lastLocale, setLastLocale] = useState(locale)
@@ -81,6 +110,7 @@ export function MoneyInput({
     setLastLocale(locale)
     setText(initialText(value, locale, decimals, allowEmpty))
     if (error !== null) setError(null)
+    if (suggestion !== null) setSuggestion(null)
   }
 
   // Money fields accept simple additive expressions like `200 + 300 + 421,32`
@@ -88,32 +118,49 @@ export function MoneyInput({
   // Evaluated on blur; the field is rewritten with the resulting sum. A bare
   // number is just a one-term expression, so `parseMoneyExpression` defers to
   // `parseMoney` and behaves identically when there's no operator.
-  function isInProgressExpression(s: string): boolean {
+  //
+  // A trailing operator or separator (`200 +`, `12,`) is a "still typing"
+  // state: no error yet, no echo, no commit.
+  function isInProgress(s: string): boolean {
     const trimmed = s.trim()
     if (trimmed === "") return false
-    const last = trimmed[trimmed.length - 1]
-    return last === "+" || last === "-"
+    return /[+\-.,]$/.test(trimmed)
   }
 
   function parse(raw: string) {
-    return parseMoneyExpression(raw, locale, { allowEmpty, min })
+    // Cents are the finest unit a money field stores (D1: "1.000,005" is
+    // rejected with "Did you mean 1.000,01?", never rounded silently).
+    return parseMoneyExpression(raw, locale, {
+      allowEmpty,
+      min,
+      maxFractionDigits: 2,
+    })
+  }
+
+  // Only offer a suggestion the field would actually accept (a negative
+  // reading in a `min={0}` field isn't a fix).
+  function usableSuggestion(s: number | undefined): number | null {
+    if (s === undefined) return null
+    if (min !== undefined && s < min) return null
+    return s
   }
 
   function handleChange(raw: string) {
     setText(raw)
-    // Trailing operator (`200 +`) is a "still typing" state — don't yell at
-    // the user yet, but also don't commit a value.
-    if (isInProgressExpression(raw)) {
+    if (isInProgress(raw)) {
       setError(null)
+      setSuggestion(null)
       onChange(null, null)
       return
     }
     const result = parse(raw)
     if (result.ok) {
       setError(null)
+      setSuggestion(null)
       onChange(raw.trim() === "" && allowEmpty ? null : result.value, null)
     } else {
       setError(result.error)
+      setSuggestion(usableSuggestion(result.suggestion))
       onChange(null, result.error)
     }
   }
@@ -123,6 +170,7 @@ export function MoneyInput({
     if (text.trim() === "") {
       if (allowEmpty) {
         setError(null)
+        setSuggestion(null)
         onChange(null, null)
       }
       return
@@ -131,16 +179,53 @@ export function MoneyInput({
     if (result.ok) {
       setText(formatMoney(result.value, locale, { decimals }))
       setError(null)
+      setSuggestion(null)
       onChange(result.value, null)
     } else {
       setError(result.error)
+      setSuggestion(usableSuggestion(result.suggestion))
       onChange(null, result.error)
     }
   }
 
+  function applySuggestion() {
+    if (suggestion === null) return
+    const next = suggestion
+    setText(formatMoney(next, locale, { decimals }))
+    setError(null)
+    setSuggestion(null)
+    onChange(next, null)
+    inputRef.current?.focus()
+  }
+
+  // D5: echo the parsed interpretation while typing, so what will be stored
+  // is visible before it is committed.
+  const echoValue = (() => {
+    if (!focused || error !== null) return null
+    if (text.trim() === "" || isInProgress(text)) return null
+    const r = parse(text)
+    return r.ok ? r.value : null
+  })()
+  const echoText =
+    echoValue === null
+      ? null
+      : currency === "€"
+        ? fmtEUR(echoValue, {}, locale)
+        : `${currency}${formatMoney(echoValue, locale)}`
+
+  const echoInField = echo === "compact" && roomy && align === "left"
+
+  const describedBy =
+    [error ? errorId : null, echoText ? echoId : null]
+      .filter(Boolean)
+      .join(" ") || undefined
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <div style={{ position: "relative" }}>
+      <div ref={fieldRef} style={{ position: "relative" }}>
+        {echoText && echoInField && (
+          <EchoChip id={echoId} text={echoText} inField testId={testId} />
+        )}
         <span
           aria-hidden
           style={{
@@ -170,7 +255,7 @@ export function MoneyInput({
           // symbol if it isn't in the map (good enough for a screen reader).
           aria-label={`${ariaLabel} in ${CURRENCY_NAMES[currency] ?? currency}`}
           aria-invalid={error !== null}
-          aria-describedby={error ? errorId : undefined}
+          aria-describedby={describedBy}
           data-testid={testId}
           onFocus={() => setFocused(true)}
           onChange={(e) => handleChange(e.target.value)}
@@ -189,24 +274,75 @@ export function MoneyInput({
           }}
           style={{
             paddingLeft: 22,
+            // Reserve the echo's width so typed digits never run under it
+            // (over-estimated in the input's `ch`; the chip's font is smaller).
+            paddingRight:
+              echoText && echoInField
+                ? `calc(${echoText.length + 3}ch)`
+                : undefined,
             textAlign: align,
             fontVariantNumeric: align === "right" ? "tabular-nums" : undefined,
           }}
         />
       </div>
+      {echoText && !echoInField && (
+        <EchoChip id={echoId} text={echoText} testId={testId} />
+      )}
       {error && (
         <div
           id={errorId}
           role="alert"
-          style={{
-            fontSize: "var(--fs-2xs)",
-            color: "var(--critical)",
-            lineHeight: 1.4,
-          }}
+          data-testid={testId ? `error-${testId}` : undefined}
+          className="money-error"
         >
           {error}
+          {suggestion !== null && (
+            <>
+              {" "}
+              <button
+                type="button"
+                className="money-suggest"
+                // Keep focus in the field so blur doesn't re-run the parse
+                // and swallow the click.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={applySuggestion}
+                data-testid={testId ? `suggest-${testId}` : undefined}
+              >
+                Use {formatMoney(suggestion, locale, { decimals })}
+              </button>
+            </>
+          )}
         </div>
       )}
+    </div>
+  )
+}
+
+/** Below this field width the compact echo moves to its own line. */
+const COMPACT_MIN_WIDTH = 200
+
+function EchoChip({
+  id,
+  text,
+  inField = false,
+  testId,
+}: {
+  id: string
+  text: string
+  inField?: boolean
+  testId?: string
+}) {
+  return (
+    <div
+      id={id}
+      className="money-echo"
+      data-in-field={inField || undefined}
+      data-testid={testId ? `echo-${testId}` : undefined}
+      // Polite, not assertive: the echo updates on every keystroke.
+      aria-live="polite"
+    >
+      <span aria-hidden>=</span>{" "}
+      <span className="money-echo-amount">{text}</span>
     </div>
   )
 }

@@ -30,17 +30,27 @@ export function ImportStepSummary({ result, onClose }: Props) {
     },
   ]
 
+  const written =
+    result.entriesUpserted +
+    result.holdingsCreated +
+    result.dividendsInserted +
+    result.interestInserted
+  // Never celebrate an import that changed nothing (D2).
+  const tone = written > 0 ? "good" : "info"
+
   return (
     <div
       style={{ display: "flex", flexDirection: "column", gap: 14 }}
       data-testid="import-summary"
+      data-written={written}
     >
       <div
         className="card card-pad"
+        data-testid="import-summary-banner"
         style={{
-          background: "var(--good-bg)",
-          borderColor: "var(--good-border)",
-          color: "var(--good)",
+          background: `var(--${tone}-bg)`,
+          borderColor: `var(--${tone}-border)`,
+          color: `var(--${tone})`,
           fontSize: "var(--fs-sm)",
           fontWeight: 600,
           display: "flex",
@@ -48,7 +58,13 @@ export function ImportStepSummary({ result, onClose }: Props) {
           gap: 10,
         }}
       >
-        <Icon name="check" size={18} /> Import complete
+        {written > 0 ? (
+          <>
+            <Icon name="check" size={18} /> Import complete
+          </>
+        ) : (
+          <>Nothing changed — everything in this file was already in Simvest.</>
+        )}
       </div>
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>

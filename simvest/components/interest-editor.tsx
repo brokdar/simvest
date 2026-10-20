@@ -13,6 +13,7 @@ import { FieldLabel } from "@/components/ui/field-label"
 import { useEditorForm } from "@/components/use-editor-form"
 import {
   IncomeEventForm,
+  hasMoneyErrors,
   withPersistedTaxSign,
   type IncomeEventFormValue,
 } from "@/components/income-event-form"
@@ -52,6 +53,7 @@ export function InterestEditor({
   const canSave =
     /^\d{4}-\d{2}-\d{2}$/.test(form.paidDate) &&
     form.amount > 0 &&
+    !hasMoneyErrors(form) &&
     Number.isFinite(form.portfolioId) &&
     form.portfolioId > 0
 

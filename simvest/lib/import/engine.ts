@@ -11,6 +11,7 @@ import {
 } from "@/lib/db/schema"
 import { round2 } from "@/lib/calc"
 import { daysInMonth } from "@/lib/dates"
+import { classifyMonth } from "./month-status"
 import { getParser, isKnownBroker } from "./registry"
 import type {
   BrokerId,
@@ -211,17 +212,27 @@ export function createImportEngine(
       return { ok: false, status: 400, error: "csv is required" }
     }
 
-    const parsed = parseWithCache(ctx.broker, csv, ctx.parser)
-
-    if (
-      parsed.errors.length &&
-      parsed.monthsAggregated.length === 0 &&
-      parsed.income.length === 0
-    ) {
+    // D2: a binary file (an image, a PDF, a zip) renamed to .csv decodes to
+    // NUL bytes and U+FFFD replacement characters. Say so plainly instead of
+    // letting the parser find "no rows" and the UI call that a success.
+    if (looksBinary(csv)) {
       return {
         ok: false,
         status: 400,
-        error: parsed.errors.join("; "),
+        error: `This file doesn’t look like a ${ctx.parser.label} export — it seems to be a binary file (an image, PDF or similar), not a CSV. Export the transactions from ${ctx.parser.label} again and pick that file.`,
+      }
+    }
+
+    const parsed = parseWithCache(ctx.broker, csv, ctx.parser)
+
+    if (parsed.monthsAggregated.length === 0 && parsed.income.length === 0) {
+      return {
+        ok: false,
+        status: 400,
+        error:
+          parsed.errors.length > 0
+            ? parsed.errors.join("; ")
+            : `No transactions found in this file. Is it a ${ctx.parser.label} export? Check the broker above matches the file.`,
       }
     }
 
@@ -231,14 +242,24 @@ export function createImportEngine(
     const months: ImportPreviewMonth[] = parsed.monthsAggregated.map((m) => {
       const existing = ctx.existingByMonth.get(`${m.year}-${m.month}`)
       const deposits = round2(m.deposits)
+      const currentInvested = existing ? round2(existing.invested) : 0
+      const currentValue =
+        existing && existing.value != null ? existing.value : null
+      const newValue = m.value != null ? round2(m.value) : null
       return {
         year: m.year,
         month: m.month,
+        status: classifyMonth({
+          exists: existing !== undefined,
+          currentInvested,
+          currentValue,
+          incomingInvested: deposits,
+          incomingValue: newValue,
+        }),
         newInvested: deposits,
-        currentInvested: existing ? Math.round(existing.invested) : 0,
-        newValue: m.value != null ? round2(m.value) : null,
-        currentValue:
-          existing && existing.value != null ? existing.value : null,
+        currentInvested,
+        newValue,
+        currentValue,
         sourceTransactionIds: m.sourceTransactionIds,
         breakdown: { deposits },
       }
@@ -482,6 +503,23 @@ export function createImportEngine(
   }
 
   return { previewImport, applyImport }
+}
+
+/**
+ * Heuristic binary sniff over the first 4 KB: any NUL byte, or more than 5%
+ * U+FFFD (what `File.text()` yields for bytes that aren't valid UTF-8).
+ * Real broker CSVs — including German ones with umlauts — have neither.
+ */
+export function looksBinary(text: string): boolean {
+  const sample = text.slice(0, 4096)
+  if (sample.length === 0) return false
+  let replacement = 0
+  for (let i = 0; i < sample.length; i++) {
+    const c = sample.charCodeAt(i)
+    if (c === 0) return true
+    if (c === 0xfffd) replacement++
+  }
+  return replacement / sample.length > 0.05
 }
 
 /**

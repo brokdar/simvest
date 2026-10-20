@@ -13,8 +13,12 @@ import { useResolvedLocale } from "@/components/use-resolved-locale"
 import { fmtCount, fmtEUR } from "@/lib/format"
 import { fmtMonth, resolveEntryDay } from "@/lib/dates"
 import {
+  COLUMN_ROLE_LABEL,
   detectFormat,
   detectMapping,
+  mappingFromRoles,
+  rolesFromMapping,
+  type ColumnRole,
   describeDateFormat,
   exampleForDateFormat,
   exampleForNumberLocale,
@@ -61,6 +65,8 @@ type State = {
   headerOverride: boolean | null
   dateFormatOverride: DateFormat | null
   numberLocaleOverride: string | null
+  // Per-column meaning for a header-less paste (D4); null = positional default.
+  rolesOverride: ColumnRole[] | null
   // (year-month) keys the user toggled to skip.
   skipped: string[]
   counts: { added: number; updated: number; skipped: number } | null
@@ -71,6 +77,7 @@ type Action =
   | { type: "set-header"; value: boolean }
   | { type: "set-date-format"; value: DateFormat }
   | { type: "set-number-locale"; value: string }
+  | { type: "set-roles"; value: ColumnRole[] }
   | { type: "set-skip"; key: string; skip: boolean }
   | { type: "to-review" }
   | { type: "back-to-paste" }
@@ -86,6 +93,7 @@ const INITIAL: State = {
   headerOverride: null,
   dateFormatOverride: null,
   numberLocaleOverride: null,
+  rolesOverride: null,
   skipped: [],
   counts: null,
 }
@@ -100,6 +108,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, dateFormatOverride: action.value }
     case "set-number-locale":
       return { ...state, numberLocaleOverride: action.value }
+    case "set-roles":
+      return { ...state, rolesOverride: action.value }
     case "set-skip": {
       const has = state.skipped.includes(action.key)
       if (action.skip === has) return state
@@ -147,6 +157,7 @@ export function PasteImportFlow({
     headerOverride,
     dateFormatOverride,
     numberLocaleOverride,
+    rolesOverride,
     skipped,
   } = state
 
@@ -181,13 +192,38 @@ export function PasteImportFlow({
     return { headers: [] as string[], all }
   }, [rawText, hints.hasHeader])
 
+  const columnCount = splitData.all[0]?.length ?? 0
+
+  // D4: without a header the columns are positional, which is a guess — so
+  // show the guess as one select per column and let the user correct it.
+  const roles = useMemo<ColumnRole[]>(() => {
+    if (rolesOverride && rolesOverride.length === columnCount)
+      return rolesOverride
+    return rolesFromMapping(
+      detectMapping([], false, columnCount).mapping,
+      columnCount
+    )
+  }, [rolesOverride, columnCount])
+
   const mappingResult = useMemo(() => {
     if (rawText.trim().length === 0) {
       return { mapping: DEFAULT_MAPPING, structuralErrors: [] }
     }
-    const columnCount = splitData.all[0]?.length ?? 4
-    return detectMapping(splitData.headers, hints.hasHeader, columnCount)
-  }, [rawText, splitData, hints.hasHeader])
+    if (!hints.hasHeader) {
+      const { mapping, errors } = mappingFromRoles(roles)
+      return {
+        mapping,
+        structuralErrors: errors.map((text) => ({
+          column: null,
+          header: null,
+          text,
+        })),
+      }
+    }
+    return detectMapping(splitData.headers, hints.hasHeader, columnCount || 4)
+  }, [rawText, splitData, hints.hasHeader, roles, columnCount])
+
+  const sampleRow = hints.hasHeader ? splitData.all[1] : splitData.all[0]
 
   const ctx = useMemo<ParseContext>(() => {
     const now = new Date()
@@ -327,10 +363,10 @@ export function PasteImportFlow({
           >
             <p className="muted small" style={{ margin: 0 }}>
               Paste rows from a spreadsheet. A header row lets the date column
-              sit anywhere; without one, columns are read as date, invested,
-              value, note. Amount cells can be sums — e.g. <code>125+75</code>{" "}
-              for two deposits in one month. Existing months merge — only the
-              columns you paste overwrite stored values.
+              sit anywhere; without one, the first column is the date and you
+              pick what the others mean below. Amount cells can be sums — e.g.{" "}
+              <code>125+75</code> for two deposits in one month. Existing months
+              merge — only the columns you paste overwrite stored values.
             </p>
             <textarea
               value={rawText}
@@ -438,6 +474,52 @@ export function PasteImportFlow({
                 </label>
               </div>
             )}
+
+            {rawText.trim().length > 0 &&
+              !hints.hasHeader &&
+              columnCount >= 2 && (
+                <div
+                  className="paste-columns"
+                  data-testid="paste-column-mapping"
+                >
+                  <span className="paste-columns-title">Columns</span>
+                  <span className="paste-column">
+                    <span className="muted">1</span> Date
+                  </span>
+                  {roles.slice(1).map((role, j) => {
+                    const i = j + 1
+                    const sample = sampleRow?.[i]
+                    return (
+                      <label key={i} className="paste-column">
+                        <span className="muted">{i + 1}</span>
+                        <select
+                          value={role}
+                          onChange={(e) => {
+                            const next = [...roles]
+                            next[i] = e.target.value as ColumnRole
+                            dispatch({ type: "set-roles", value: next })
+                          }}
+                          aria-label={`Column ${i + 1}${sample ? ` (e.g. ${sample})` : ""}`}
+                          data-testid={`paste-column-role-${i}`}
+                        >
+                          {(
+                            ["invested", "value", "note", "ignore"] as const
+                          ).map((r) => (
+                            <option key={r} value={r}>
+                              {COLUMN_ROLE_LABEL[r]}
+                            </option>
+                          ))}
+                        </select>
+                        {sample && (
+                          <span className="muted mono paste-column-sample">
+                            {sample}
+                          </span>
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
 
             {blockers.length > 0 && (
               <div

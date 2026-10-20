@@ -100,6 +100,7 @@ export function SliderField({
               min={typedMin ?? 0}
               decimals={0}
               align="right"
+              echo="compact"
               ariaLabel={label}
               testId={testId}
             />

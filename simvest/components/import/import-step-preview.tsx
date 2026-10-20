@@ -3,8 +3,13 @@
 import { useMemo } from "react"
 import { Icon } from "@/components/icon"
 import { fmtCount, fmtEUR } from "@/lib/format"
-import { labelFor } from "@/lib/types"
-import type { ImportDecisions, ImportPreview } from "@/lib/import/types"
+import { fmtMonth } from "@/lib/dates"
+import { summarizeMonthStatuses } from "@/lib/import/month-status"
+import type {
+  ImportDecisions,
+  ImportMonthStatus,
+  ImportPreview,
+} from "@/lib/import/types"
 import { ActionButton, Checkbox, Empty, Section, StatsBar } from "./review-ui"
 
 type Props = {
@@ -53,6 +58,15 @@ export function ImportStepPreview({
     (e) => e.alreadyImported
   ).length
   const newHoldings = preview.holdings.filter((h) => !h.exists).length
+  const monthBreakdown = summarizeMonthStatuses(
+    preview.months.map((m) => m.status)
+  )
+  // D2: a preview that would write nothing must not offer an enabled Apply.
+  const willWrite =
+    replaceCount > 0 ||
+    (decisions.importDividends && dividendCount > 0) ||
+    (decisions.importInterest && interestCount > 0) ||
+    (decisions.importHoldings && newHoldings > 0)
 
   return (
     <div
@@ -67,9 +81,10 @@ export function ImportStepPreview({
       <StatsBar
         items={[
           {
-            label: "Months",
+            label: "Months to write",
             value: `${replaceCount}/${decisions.months.length}`,
-            hint: skipCount > 0 ? `${skipCount} skipped` : undefined,
+            hint: monthBreakdown,
+            testId: "import-stat-months",
           },
           { label: "Dividends", value: dividendCount },
           { label: "Interest", value: interestCount },
@@ -115,19 +130,22 @@ export function ImportStepPreview({
         }}
       >
         <Section
-          title={`Monthly deposits — ${replaceCount} to import, ${skipCount} to skip`}
+          title={`Monthly entries — ${monthBreakdown} · ${replaceCount} to write, ${skipCount} to skip`}
         >
           {preview.months.length === 0 ? (
             <Empty>No CASH inflows found in CSV.</Empty>
           ) : (
-            <div data-testid="import-months-table">
-              <table className="table">
+            <div
+              data-testid="import-months-table"
+              style={{ overflowX: "auto" }}
+            >
+              <table className="import-months table">
                 <thead>
                   <tr>
-                    <th style={{ paddingLeft: 16 }}>Month</th>
+                    <th>Month</th>
                     <th className="num">Invested</th>
                     <th className="num">Value</th>
-                    <th style={{ width: 180 }}>Action</th>
+                    <th className="import-action-col">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -135,25 +153,28 @@ export function ImportStepPreview({
                     const decision =
                       monthActionByKey.get(`${m.year}-${m.month}`) ?? "skip"
                     const investedChanged =
-                      m.currentInvested > 0 &&
-                      Math.round(m.currentInvested) !==
-                        Math.round(m.newInvested)
+                      m.status === "correction" &&
+                      Math.abs(m.currentInvested - m.newInvested) >= 0.005
                     const valueChanged =
+                      m.status === "correction" &&
                       m.newValue != null &&
-                      m.currentValue != null &&
-                      Math.abs(m.currentValue - m.newValue) >= 0.01
+                      (m.currentValue == null ||
+                        Math.abs(m.currentValue - m.newValue) >= 0.005)
                     return (
-                      <tr key={`${m.year}-${m.month}`}>
-                        <td style={{ paddingLeft: 16, fontWeight: 600 }}>
-                          {labelFor(m.year, m.month)}
+                      <tr
+                        key={`${m.year}-${m.month}`}
+                        className="import-month-row"
+                        data-status={m.status}
+                        data-testid={`import-month-${m.year}-${m.month}`}
+                      >
+                        <td style={{ fontWeight: 600 }}>
+                          <div>{fmtMonth(m.year, m.month)}</div>
+                          <MonthStatusChip status={m.status} />
                         </td>
                         <td className="num mono">
                           {fmtEUR(m.newInvested)}
                           {investedChanged && (
-                            <div
-                              className="muted"
-                              style={{ fontSize: "var(--fs-2xs)" }}
-                            >
+                            <div className="import-was">
                               was {fmtEUR(m.currentInvested)}
                             </div>
                           )}
@@ -165,16 +186,16 @@ export function ImportStepPreview({
                             fmtEUR(m.newValue)
                           )}
                           {valueChanged && (
-                            <div
-                              className="muted"
-                              style={{ fontSize: "var(--fs-2xs)" }}
-                            >
-                              was {fmtEUR(m.currentValue as number)}
+                            <div className="import-was">
+                              was{" "}
+                              {m.currentValue == null
+                                ? "empty"
+                                : fmtEUR(m.currentValue)}
                             </div>
                           )}
                         </td>
                         <td>
-                          <div style={{ display: "flex", gap: 4 }}>
+                          <div className="import-actions">
                             <ActionButton
                               active={decision === "replace"}
                               onClick={() =>
@@ -372,11 +393,21 @@ export function ImportStepPreview({
           >
             Cancel
           </button>
+          {!willWrite && (
+            <span
+              className="muted small"
+              style={{ alignSelf: "center", marginRight: "auto" }}
+              data-testid="import-nothing-to-write"
+            >
+              Nothing to write — every month is skipped and every payment is
+              already in.
+            </span>
+          )}
           <button
             type="button"
             className="btn btn-primary"
             onClick={onCommit}
-            disabled={submitting}
+            disabled={submitting || !willWrite}
             data-testid="import-commit"
           >
             <Icon name="check" size={14} />{" "}
@@ -385,5 +416,33 @@ export function ImportStepPreview({
         </div>
       </div>
     </div>
+  )
+}
+
+const STATUS_COPY: Record<ImportMonthStatus, { label: string; title: string }> =
+  {
+    new: { label: "New", title: "No entry for this month yet" },
+    correction: {
+      label: "Correction",
+      title:
+        "Your stored entry differs from the statement — Replace updates it",
+    },
+    unchanged: {
+      label: "Unchanged",
+      title: "Your stored entry already matches the statement",
+    },
+  }
+
+function MonthStatusChip({ status }: { status: ImportMonthStatus }) {
+  const copy = STATUS_COPY[status]
+  return (
+    <span
+      className="import-status-chip"
+      data-status={status}
+      title={copy.title}
+      data-testid="import-month-status"
+    >
+      {copy.label}
+    </span>
   )
 }

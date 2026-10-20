@@ -1,9 +1,12 @@
 "use client"
 
 import { Icon } from "@/components/icon"
+import { fmtCount } from "@/lib/format"
 
 type Props = {
   dirtyCount: number
+  /** Rows currently showing an error — derived live, so it clears with them. */
+  errorCount: number
   isSaving: boolean
   saveStatus: string | null
   onSave: () => void
@@ -12,6 +15,7 @@ type Props = {
 
 export function SaveFooter({
   dirtyCount,
+  errorCount,
   isSaving,
   saveStatus,
   onSave,
@@ -41,12 +45,21 @@ export function SaveFooter({
         role="status"
         aria-live="polite"
         data-testid="entries-grid-status"
-        style={{ fontSize: "var(--fs-sm)", color: "var(--neutral-600)" }}
+        data-errors={errorCount > 0 && !saveStatus ? "true" : undefined}
+        style={{
+          fontSize: "var(--fs-sm)",
+          color:
+            errorCount > 0 && !saveStatus
+              ? "var(--critical)"
+              : "var(--neutral-600)",
+        }}
       >
         {saveStatus ??
-          (dirtyCount === 0
-            ? "No changes."
-            : `${dirtyCount} ${dirtyCount === 1 ? "change" : "changes"} pending.`)}
+          (errorCount > 0
+            ? `${fmtCount(errorCount, "row needs", "rows need")} a fix before saving.`
+            : dirtyCount === 0
+              ? "No changes."
+              : `${fmtCount(dirtyCount, "change", "changes")} pending.`)}
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <button

@@ -10,7 +10,7 @@ import { GoalProgressStrip } from "@/components/goal-progress-strip"
 import { OverviewChart } from "@/components/charts/overview-chart"
 import { lastValuedEntry, totalIncome, trailing12mIncome } from "@/lib/calc"
 import { fmtDate, fmtMonth } from "@/lib/dates"
-import { fmtEUR, fmtNum, fmtPct, plural } from "@/lib/format"
+import { fmtEUR, fmtNum, fmtPct, fmtPctCapped, plural } from "@/lib/format"
 import { COMBINED_PORTFOLIO_ID } from "@/lib/types"
 import { swatch } from "@/lib/palette"
 
@@ -215,14 +215,23 @@ export function OverviewView() {
           <div className={`value mono ${signClass(kpi.gain)}`}>
             {fmtEUR(kpi.gain, { sign: true })}
           </div>
-          <div className={`delta ${signClass(kpi.cagr)}`}>
-            {kpi.cagr !== 0 && (
-              <span className="arrow" aria-hidden="true">
-                {signArrow(kpi.cagr)}
-              </span>
-            )}
-            {fmtPct(kpi.cagr, 2)} CAGR
-          </div>
+          {kpi.cagr === null ? (
+            <div className="delta muted" data-testid="kpi-net-gain-cagr">
+              CAGR · not enough history yet
+            </div>
+          ) : (
+            <div
+              className={`delta ${signClass(kpi.cagr)}`}
+              data-testid="kpi-net-gain-cagr"
+            >
+              {kpi.cagr !== 0 && (
+                <span className="arrow" aria-hidden="true">
+                  {signArrow(kpi.cagr)}
+                </span>
+              )}
+              {fmtPctCapped(kpi.cagr, 2)} CAGR
+            </div>
+          )}
         </div>
         <div className="kpi" data-testid="kpi-dividends">
           <div className="label">Dividend run-rate (12m)</div>

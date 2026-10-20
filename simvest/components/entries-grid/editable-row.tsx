@@ -29,6 +29,7 @@ type Props = {
         ? number | null
         : string
   ) => void
+  onCellError: (cell: "invested" | "value", error: string | null) => void
   onUpdateDate: (next: { year: number; month: number; day: number }) => void
   /** Restore an existing row that was already marked for deletion. */
   onRestore: () => void
@@ -47,6 +48,7 @@ export function EditableRow({
   defaultEntryDay,
   isFocusPending,
   onUpdateCell,
+  onCellError,
   onUpdateDate,
   onRestore,
   onRequestDelete,
@@ -99,6 +101,12 @@ export function EditableRow({
     !isToDelete
       ? display.value - prev.value - display.invested
       : 0
+
+  // A rejected amount means the row's numbers are unresolved: don't derive
+  // anything (M/M Δ) from the last good value as if it still stood.
+  const unresolved = Boolean(
+    display.cellErrors.value || display.cellErrors.invested
+  )
 
   const rowOpacity = isToDelete ? 0.45 : 1
   const rowDecoration = isToDelete ? "line-through" : "none"
@@ -176,6 +184,7 @@ export function EditableRow({
           <CellMoney
             value={display.invested}
             onChange={(v) => onUpdateCell("invested", v ?? 0)}
+            onError={(err) => onCellError("invested", err)}
             ariaLabel="Invested"
             dirty={display.touched.has("invested")}
             allowEmpty={true}
@@ -187,6 +196,7 @@ export function EditableRow({
           <CellMoney
             value={display.value}
             onChange={(v) => onUpdateCell("value", v)}
+            onError={(err) => onCellError("value", err)}
             ariaLabel="Portfolio value"
             dirty={display.touched.has("value")}
             allowEmpty={true}
@@ -194,9 +204,20 @@ export function EditableRow({
             testId={`cell-value-${testIdSuffix}`}
           />
         </td>
-        <td className="num td-delta" data-label="M/M Δ">
-          {display.value == null || prev?.value == null ? (
-            <span className="muted mono">—</span>
+        <td
+          className="num td-delta"
+          data-label="M/M Δ"
+          data-testid={`cell-delta-${testIdSuffix}`}
+        >
+          {unresolved || display.value == null || prev?.value == null ? (
+            <span
+              className="muted mono"
+              title={
+                unresolved ? "Fix the amount to see the change" : undefined
+              }
+            >
+              —
+            </span>
           ) : (
             <Money value={delta} sign tone="auto" />
           )}

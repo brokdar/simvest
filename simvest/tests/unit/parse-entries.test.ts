@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest"
 import {
   detectFormat,
   detectMapping,
+  mappingFromRoles,
+  rolesFromMapping,
   parseEntries,
   splitRows,
   type ColumnMapping,
@@ -574,5 +576,68 @@ describe("parseEntries — flexible date formats per hint", () => {
       ctx([], { defaultDay: () => 20 })
     )
     expect(rows[0].parsed).toMatchObject({ year: 2024, month: 3, day: 20 })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// D4 — a two-column paste (date + one number) is a balance history.
+// ---------------------------------------------------------------------------
+
+describe("D4 — positional mapping and column roles", () => {
+  it("UNIT-PARSE-D4-001 — 2 columns without a header map to Portfolio value, not Invested", () => {
+    const res = detectMapping([], false, 2)
+    expect(res.mapping).toEqual({
+      date: 0,
+      invested: null,
+      value: 1,
+      note: null,
+    })
+  })
+
+  it("UNIT-PARSE-D4-002 — a 2-column paste lands the number in value", () => {
+    const text = "2024-01\t1520\n2024-02\t1645"
+    const hints = {
+      numberLocale: "de-DE",
+      dateFormat: "ISO-ym",
+      hasHeader: false,
+    } as const
+    const { mapping } = detectMapping([], false, 2)
+    const rows = parseEntries(text, hints, mapping, ctx())
+    expect(rows.map((r) => r.parsed?.value)).toEqual([1520, 1645])
+    expect(rows.map((r) => r.parsed?.invested)).toEqual([0, 0])
+  })
+
+  it("UNIT-PARSE-D4-003 — mappingFromRoles builds a mapping from per-column choices", () => {
+    expect(mappingFromRoles(["date", "invested", "ignore", "value"])).toEqual({
+      mapping: { date: 0, invested: 1, value: 3, note: null },
+      errors: [],
+    })
+  })
+
+  it("UNIT-PARSE-D4-004 — two columns set to the same role is an error naming the role", () => {
+    const res = mappingFromRoles(["date", "value", "value"])
+    expect(res.errors).toHaveLength(1)
+    expect(res.errors[0]).toMatch(/Portfolio value/)
+  })
+
+  it("UNIT-PARSE-D4-005 — rolesFromMapping round-trips the positional default", () => {
+    const { mapping } = detectMapping([], false, 3)
+    expect(rolesFromMapping(mapping, 3)).toEqual(["date", "invested", "value"])
+  })
+})
+
+// D1 in the paste path: a wrong-convention number is rejected with the
+// likely reading, never silently scaled.
+describe("D1 — paste number parsing", () => {
+  it("UNIT-PARSE-D1-001 — de-DE paste with 1234.56 errors and names 1.234,56", () => {
+    const rows = parseEntries(
+      "2024-01\t\t1234.56",
+      { numberLocale: "de-DE", dateFormat: "ISO-ym", hasHeader: false },
+      { date: 0, invested: 1, value: 2, note: null },
+      ctx()
+    )
+    expect(rows[0].status).toBe("error")
+    expect(rows[0].messages[0].text).toContain("1.234,56")
+    expect(rows[0].messages[0].text).toContain("Numbers")
   })
 })

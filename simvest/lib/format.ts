@@ -175,6 +175,23 @@ export const fmtPct = (
   return `${prefix}${s}%`
 }
 
+/**
+ * A percentage that can't blow out its container: anything beyond ±`cap`
+ * renders as "> 999%" / "< −999%". For rates like CAGR where a short or
+ * odd history can produce absurd magnitudes (N6).
+ */
+export const fmtPctCapped = (
+  v: number | null | undefined,
+  decimals = 1,
+  cap = 999,
+  locale: string = activeLocale
+): string => {
+  if (v === null || v === undefined || Number.isNaN(v)) return "—"
+  if (v > cap) return `> ${fmtPct(cap, 0, false, locale)}`
+  if (v < -cap) return `< ${fmtPct(-cap, 0, false, locale)}`
+  return fmtPct(v, decimals, false, locale)
+}
+
 export const fmtNum = (
   v: number | null | undefined,
   decimals = 0,

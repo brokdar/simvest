@@ -11,13 +11,19 @@ import type React from "react"
 export function StatsBar({
   items,
 }: {
-  items: Array<{ label: string; value: string | number; hint?: string }>
+  items: Array<{
+    label: string
+    value: string | number
+    hint?: string
+    testId?: string
+  }>
 }) {
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: `repeat(${items.length}, 1fr)`,
+        // Tiles wrap to two per row on a phone instead of clipping.
+        gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
         gap: 8,
         flexShrink: 0,
       }}
@@ -25,6 +31,7 @@ export function StatsBar({
       {items.map((s) => (
         <div
           key={s.label}
+          data-testid={s.testId}
           style={{
             padding: "8px 12px",
             background: "var(--neutral-50)",
@@ -129,6 +136,7 @@ export function ActionButton({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       data-testid={testId}
       style={{
         padding: "4px 10px",
