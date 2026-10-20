@@ -27,7 +27,7 @@ bun run test:e2e:ui   # playwright test --ui
 bun run import:excel  # tsx scripts/import-excel.ts — one-shot ingest of Depotentwicklung.xlsx
 ```
 
-**No component-test layer.** Vitest runs in the `node` environment (no jsdom/@testing-library), so React components are not unit-tested. Put pure logic in `tests/unit` (vitest) and verify UI wiring/rendering through Playwright e2e (`tests/e2e/{desktop,mobile}`). For warm e2e iteration after one cold run, target a single spec: `E2E_SKIP_BUILD=1 bun run playwright test <spec> --project=chromium-desktop -g "<test-id>"`.
+**No component-test layer.** Vitest runs in the `node` environment (no jsdom/@testing-library), so React components are not unit-tested. Put pure logic in `tests/unit` (vitest) and verify UI wiring/rendering through Playwright e2e (`tests/e2e/{desktop,mobile}`). e2e global setup rebuilds `.next-e2e` only when app inputs changed (content hash of `app/ components/ hooks/ lib/ public/ drizzle/`, root configs, `.env*`), so spec-only edits skip the build; `E2E_FORCE_BUILD=1` forces one. Workers default to half the cores (max 12); the e2e build skips Next's TS pass (`typecheck` covers it); video only on retries unless `E2E_VIDEO=1`. Target a single spec with `bun run playwright test <spec> --project=chromium-desktop -g "<test-id>"`.
 
 Drizzle migrations run automatically on first DB call — `ensureSeeded()` in `lib/db/seed.ts` invokes `migrate(db, { migrationsFolder: "./drizzle" })`. Add new schema changes via `drizzle-kit generate` (or by hand-writing the next-numbered `.sql` file and a matching entry in `drizzle/meta/_journal.json`).
 

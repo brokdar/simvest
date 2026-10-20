@@ -38,12 +38,14 @@ test.afterEach(async ({ resetDb }) => {
 
 ## `next build` runs once; per-worker servers spawn from it
 
-`globalSetup` in `tests/e2e/global-setup.ts` runs `next build` once into its own distDir `.next-e2e/` (so it never clobbers a running dev server's `.next`), copies `.next-e2e/static` + `public/` into `.next-e2e/standalone/`, and exits. The per-worker fixture then spawns one server per worker against that standalone output. Pass `E2E_SKIP_BUILD=1` to skip the rebuild on warm iteration (use after a first cold run that succeeds).
+`globalSetup` in `tests/e2e/global-setup.ts` runs `next build` once into its own distDir `.next-e2e/` (so it never clobbers a running dev server's `.next`), copies `.next-e2e/static` + `public/` into `.next-e2e/standalone/`, and exits. The per-worker fixture then spawns one server per worker against that standalone output. The build is skipped automatically when its inputs are unchanged (sha256 of `app/ components/ hooks/ lib/ public/ drizzle/`, root configs and `.env*`, stamped in `.next-e2e/build-inputs.sha256`), so editing specs never rebuilds. `E2E_FORCE_BUILD=1` forces a rebuild; `E2E_SKIP_BUILD=1` reuses whatever build exists, even a stale one.
 
 Implications:
 - All API routes are dynamic-by-default at runtime, so no static-prerender races on the fresh SQLite WAL.
-- The build step also catches type / runtime errors before any test runs.
+- The e2e build skips Next's TypeScript pass (`NEXT_SKIP_TYPECHECK=1`); type errors are caught by `bun run typecheck` (first step of `verify`, and the pre-commit hook). The build still fails on compile errors.
 - `lib/db/index.ts` detects `NEXT_PHASE === "phase-production-build"` and returns a stub `db` so parallel build workers don't race to open SQLite.
+
+Failure artifacts: screenshot + `error-context.md` always; video only on retries (CI) unless `E2E_VIDEO=1`.
 
 ## Clear localStorage in every `beforeEach`
 
@@ -63,7 +65,7 @@ test.beforeEach(({}, testInfo) => {
 })
 ```
 
-Projects: `chromium-desktop` (1440×900) and `mobile-safari` (iPhone 15 Pro). Cross-platform tests live in `tests/e2e/cross/` and should not filter by project. Desktop-only specs go in `tests/e2e/desktop/`, mobile-only in `tests/e2e/mobile/`.
+Projects: `chromium-desktop` (1440×900) and `mobile-safari` (iPhone 15 Pro). Cross-platform tests live in `tests/e2e/cross/` and should not filter by project. Desktop-only specs go in `tests/e2e/desktop/`, mobile-only in `tests/e2e/mobile/`. `playwright.config.ts` `testIgnore`s `mobile/**` on chromium-desktop and `desktop/**` (plus `cross/layout-integrity.spec.ts`, which sets its own viewports) on mobile-safari, so wrong-project tests are never scheduled; keep the in-spec skip anyway as a guard.
 
 ## Stable selectors: prefer `data-testid`
 

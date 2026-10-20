@@ -2,7 +2,8 @@
 #   mise install && mise run bootstrap     # once per machine
 # bun is the package manager and script runner; node stays as the runtime for
 # next and better-sqlite3 (native, not supported by bun's runtime).
-# e2e needs browser system libs (sudo ./simvest/node_modules/.bin/playwright install-deps chromium webkit).
+# e2e needs browser system libs, once per machine (sudo resets PATH, so pass it through for mise's node):
+#   sudo env "PATH=$PATH" ./simvest/node_modules/.bin/playwright install-deps chromium webkit
 
 [tools]
 node = "24.21.0"
