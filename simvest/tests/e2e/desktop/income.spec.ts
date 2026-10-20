@@ -133,7 +133,7 @@ test("E2E-D-INC-020 — Hovering a per-holding row cross-highlights the monthly 
   // The chart marks the held source and renders its isolated overlay bars.
   await expect(chart).toHaveAttribute("data-highlighted-source", targetId)
   await expect(
-    page.locator('[data-testid="income-bar-highlight"]')
+    page.locator('[data-testid="income-highlight-bar"]')
   ).toBeVisible()
 })
 
@@ -262,8 +262,7 @@ test("E2E-D-INC-018 — Recent payouts collapses to 20 rows by default; toggle e
   if (!(await toggle.isVisible())) {
     test.skip(true, "fewer than 20 events in fixture; toggle not rendered")
   }
-  const rowsSelector =
-    'tr[data-testid^="income-row-"]:not([data-testid*="anchor"])'
+  const rowsSelector = 'tr[data-testid^="income-row-"]'
   const before = await page.locator(rowsSelector).count()
   expect(before).toBeLessThanOrEqual(20)
   await toggle.click()
@@ -330,4 +329,55 @@ test("E2E-D-INC-023 — Export downloads a CSV of the scoped income events with 
   await download.saveAs(savedPath)
   const raw = await fs.readFile(savedPath, "utf8")
   expect(raw.split("\n")[0]).toBe("paidDate,kind,holdingName,amount,tax,note")
+})
+
+test("E2E-D-INC-024 — ?holding=<id> filters per-holding + recent payouts and shows a clearable chip", async ({
+  page,
+}) => {
+  await page.goto("/income")
+  await page.locator('[data-testid="income-per-holding-table"]').waitFor()
+  await expect(page.getByTestId("income-holding-filter")).toHaveCount(0)
+  const ids = await page
+    .locator('[data-testid^="income-holding-row-"]')
+    .evaluateAll((els) =>
+      els
+        .map((e) =>
+          e.getAttribute("data-testid")!.replace("income-holding-row-", "")
+        )
+        .filter((id) => id !== "interest" && id !== "null")
+    )
+  expect(ids.length).toBeGreaterThan(1)
+  const allRows = await page
+    .locator('[data-testid^="income-holding-row-"]')
+    .count()
+  const targetId = ids[0]
+  const name = (await page
+    .locator(`[data-testid="income-holding-row-${targetId}"] button`)
+    .first()
+    .getAttribute("title"))!
+
+  await page.goto(`/income?holding=${targetId}`)
+  const chip = page.getByTestId("income-holding-filter")
+  await expect(chip).toContainText(name)
+  // Per-holding table narrows to exactly the filtered source.
+  await expect(
+    page.locator('[data-testid^="income-holding-row-"]')
+  ).toHaveCount(1)
+  await expect(
+    page.locator(`[data-testid="income-holding-row-${targetId}"]`)
+  ).toBeVisible()
+  // Every recent payout row is from that holding.
+  const sources = await page
+    .locator('[data-testid="income-recent-table"] .td-rp-source')
+    .allTextContents()
+  expect(sources.length).toBeGreaterThan(0)
+  for (const s of sources) expect(s.trim()).toBe(name)
+
+  // The chip clears the filter (and the URL), restoring every source.
+  await page.getByTestId("income-holding-filter-clear").click()
+  await expect(page).not.toHaveURL(/holding=/)
+  await expect(chip).toHaveCount(0)
+  await expect(
+    page.locator('[data-testid^="income-holding-row-"]')
+  ).toHaveCount(allRows)
 })

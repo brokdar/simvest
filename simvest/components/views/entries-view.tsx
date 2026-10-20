@@ -1,10 +1,12 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useData } from "@/components/providers/data-provider"
 import { useEditorIntent } from "@/components/providers/editor-intent"
 import { EntriesBarChart } from "@/components/entries-bar-chart"
 import { EditableEntriesTable } from "@/components/entries-grid/editable-entries-table"
+import { CatchUpPanel } from "@/components/entries-grid/catch-up-panel"
 import { useEditableEntries } from "@/components/entries-grid/use-editable-entries"
 import { nextMonthAfter } from "@/components/entries-grid/draft-row"
 import { Icon } from "@/components/icon"
@@ -52,9 +54,16 @@ export function EntriesView() {
   const [importOpen, setImportOpen] = useState(false)
   const [pasteOpen, setPasteOpen] = useState(false)
 
-  // Topbar "+ New entry" intent — enter edit mode and append a draft row.
+  // Topbar "+ New entry" intent — enter edit mode and append a draft row. In
+  // Combined (W1) it goes to the catch-up form, the one place an entry for
+  // every account can be typed.
+  const [catchUpFocus, setCatchUpFocus] = useState(0)
   const enterEditModeWithDraft = useCallback(() => {
-    if (isCombined || !editorPortfolio) return
+    if (isCombined) {
+      setCatchUpFocus((n) => n + 1)
+      return
+    }
+    if (!editorPortfolio) return
     controller.toggleEdit(true)
     const base = nextMonthAfter(editorPortfolio, settings.defaultEntryDay)
     const key = controller.addDraft(base)
@@ -62,6 +71,23 @@ export function EntriesView() {
   }, [isCombined, editorPortfolio, controller, settings.defaultEntryDay])
 
   useEditorIntent("entry", enterEditModeWithDraft)
+
+  // W6: `/entries?new=entry` (the stale-account links) lands on the entry
+  // form itself — a draft row for the next month, focused — not on the
+  // table one more click away. The query is stripped once handled.
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const wantsNewEntry = searchParams.get("new") === "entry"
+  // Same render-time "external value changed" pattern as `?new=goal` on
+  // /goals; only the URL cleanup runs in an effect.
+  const [prevWantsNewEntry, setPrevWantsNewEntry] = useState(false)
+  if (wantsNewEntry !== prevWantsNewEntry) {
+    setPrevWantsNewEntry(wantsNewEntry)
+    if (wantsNewEntry) enterEditModeWithDraft()
+  }
+  useEffect(() => {
+    if (wantsNewEntry) router.replace("/entries", { scroll: false })
+  }, [wantsNewEntry, router])
 
   const entryCsvColumns: CsvColumn<EntryDTO>[] = [
     { header: "year", value: (e) => e.year },
@@ -148,42 +174,60 @@ export function EntriesView() {
         </div>
       </div>
 
-      {isCombined && (
-        <div
-          className="card"
-          style={{
-            padding: 14,
-            marginBottom: 12,
-            background: "var(--primary-50)",
-            borderColor: "var(--primary-200)",
-          }}
-          data-testid="combined-readonly-banner"
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              color: "var(--primary)",
-              fontSize: "var(--fs-sm)",
-            }}
-          >
-            <Icon name="info" size={16} />
-            Combined view is read-only — showing aggregated monthly totals.
-            Switch to a specific portfolio to edit.
-          </div>
-        </div>
+      {isCombined && portfolios.length > 0 && (
+        <CatchUpPanel focusSignal={catchUpFocus} />
       )}
 
-      <EntriesBarChart
-        entries={active.entries}
-        color={swatch(active.color)}
-        dividendsByMonth={dividendIndex}
-      />
+      {active.entries.length === 0 && !isCombined ? (
+        // First run for this account: say what to do, not just "no entries".
+        <div className="card card-pad" style={{ marginBottom: 16 }}>
+          <div className="empty-state" data-testid="entries-empty">
+            <div className="empty-title">
+              Nothing logged for {active.name} yet
+            </div>
+            <div className="empty-sub">
+              Add the months you know with Add entry below, or bring in your
+              history from a broker export or a spreadsheet.
+            </div>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+                justifyContent: "center",
+              }}
+            >
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setImportOpen(true)}
+                data-testid="entries-empty-import"
+              >
+                <Icon name="upload" size={14} /> Import a broker export
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setPasteOpen(true)}
+                data-testid="entries-empty-paste"
+              >
+                <Icon name="table" size={14} /> Paste from a spreadsheet
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <EntriesBarChart
+          entries={active.entries}
+          color={swatch(active.color)}
+          dividendsByMonth={dividendIndex}
+        />
+      )}
 
       {editorPortfolio && (
         <EditableEntriesTable
-          portfolio={editorPortfolio}
+          // Combined shows the added-up history, not the first account's.
+          portfolio={isCombined ? active : editorPortfolio}
           isCombined={isCombined}
           controller={controller}
           settings={settings}

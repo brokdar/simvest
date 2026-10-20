@@ -1,6 +1,7 @@
 "use client"
 
-import { fmtNum, snapToStep } from "@/lib/format"
+import type { ReactNode } from "react"
+import { fmtSliderValue, snapToStep, type SliderUnit } from "@/lib/format"
 import { useResolvedLocale } from "@/components/use-resolved-locale"
 
 type Props = {
@@ -10,8 +11,10 @@ type Props = {
   max: number
   step: number
   onChange: (v: number) => void
-  prefix?: string
-  suffix?: string
+  /** What the value measures — picks the readout format (fmtSliderValue). */
+  unit: SliderUnit
+  /** One line under the label: what this changes and where it shows up. */
+  hint?: ReactNode
   testId?: string
 }
 
@@ -22,18 +25,18 @@ export function SliderRow({
   max,
   step,
   onChange,
-  prefix = "",
-  suffix = "",
+  unit,
+  hint,
   testId,
 }: Props) {
   const { locale } = useResolvedLocale()
-  // fmtNum is locale-cached; subscribing here makes the slider re-render
+  // fmtSliderValue is locale-cached; subscribing here makes the slider re-render
   // when the user switches Number format, picking up the new separator.
   // Snap to the step grid so float noise from the range input or the DB
   // (4.900000095367432) never reaches the readout, the aria-valuenow or
   // storage.
   const snapped = snapToStep(value, step, min)
-  const display = fmtNum(snapped, 1, locale)
+  const display = fmtSliderValue(snapped, unit, locale)
   const fill = ((snapped - min) / (max - min)) * 100
   return (
     <div style={{ padding: "10px 0", borderTop: "1px solid var(--border)" }}>
@@ -58,11 +61,18 @@ export function SliderRow({
           style={{ fontSize: "var(--fs-sm)", fontWeight: 700 }}
           data-testid={testId ? `${testId}-value` : undefined}
         >
-          {prefix}
           {display}
-          {suffix}
         </span>
       </div>
+      {hint && (
+        <div
+          className="muted small"
+          style={{ fontSize: "var(--fs-2xs)", margin: "-4px 0 8px" }}
+          data-testid={testId ? `${testId}-hint` : undefined}
+        >
+          {hint}
+        </div>
+      )}
       <input
         type="range"
         aria-label={label}
@@ -93,10 +103,12 @@ export function MonthlySavingControl({
   isCombined,
   value,
   onChange,
+  testId,
 }: {
   isCombined: boolean
   value: number
   onChange: (v: number) => void
+  testId?: string
 }) {
   const { locale } = useResolvedLocale()
   if (isCombined) {
@@ -125,7 +137,7 @@ export function MonthlySavingControl({
             className="mono"
             style={{ fontSize: "var(--fs-sm)", fontWeight: 700 }}
           >
-            €{fmtNum(value, 0, locale)}
+            {fmtSliderValue(value, "money", locale)}
           </span>
         </div>
         <div className="muted small" style={{ fontSize: "var(--fs-2xs)" }}>
@@ -142,8 +154,9 @@ export function MonthlySavingControl({
       min={0}
       max={5000}
       step={50}
-      prefix="€"
+      unit="money"
       onChange={onChange}
+      testId={testId}
     />
   )
 }

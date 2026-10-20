@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures"
-import { preselectPortfolio } from "../helpers"
+import { preselectPortfolio, setRange } from "../helpers"
 
 // No project scoping guard — runs on both chromium-desktop and mobile-safari.
 
@@ -92,7 +92,7 @@ test.describe("Persistence — cross-cutting", () => {
   test("E2E-X-PERSIST-003 — horizon slider change persists to DB after debounce", async ({
     page,
   }) => {
-    await page.goto("/chart")
+    await page.goto("/projection")
     await expect(page.locator('[data-testid="chart-stats-grid"]')).toBeVisible()
 
     // Set up watcher for PATCH to /api/settings — wait for the RESPONSE so the
@@ -104,26 +104,15 @@ test.describe("Persistence — cross-cutting", () => {
       { timeout: 10_000 }
     )
 
-    // Move horizon slider by at least one step. Range inputs ignore fill(),
-    // so we use keyboard arrow presses. Under heavy parallel load the first
-    // press can land before React's onChange listener is attached; the poll
-    // re-presses until the value actually changes.
+    // Move horizon slider by one step.
     const slider = page.locator('[data-testid="chart-slider-horizon"]')
-    await slider.focus()
     const initial = parseInt((await slider.inputValue()) || "20", 10)
-    const key = initial >= 40 ? "ArrowLeft" : "ArrowRight"
-    await expect
-      .poll(
-        async () => {
-          const current = parseInt((await slider.inputValue()) || "0", 10)
-          if (current !== initial) return current
-          await slider.press(key)
-          return parseInt((await slider.inputValue()) || "0", 10)
-        },
-        { timeout: 10_000, intervals: [100, 200, 500] }
-      )
-      .not.toBe(initial)
-    const target = parseInt((await slider.inputValue()) || "0", 10)
+    const target = await setRange(
+      slider,
+      initial >= 40 ? initial - 1 : initial + 1
+    )
+    // Forecast sliders are a preview (W9) — the write happens on Apply.
+    await page.getByTestId("assumptions-apply").click()
 
     // Displayed value should update immediately (optimistic UI)
     await expect(
@@ -148,7 +137,7 @@ test.describe("Persistence — cross-cutting", () => {
   test("E2E-X-PERSIST-004 — rapid slider drags coalesce into a single PATCH request", async ({
     page,
   }) => {
-    await page.goto("/chart")
+    await page.goto("/projection")
     await expect(page.locator('[data-testid="chart-stats-grid"]')).toBeVisible()
 
     const patchRequests: string[] = []
@@ -166,22 +155,26 @@ test.describe("Persistence — cross-cutting", () => {
       await slider.press("ArrowRight")
     }
 
-    // Wait 600ms for debounce to settle (debounce is 400ms)
+    // Wait past the debounce (400ms): a preview writes nothing (W9).
     await page.waitForTimeout(700)
+    expect(patchRequests.length).toBe(0)
 
-    // Exactly 1 PATCH should have fired
+    // Apply sends the whole preview as exactly one PATCH.
+    await page.getByTestId("assumptions-apply").click()
+    await expect.poll(() => patchRequests.length).toBe(1)
+    await page.waitForTimeout(700)
     expect(patchRequests.length).toBe(1)
   })
 
   // E2E-X-PERSIST-005 — Portfolio contribution slider coalesces rapid drags into a single PATCH.
   // The Forecast page replaced the old Simulation Sandbox; the editable contribution slider
-  // now lives in the Planning assumptions card on /chart when a specific portfolio is selected.
+  // now lives in the Planning assumptions card on /projection when a specific portfolio is selected.
   test("E2E-X-PERSIST-005 — portfolio contribution slider coalesces rapid drags into single PATCH", async ({
     page,
   }) => {
     await preselectPortfolio(page, 1)
-    await page.goto("/chart")
-    await expect(page.locator("h1")).toContainText("Forecast")
+    await page.goto("/projection")
+    await expect(page.locator("h1")).toContainText("Projection")
 
     const scenarioCard = page.locator('[data-testid="scenario-assumptions"]')
     await expect(scenarioCard.locator('input[type="range"]')).toHaveCount(4)
@@ -204,10 +197,13 @@ test.describe("Persistence — cross-cutting", () => {
       await monthlySaving.press("ArrowRight")
     }
 
-    // Wait 800ms for debounce (400ms) + request roundtrip.
+    // Wait 800ms for debounce (400ms) + request roundtrip: a preview writes
+    // nothing (W9); Apply sends exactly one PATCH.
     await page.waitForTimeout(800)
-
-    // Exactly 1 PATCH should have fired (debounced).
+    expect(patchRequests.length).toBe(0)
+    await page.getByTestId("assumptions-apply").click()
+    await expect.poll(() => patchRequests.length).toBe(1)
+    await page.waitForTimeout(800)
     expect(patchRequests.length).toBe(1)
     if (patchRequests.length > 0) {
       const body = patchRequests[0].body as Record<string, unknown>
@@ -235,7 +231,7 @@ test.describe("Persistence — cross-cutting", () => {
   test("E2E-X-PERSIST-006 — multiple slider changes coalesce and persist across reload", async ({
     page,
   }) => {
-    await page.goto("/chart")
+    await page.goto("/projection")
     await expect(page.locator('[data-testid="chart-stats-grid"]')).toBeVisible()
 
     // Count outgoing PATCHes so we can verify the coalesce property (≤ 2).
@@ -263,40 +259,16 @@ test.describe("Persistence — cross-cutting", () => {
     const consInitial = parseFloat((await conservative.inputValue()) || "4")
     const optInitial = parseFloat((await optimistic.inputValue()) || "10")
 
-    // Step 1: nudge conservative down by 0.5 (step=0.1, so 5 presses).
-    // Poll so a dropped press self-heals (mobile-safari + parallel load).
-    await conservative.focus()
-    await expect
-      .poll(
-        async () => {
-          const current = parseFloat((await conservative.inputValue()) || "0")
-          if (current <= consInitial - 0.5 + 0.001) return current
-          await conservative.press("ArrowLeft")
-          return parseFloat((await conservative.inputValue()) || "0")
-        },
-        { timeout: 10_000, intervals: [50, 100] }
-      )
-      .toBeLessThanOrEqual(consInitial - 0.5 + 0.001)
-
-    // Step 2: nudge optimistic up by 0.5. Same self-healing pattern.
-    await optimistic.focus()
-    await expect
-      .poll(
-        async () => {
-          const current = parseFloat((await optimistic.inputValue()) || "0")
-          if (current >= optInitial + 0.5 - 0.001) return current
-          await optimistic.press("ArrowRight")
-          return parseFloat((await optimistic.inputValue()) || "0")
-        },
-        { timeout: 10_000, intervals: [50, 100] }
-      )
-      .toBeGreaterThanOrEqual(optInitial + 0.5 - 0.001)
+    // Nudge conservative down by 0.5 and optimistic up by 0.5.
+    await setRange(conservative, consInitial - 0.5)
+    await setRange(optimistic, optInitial + 0.5)
 
     // Capture final slider DOM values — these reflect React state which
     // updates synchronously on each key-press. The PATCH to /api/settings
     // is debounced (400 ms) and may not have fired yet.
     const consFinal = parseFloat((await conservative.inputValue()) || "0")
     const optFinal = parseFloat((await optimistic.inputValue()) || "0")
+    await page.getByTestId("assumptions-apply").click()
     // Build locale-neutral expectations: the page may render the decimal
     // separator as either "." (en-US) or "," (de-DE) depending on the
     // resolved locale, so match the integer and fractional digits with a
@@ -375,7 +347,7 @@ test.describe("Persistence — cross-cutting", () => {
   test("E2E-X-PERSIST-008 — settings PATCH request body contains only the changed key", async ({
     page,
   }) => {
-    await page.goto("/chart")
+    await page.goto("/projection")
     await expect(page.locator('[data-testid="chart-stats-grid"]')).toBeVisible()
 
     // Capture the next PATCH to /api/settings
@@ -388,11 +360,8 @@ test.describe("Persistence — cross-cutting", () => {
     const slider = page.locator('[data-testid="chart-slider-horizon"]')
     const initial = parseInt((await slider.inputValue()) || "20", 10)
     const target = initial === 18 ? 19 : 18
-    const diff = target - initial
-    const key = diff > 0 ? "ArrowRight" : "ArrowLeft"
-    for (let i = 0; i < Math.abs(diff); i++) {
-      await slider.press(key)
-    }
+    await setRange(slider, target)
+    await page.getByTestId("assumptions-apply").click()
 
     const patchReq = await patchPromise
     const body = patchReq.postDataJSON() as Record<string, unknown>

@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures"
-import { preselectPortfolio } from "../helpers"
+import { preselectPortfolio, setRange } from "../helpers"
 
 // No project scoping guard — runs on both chromium-desktop and mobile-safari.
 
@@ -58,7 +58,7 @@ test.describe("Error handling — cross-cutting", () => {
   test("E2E-X-ERR-003 — no crash when settings PATCH returns 500", async ({
     page,
   }) => {
-    await page.goto("/chart")
+    await page.goto("/projection")
     await expect(page.locator('[data-testid="chart-stats-grid"]')).toBeVisible()
 
     // Intercept PATCH /api/settings and return 500
@@ -70,25 +70,11 @@ test.describe("Error handling — cross-cutting", () => {
       }
     })
 
-    // Move horizon slider via arrow keys, polling so a press dropped by the
-    // browser under parallel load self-heals (the failing run showed the
-    // mobile-safari slider stuck at its initial value).
     const slider = page.locator('[data-testid="chart-slider-horizon"]')
-    await slider.focus()
     const initial = parseInt((await slider.inputValue()) || "20", 10)
     const target = initial === 25 ? 26 : 25
-    const key = target > initial ? "ArrowRight" : "ArrowLeft"
-    await expect
-      .poll(
-        async () => {
-          const current = parseInt((await slider.inputValue()) || "0", 10)
-          if (current === target) return target
-          await slider.press(key)
-          return parseInt((await slider.inputValue()) || "0", 10)
-        },
-        { timeout: 10_000, intervals: [50, 100, 200] }
-      )
-      .toBe(target)
+    await setRange(slider, target)
+    await page.getByTestId("assumptions-apply").click()
 
     // Wait for debounce + request time
     await page.waitForTimeout(700)
@@ -109,7 +95,7 @@ test.describe("Error handling — cross-cutting", () => {
   test("E2E-X-ERR-004 — settings UI value is NOT rolled back after PATCH 500", async ({
     page,
   }) => {
-    await page.goto("/chart")
+    await page.goto("/projection")
     await expect(page.locator('[data-testid="chart-stats-grid"]')).toBeVisible()
 
     // Record current horizon value
@@ -127,24 +113,11 @@ test.describe("Error handling — cross-cutting", () => {
       }
     })
 
-    // Move slider via arrow keys, polling so a press dropped under parallel
-    // load self-heals (mobile-safari flaked here before the retry was added).
     const slider = page.locator('[data-testid="chart-slider-horizon"]')
-    await slider.focus()
     const initial = parseInt((await slider.inputValue()) || "20", 10)
     const target = initial === 25 ? 26 : 25
-    const key = target > initial ? "ArrowRight" : "ArrowLeft"
-    await expect
-      .poll(
-        async () => {
-          const current = parseInt((await slider.inputValue()) || "0", 10)
-          if (current === target) return target
-          await slider.press(key)
-          return parseInt((await slider.inputValue()) || "0", 10)
-        },
-        { timeout: 10_000, intervals: [50, 100, 200] }
-      )
-      .toBe(target)
+    await setRange(slider, target)
+    await page.getByTestId("assumptions-apply").click()
 
     // Immediate optimistic update
     await expect(horizonValueEl).toContainText(String(target))
@@ -162,8 +135,8 @@ test.describe("Error handling — cross-cutting", () => {
   test("E2E-X-ERR-005 — add goal dialog does not crash on 500 and goal is not added", async ({
     page,
   }) => {
-    await page.goto("/planning")
-    await expect(page.locator("h1")).toContainText("Planning")
+    await page.goto("/goals")
+    await expect(page.locator("h1")).toContainText("Goals")
 
     // Intercept POST /api/goals and return 500
     await page.route("**/api/goals", (route) => {

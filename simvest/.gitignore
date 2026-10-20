@@ -49,3 +49,7 @@ next-env.d.ts
 /blob-report
 /playwright/.cache
 
+
+# Screenshots and other dev artifacts never go in the repo
+/docs/**/*.png
+/docs/*-shots/

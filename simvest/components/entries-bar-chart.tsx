@@ -6,6 +6,7 @@ import { niceTicks } from "@/lib/charts/scales"
 import { entryTimestamp } from "@/lib/dates"
 import type { EntryDTO } from "@/lib/types"
 import { svgNum } from "@/lib/charts/svg"
+import { estimateLabelWidth, nonCollidingTicks } from "@/lib/charts/ticks"
 
 type Hover = {
   i: number
@@ -46,7 +47,9 @@ export function EntriesBarChart({
   if (!entries.length) {
     return (
       <div className="card card-pad" style={{ marginBottom: 16 }}>
-        <div className="muted small">No entries yet.</div>
+        <div className="muted small">
+          No entries yet — log a month and its bar shows up here.
+        </div>
       </div>
     )
   }
@@ -128,6 +131,21 @@ export function EntriesBarChart({
   const xLabelEvery = Math.max(
     1,
     Math.ceil(n / Math.max(3, Math.floor(iw / 80)))
+  )
+  // Stride first, then drop whatever still collides (M4) — the time scale is
+  // irregular, so strided labels can bunch, and the last one is always drawn.
+  const shownXLabels = nonCollidingTicks(
+    visible.flatMap((e, i) =>
+      i % xLabelEvery === 0 || i === n - 1
+        ? [
+            {
+              index: i,
+              x: x(i),
+              width: estimateLabelWidth(e.label, narrow ? 10 : 11),
+            },
+          ]
+        : []
+    )
   )
   const windowOptions =
     entries.length <= 12
@@ -216,7 +234,7 @@ export function EntriesBarChart({
                 className="sw"
                 style={{ background: color, opacity: 0.75 }}
               />
-              Invested (left)
+              Added each month (left)
             </div>
             <div className="it">
               <span
@@ -389,7 +407,7 @@ export function EntriesBarChart({
           ))}
 
           {visible.map((e, i) =>
-            i % xLabelEvery === 0 || i === n - 1 ? (
+            shownXLabels.has(i) ? (
               <text
                 key={`xl${i}`}
                 x={x(i)}
@@ -470,7 +488,7 @@ export function EntriesBarChart({
                           hover.ent.invested < 0 ? "var(--critical)" : color,
                       }}
                     />
-                    {hover.ent.invested < 0 ? "Withdrawn" : "Invested"}
+                    {hover.ent.invested < 0 ? "Withdrawn" : "Added"}
                   </span>
                   <span>{fmtEUR(hover.ent.invested, { sign: true })}</span>
                 </div>

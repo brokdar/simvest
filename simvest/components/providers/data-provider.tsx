@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react"
+import { useToast } from "@/components/providers/toast"
 import type {
   IncomeEventDTO,
   IncomeEventPatch,
@@ -90,6 +91,10 @@ type DataActions = {
       note: string
     }>
   ) => Promise<{ added: number; updated: number; skipped: number }>
+  /** Catch-up batch: one value per account, saved in one request (W2). */
+  logEntries: (
+    rows: mutations.BatchEntryInput[]
+  ) => Promise<{ added: number; updated: number }>
   updateSettings: (patch: Partial<Settings>) => void
   updatePortfolio: (id: number, patch: PortfolioPatch) => void
   addPortfolio: (input: {
@@ -326,11 +331,29 @@ export function DataProvider({
     [deps]
   )
 
+  const logEntries = useCallback<DataActions["logEntries"]>(
+    (rows) => mutations.logEntries(deps, rows),
+    [deps]
+  )
+
   // ── Debounced settings PATCH ──────────────────────────────────────────
   // The 400 ms debounce coalesces slider drags into one wire call; the
   // pagehide listener flushes any pending patch via keepalive so a navigation
   // mid-drag doesn't lose the last tick.
   const settingsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // D6: every auto-save says it landed (or didn't). Settings and portfolio
+  // patches share one message, so an Apply that writes both shows one toast.
+  const { toast } = useToast()
+  const confirmSave = useCallback(
+    (ok: boolean) =>
+      ok
+        ? toast("Changes saved")
+        : toast(
+            "Couldn’t save that change — is the server running?",
+            "critical"
+          ),
+    [toast]
+  )
   const pendingSettingsPatch = useRef<Partial<Settings>>({})
 
   const flushSettingsPatch = useCallback(() => {
@@ -341,8 +364,8 @@ export function DataProvider({
       settingsTimer.current = null
     }
     if (Object.keys(body).length === 0) return
-    mutations.flushSettings(deps, body)
-  }, [deps])
+    void mutations.flushSettings(deps, body).then(confirmSave)
+  }, [deps, confirmSave])
 
   const updateSettings = useCallback(
     (patch: Partial<Settings>) => {
@@ -373,9 +396,9 @@ export function DataProvider({
         portfolioTimers.current.delete(id)
       }
       if (!body) return
-      mutations.flushPortfolioPatch(deps, id, body)
+      void mutations.flushPortfolioPatch(deps, id, body).then(confirmSave)
     },
-    [deps]
+    [deps, confirmSave]
   )
 
   const updatePortfolio = useCallback(
@@ -528,6 +551,7 @@ export function DataProvider({
       upsertEntry,
       deleteEntry,
       applyPastedEntries,
+      logEntries,
       updateSettings,
       updatePortfolio,
       addPortfolio,
@@ -554,6 +578,7 @@ export function DataProvider({
       upsertEntry,
       deleteEntry,
       applyPastedEntries,
+      logEntries,
       updateSettings,
       updatePortfolio,
       addPortfolio,

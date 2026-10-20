@@ -130,3 +130,46 @@ export function validateEntryDay(
   }
   return null
 }
+
+export type EntryBatchRow = EntryUpsert & { portfolioId: number }
+
+/** Upper bound on one catch-up batch — one row per account. */
+export const ENTRY_BATCH_MAX = 100
+
+/**
+ * Validator for `POST /api/entries/batch` — the catch-up screen's "one value
+ * per account" save (W2). Every row must name its portfolio and carry a
+ * portfolio value; one bad row rejects the whole batch (the screen is saved
+ * as one action, so it lands whole or not at all). The error names the row
+ * (`rows[i]`) so the client can point at it.
+ */
+export function validateEntryBatch(
+  body: unknown
+):
+  | ValidationResult<EntryBatchRow[]>
+  | { ok: false; error: string; index: number } {
+  const input = isObject(body) ? body.entries : undefined
+  if (!Array.isArray(input) || input.length === 0) return err("no entries")
+  if (input.length > ENTRY_BATCH_MAX) {
+    return err(`at most ${ENTRY_BATCH_MAX} entries per batch`)
+  }
+  const rows: EntryBatchRow[] = []
+  const seen = new Set<string>()
+  for (let i = 0; i < input.length; i++) {
+    const raw = input[i]
+    const fail = (error: string) => ({ ok: false as const, error, index: i })
+    const pid = isObject(raw) ? asFiniteNumber(raw.portfolioId) : null
+    if (pid === null || !Number.isInteger(pid) || pid <= 0) {
+      return fail("portfolioId is required")
+    }
+    const v = validateEntryUpsert(raw)
+    if (!v.ok) return fail(v.error)
+    if (v.data.value === null) return fail("a portfolio value is required")
+    if (v.data.value < 0) return fail("portfolio value can’t be negative")
+    const key = `${pid}-${v.data.year}-${v.data.month}`
+    if (seen.has(key)) return fail("the same account and month appear twice")
+    seen.add(key)
+    rows.push({ ...v.data, portfolioId: pid })
+  }
+  return ok(rows)
+}

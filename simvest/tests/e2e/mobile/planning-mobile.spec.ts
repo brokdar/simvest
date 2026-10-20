@@ -31,7 +31,7 @@ test.describe("Planning — mobile", () => {
   test("E2E-M-PLAN-001 — planning page has no horizontal overflow", async ({
     page,
   }) => {
-    await page.goto("/planning")
+    await page.goto("/goals")
     await page.locator('[data-testid="goal-strip"]').waitFor()
 
     const overflow = await page.evaluate(
@@ -48,7 +48,7 @@ test.describe("Planning — mobile", () => {
   test("E2E-M-PLAN-002 — trajectory chart is visible within the viewport", async ({
     page,
   }) => {
-    await page.goto("/planning")
+    await page.goto("/goals")
 
     const svg = page.locator('[data-testid="solver-chart-svg"]')
     await expect(svg).toBeVisible()
@@ -72,7 +72,7 @@ test.describe("Planning — mobile", () => {
   test("E2E-M-PLAN-003 — third KPI tile is fully within the viewport", async ({
     page,
   }) => {
-    await page.goto("/planning")
+    await page.goto("/goals")
 
     // Default active goal (seed's first goal, "Comfortable FI") is an
     // annual_income goal: required-monthly, portfolio-target, inflated.
@@ -92,7 +92,7 @@ test.describe("Planning — mobile", () => {
   test("E2E-M-PLAN-004 — KPI tiles stack to a single column on mobile", async ({
     page,
   }) => {
-    await page.goto("/planning")
+    await page.goto("/goals")
     await page.locator('[data-testid="kpi-required-monthly"]').waitFor()
 
     const columnCount = await page.evaluate(() => {
@@ -108,7 +108,7 @@ test.describe("Planning — mobile", () => {
   test("E2E-M-PLAN-005 — tapping the trajectory chart pins a tooltip within the viewport", async ({
     page,
   }) => {
-    await page.goto("/planning")
+    await page.goto("/goals")
 
     const svg = page.locator('[data-testid="solver-chart-svg"]')
     await expect(svg).toBeVisible()

@@ -3,8 +3,21 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { filterEventsByMonth, incomeByMonth } from "@/lib/calc"
 import { fmtEUR } from "@/lib/format"
+import {
+  heatBucket,
+  heatBucketBounds,
+  HEAT_BUCKETS,
+} from "@/lib/charts/heatmap"
+import {
+  dateMonthIdx,
+  monthIdx,
+  monthStatus,
+  recordedSpan,
+  type MonthStatus,
+} from "@/lib/income-window"
 import { fmtMonthLong, MONTH_SHORT } from "@/lib/dates"
 import type { DividendBasis, IncomeEventDTO } from "@/lib/types"
+import { ScrollFade } from "@/components/ui/scroll-fade"
 import { MonthDetailTooltip } from "./month-detail-tooltip"
 
 type Props = {
@@ -12,25 +25,60 @@ type Props = {
   basis: DividendBasis
   selectedMonth: string | null
   onMonthSelect: (monthKey: string | null) => void
+  /** SSR-anchored "now" — months after it are "still to come". */
+  asOf: Date
+}
+
+const heatBg = (bucket: number) =>
+  `color-mix(in srgb, var(--primary) ${bucket * 18}%, var(--surface))`
+
+const STATUS_LABEL: Record<Exclude<MonthStatus, "paid">, string> = {
+  none: "No payouts",
+  unrecorded: "Nothing recorded yet",
+  before: "Before your first payout",
+  future: "Still to come",
 }
 
 const POPOVER_WIDTH = 240
+/** Generous upper bound of the detail card height, for the flip decision. */
+const POPOVER_HEIGHT = 240
 
 export function IncomeCalendarHeatmap({
   events,
   basis,
   selectedMonth,
   onMonthSelect,
+  asOf,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
-  // Transient mouse hover only — touch drives the popover through `selectedMonth`
+  // Transient mouse hover only — touch drives the popover through `touchKey`
   // (see the pointer guard on the cells) so a tap doesn't pin a synthetic hover.
   const [hoverKey, setHoverKey] = useState<string | null>(null)
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  // A tap pins the month's breakdown inline (M3), the same as the other
+  // charts: it never selects the month, so the URL, the payouts ledger and the
+  // scroll position stay put. Tap the cell again, or anywhere else, to close.
+  const [touchKey, setTouchKey] = useState<string | null>(null)
+  const lastPointer = useRef<string>("mouse")
+  const [pos, setPos] = useState<{
+    x: number
+    y: number
+    placement: "above" | "below"
+  } | null>(null)
 
-  // Hover wins; otherwise the selected month shows its breakdown, so a tap both
-  // filters the ledger AND reveals the month (tap again on it dismisses).
-  const activeKey = hoverKey ?? selectedMonth
+  // Hover wins, then a touch pin; otherwise the selected month shows its
+  // breakdown.
+  const activeKey = hoverKey ?? touchKey ?? selectedMonth
+
+  useEffect(() => {
+    if (touchKey === null) return
+    const onDocTouch = (ev: Event) => {
+      const target = ev.target as Element | null
+      if (target?.closest?.("[data-heatmap-cell]")) return
+      setTouchKey(null)
+    }
+    document.addEventListener("touchstart", onDocTouch, true)
+    return () => document.removeEventListener("touchstart", onDocTouch, true)
+  }, [touchKey])
 
   // Position the popover from the active cell's *rendered* rect rather than its
   // grid slot, and recompute on scroll/resize — the grid lives in a horizontal
@@ -57,19 +105,31 @@ export function IncomeCalendarHeatmap({
         0,
         Math.min(wrapRect.width - POPOVER_WIDTH, cx - POPOVER_WIDTH / 2)
       )
-      setPos({ x: clampedX, y: cellRect.bottom - wrapRect.top + 6 })
+      // Flip above the cell when the card wouldn't fit under it in the
+      // viewport (and there's more room above) instead of clipping off-screen.
+      const spaceBelow = window.innerHeight - cellRect.bottom
+      const flip = spaceBelow < POPOVER_HEIGHT && cellRect.top > spaceBelow
+      setPos({
+        x: clampedX,
+        y: flip
+          ? cellRect.top - wrapRect.top - 6
+          : cellRect.bottom - wrapRect.top + 6,
+        placement: flip ? "above" : "below",
+      })
     }
     compute()
     const scroller = container.querySelector(".heatmap-scroll")
     scroller?.addEventListener("scroll", compute, { passive: true })
     window.addEventListener("resize", compute)
+    window.addEventListener("scroll", compute, { passive: true })
     return () => {
+      window.removeEventListener("scroll", compute)
       scroller?.removeEventListener("scroll", compute)
       window.removeEventListener("resize", compute)
     }
   }, [activeKey])
 
-  const { years, grid, yearTotals, yearMax } = useMemo(() => {
+  const { years, grid, yearTotals, max, statusOf } = useMemo(() => {
     const map = incomeByMonth(events, undefined, "all", basis)
     const yearSet = new Set<number>()
     const cell = new Map<string, number>()
@@ -83,7 +143,9 @@ export function IncomeCalendarHeatmap({
     const yearsArr = [...yearSet].sort((a, b) => b - a)
     const grid: Record<number, number[]> = {}
     const yearTotals: Record<number, number> = {}
-    const yearMax: Record<number, number> = {}
+    // One scale for every year (N11): a cell is measured against the largest
+    // month on screen, not against its own year's peak.
+    let max = 0
     for (const y of yearsArr) {
       const months = new Array(12).fill(0) as number[]
       for (let m = 1; m <= 12; m++) {
@@ -91,10 +153,16 @@ export function IncomeCalendarHeatmap({
       }
       grid[y] = months
       yearTotals[y] = months.reduce((s, v) => s + v, 0)
-      yearMax[y] = Math.max(...months)
+      max = Math.max(max, ...months)
     }
-    return { years: yearsArr, grid, yearTotals, yearMax }
-  }, [events, basis])
+    // A month after the last recorded payout is "not recorded yet", never a
+    // €0 month (N5); one before the first payout or after today isn't data.
+    const span = recordedSpan(events)
+    const now = dateMonthIdx(asOf)
+    const statusOf = (y: number, m: number, v: number): MonthStatus =>
+      span ? monthStatus(monthIdx(y, m), v, { ...span, now }) : "none"
+    return { years: yearsArr, grid, yearTotals, max, statusOf }
+  }, [events, basis, asOf])
 
   if (years.length === 0) {
     return (
@@ -120,7 +188,7 @@ export function IncomeCalendarHeatmap({
           we keep the exact grid intact and let it scroll horizontally inside
           a min-width inner track (`.heatmap-track`), so each cell stays a
           legible, tappable ~34px. Desktop is unaffected (no min-width). */}
-      <div className="heatmap-scroll">
+      <ScrollFade className="heatmap-scroll" testId="income-heatmap-scroll">
         <div className="heatmap-track">
           <div
             style={{
@@ -141,7 +209,6 @@ export function IncomeCalendarHeatmap({
             <div style={{ textAlign: "right" }}>Total</div>
           </div>
           {years.map((y) => {
-            const max = yearMax[y] || 1
             return (
               <div
                 key={y}
@@ -160,44 +227,66 @@ export function IncomeCalendarHeatmap({
                   const month = idx + 1
                   const key = `${y}-${String(month).padStart(2, "0")}`
                   const isSelected = selectedMonth === key
-                  const bucket =
-                    v === 0 ? 0 : Math.min(5, Math.ceil((v / max) * 5))
+                  const status = statusOf(y, month, v)
+                  const bucket = heatBucket(v, max)
                   const bg =
-                    bucket === 0
-                      ? "var(--neutral-50)"
-                      : `color-mix(in srgb, var(--primary) ${bucket * 18}%, var(--surface))`
+                    status === "paid"
+                      ? heatBg(bucket)
+                      : status === "none"
+                        ? "var(--neutral-50)"
+                        : "transparent"
                   const fg =
                     bucket >= 4
                       ? "var(--primary-foreground)"
                       : "var(--neutral-600)"
+                  const border = isSelected
+                    ? "2px solid var(--primary)"
+                    : status === "unrecorded"
+                      ? "1px dashed var(--neutral-300)"
+                      : status === "before" || status === "future"
+                        ? "1px solid transparent"
+                        : "1px solid var(--border)"
                   return (
                     <button
                       key={key}
                       type="button"
                       data-testid={`income-heatmap-cell-${key}`}
+                      data-status={status}
                       aria-label={
-                        v === 0
-                          ? `No payouts in ${fmtMonthLong(y, month)}`
-                          : `${fmtMonthLong(y, month)}: ${fmtEUR(v)}`
+                        status === "paid"
+                          ? `${fmtMonthLong(y, month)}: ${fmtEUR(v)}`
+                          : `${fmtMonthLong(y, month)}: ${STATUS_LABEL[status]}`
                       }
                       // Only a real mouse hover is transient; touch taps drive
                       // the popover through the selected month (below) so a tap
                       // doesn't leave a synthetic hover pinned.
+                      data-heatmap-cell=""
+                      onPointerDown={(e) => {
+                        lastPointer.current = e.pointerType
+                      }}
+                      onKeyDown={() => {
+                        lastPointer.current = "keyboard"
+                      }}
                       onPointerEnter={(e) => {
                         if (e.pointerType === "mouse") setHoverKey(key)
                       }}
                       onMouseLeave={() => setHoverKey(null)}
-                      onFocus={() => setHoverKey(key)}
+                      onFocus={() => {
+                        if (lastPointer.current !== "touch") setHoverKey(key)
+                      }}
                       onBlur={() => setHoverKey(null)}
-                      onClick={() => onMonthSelect(isSelected ? null : key)}
-                      className="focus-ring"
+                      onClick={() => {
+                        if (lastPointer.current === "touch") {
+                          setTouchKey((k) => (k === key ? null : key))
+                          return
+                        }
+                        onMonthSelect(isSelected ? null : key)
+                      }}
+                      className="heatmap-cell focus-ring"
                       style={{
-                        border: isSelected
-                          ? "2px solid var(--primary)"
-                          : "1px solid var(--border)",
+                        border,
                         background: bg,
                         color: fg,
-                        height: 30,
                         borderRadius: 4,
                         cursor: "pointer",
                         fontSize: "var(--fs-2xs)",
@@ -207,7 +296,7 @@ export function IncomeCalendarHeatmap({
                         touchAction: "manipulation",
                       }}
                     >
-                      {v === 0 ? "‒" : ""}
+                      {status === "none" ? "‒" : ""}
                     </button>
                   )
                 })}
@@ -227,20 +316,98 @@ export function IncomeCalendarHeatmap({
             )
           })}
         </div>
-      </div>
+      </ScrollFade>
+      <HeatLegend max={max} />
       {activeParts && pos && (
         <MonthDetailTooltip
           testId="income-heatmap-detail"
           left={pos.x}
           top={pos.y}
-          placement="below"
+          placement={pos.placement}
           width={POPOVER_WIDTH}
           year={activeParts[0]}
           month={activeParts[1]}
           basis={basis}
           events={filterEventsByMonth(events, activeParts[0], activeParts[1])}
+          emptyText={(() => {
+            const st = statusOf(
+              activeParts[0],
+              activeParts[1],
+              grid[activeParts[0]]?.[activeParts[1] - 1] ?? 0
+            )
+            return st === "paid" ? undefined : STATUS_LABEL[st]
+          })()}
         />
       )}
+    </div>
+  )
+}
+
+/** Shade key for the one shared scale, plus the two non-amount states. */
+function HeatLegend({ max }: { max: number }) {
+  const bounds = heatBucketBounds(max)
+  return (
+    <div
+      className="heatmap-legend muted"
+      data-testid="income-heatmap-legend"
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        gap: "6px 14px",
+        marginTop: 10,
+        fontSize: "var(--fs-2xs)",
+      }}
+    >
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        <span>{fmtEUR(0, { compact: true })}</span>
+        {Array.from({ length: HEAT_BUCKETS }, (_, i) => (
+          <span
+            key={i}
+            aria-hidden="true"
+            title={`up to ${fmtEUR(bounds[i], { compact: true })}`}
+            style={{
+              width: 14,
+              height: 14,
+              borderRadius: 3,
+              border: "1px solid var(--border)",
+              background: heatBg(i + 1),
+            }}
+          />
+        ))}
+        <span data-testid="income-heatmap-legend-max">
+          {fmtEUR(max, { compact: true })} / month
+        </span>
+      </span>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        <span
+          aria-hidden="true"
+          style={{
+            width: 14,
+            height: 14,
+            borderRadius: 3,
+            border: "1px solid var(--border)",
+            background: "var(--neutral-50)",
+            textAlign: "center",
+            lineHeight: "12px",
+          }}
+        >
+          ‒
+        </span>
+        No payouts
+      </span>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        <span
+          aria-hidden="true"
+          style={{
+            width: 14,
+            height: 14,
+            borderRadius: 3,
+            border: "1px dashed var(--neutral-300)",
+          }}
+        />
+        Not recorded yet
+      </span>
     </div>
   )
 }

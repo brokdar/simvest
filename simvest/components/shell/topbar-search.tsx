@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Icon } from "@/components/icon"
 import { useData } from "@/components/providers/data-provider"
 import { fmtCount, fmtEUR } from "@/lib/format"
-import type { GoalDTO } from "@/lib/types"
+import { INCOME_HOLDING_PARAM, type GoalDTO } from "@/lib/types"
 import { swatch } from "@/lib/palette"
 
 function goalSubLabel(g: GoalDTO): string {
@@ -25,6 +25,7 @@ function goalSubLabel(g: GoalDTO): string {
 type Hit =
   | { kind: "portfolio"; id: number; name: string; color: string; sub: string }
   | { kind: "goal"; id: number; name: string; color: string; sub: string }
+  | { kind: "holding"; id: number; name: string; sub: string }
   | {
       kind: "entry"
       portfolioId: number
@@ -36,11 +37,12 @@ type Hit =
 
 const MAX_PORTFOLIOS = 3
 const MAX_GOALS = 4
+const MAX_HOLDINGS = 4
 const MAX_ENTRIES = 6
 
 export function TopbarSearch() {
   const router = useRouter()
-  const { portfolios, goals, setSelectedPortfolio } = useData()
+  const { portfolios, goals, holdings, setSelectedPortfolio } = useData()
   const [q, setQ] = useState("")
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -93,12 +95,35 @@ export function TopbarSearch() {
         sub: goalSubLabel(g),
       }))
 
+    const portfolioName = new Map(portfolios.map((p) => [p.id, p.name]))
+    const holdingHits: Hit[] = holdings
+      .filter(
+        (h) =>
+          h.name.toLowerCase().includes(needle) ||
+          (h.isin?.toLowerCase().includes(needle) ?? false)
+      )
+      .slice(0, MAX_HOLDINGS)
+      .map((h) => ({
+        kind: "holding" as const,
+        id: h.id,
+        name: h.name,
+        sub: [h.isin, portfolioName.get(h.portfolioId)]
+          .filter(Boolean)
+          .join(" · "),
+      }))
+
+    // Entry labels are short ("Apr ’26"), so match the full year too — a
+    // search for "2023" should find that year's entries.
     const entryHits: Hit[] = []
     for (const p of portfolios) {
       for (const e of p.entries) {
         const hayNote = e.note.toLowerCase()
         const hayLabel = e.label.toLowerCase()
-        if (hayNote.includes(needle) || hayLabel.includes(needle)) {
+        if (
+          hayNote.includes(needle) ||
+          hayLabel.includes(needle) ||
+          String(e.year).includes(needle)
+        ) {
           entryHits.push({
             kind: "entry" as const,
             portfolioId: p.id,
@@ -113,8 +138,8 @@ export function TopbarSearch() {
       if (entryHits.length >= MAX_ENTRIES) break
     }
 
-    return [...portfolioHits, ...goalHits, ...entryHits]
-  }, [q, portfolios, goals])
+    return [...portfolioHits, ...holdingHits, ...goalHits, ...entryHits]
+  }, [q, portfolios, goals, holdings])
 
   const isOpen = open && q.trim().length > 0
 
@@ -123,9 +148,11 @@ export function TopbarSearch() {
     setQ("")
     if (hit.kind === "portfolio") {
       setSelectedPortfolio(hit.id)
-      router.push("/chart")
+      router.push("/projection")
+    } else if (hit.kind === "holding") {
+      router.push(`/income?${INCOME_HOLDING_PARAM}=${hit.id}`)
     } else if (hit.kind === "goal") {
-      router.push("/planning")
+      router.push(`/goals?goal=${hit.id}`)
     } else {
       setSelectedPortfolio(hit.portfolioId)
       router.push("/entries")
@@ -142,12 +169,12 @@ export function TopbarSearch() {
         ref={inputRef}
         role="combobox"
         type="search"
-        aria-label="Search portfolios, goals, entries"
+        aria-label="Search portfolios, holdings, goals and entries"
         aria-expanded={isOpen}
         aria-controls="search-listbox"
         aria-autocomplete="list"
         className="input-bare"
-        placeholder="Search portfolios, goals, entries…"
+        placeholder="Search holdings, entries…"
         style={{ width: 260, paddingLeft: 34 }}
         value={q}
         onChange={(e) => {
@@ -218,6 +245,7 @@ function ResultGroups({
   onChoose: (h: Hit) => void
 }) {
   const portfolios = hits.filter((h) => h.kind === "portfolio")
+  const holdings = hits.filter((h) => h.kind === "holding")
   const goals = hits.filter((h) => h.kind === "goal")
   const entries = hits.filter((h) => h.kind === "entry")
 
@@ -233,7 +261,29 @@ function ResultGroups({
                   <span className="pf-dd-name">{h.name}</span>
                   <span className="pf-dd-sub">{h.sub}</span>
                 </div>
-                <span className="muted small">Open chart</span>
+                <span className="muted small">Open projection</span>
+              </ResultRow>
+            ) : null
+          )}
+        </Group>
+      )}
+      {holdings.length > 0 && (
+        <Group title="Holdings" testId="search-group-holdings">
+          {holdings.map((h, i) =>
+            h.kind === "holding" ? (
+              <ResultRow key={`h${i}`} onClick={() => onChoose(h)}>
+                <span
+                  className="dot"
+                  style={{
+                    background: "var(--primary-50)",
+                    border: "1px solid var(--primary-200)",
+                  }}
+                />
+                <div className="pf-dd-label">
+                  <span className="pf-dd-name">{h.name}</span>
+                  <span className="pf-dd-sub">{h.sub}</span>
+                </div>
+                <span className="muted small">Open payouts</span>
               </ResultRow>
             ) : null
           )}
@@ -249,7 +299,7 @@ function ResultGroups({
                   <span className="pf-dd-name">{h.name}</span>
                   <span className="pf-dd-sub">{h.sub}</span>
                 </div>
-                <span className="muted small">Open planning</span>
+                <span className="muted small">Open goal</span>
               </ResultRow>
             ) : null
           )}

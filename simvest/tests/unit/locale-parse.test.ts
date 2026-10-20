@@ -55,7 +55,7 @@ describe("parseMoney — de-DE (comma decimals, dot thousands)", () => {
     expectOk(L, row)
   )
 
-  // The blocker rows from FIX-PLAN D1, plus their relatives.
+  // The ambiguous-separator cases that used to be misread 100× / ÷1000, plus their relatives.
   const rejected: Rejected[] = [
     // was €123.456,00 (100×)
     { raw: "1234.56", suggestion: 1234.56, mentions: "1.234,56" },

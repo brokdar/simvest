@@ -314,7 +314,7 @@ export const OverviewChart = memo(function OverviewChart({
           valueColor: "var(--tooltip-fg)",
         },
         {
-          k: "Invested",
+          k: "Total invested",
           v: fmtEUR(inv),
           dotColor: "var(--secondary-400)",
           valueColor: "var(--tooltip-fg-soft)",

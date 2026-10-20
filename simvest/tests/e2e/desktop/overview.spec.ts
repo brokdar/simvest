@@ -39,7 +39,7 @@ test("E2E-D-OV-001 — Page renders the 'Overview' heading and subtitle", async 
   // Subtitle uses the app-wide month format (fmtMonth → "Dec ’23"). The
   // curly apostrophe is what stops "Dec 23" reading as a day-of-month.
   expect(subtitleText).toMatch(
-    /Updated [A-Z][a-z]{2} ’\d{2} · €[\d,.]+\/month saving plan/
+    /Updated [A-Z][a-z]{2} ’\d{2} · €[\d,.]+\/month across \d+ accounts/
   )
 })
 
@@ -62,9 +62,8 @@ test("E2E-D-OV-002 — Four KPI cards are all visible with EUR-formatted values"
   const netGain = await page
     .locator('[data-testid="kpi-net-gain"] .value')
     .textContent()
-  // Net gain can be positive or negative; the app renders the sign immediately
-  // after the € (e.g. "€-79.500", "+€42.500"). Accept ASCII '-' as well as
-  // the Unicode minus '−' (U+2212) and the '+' prefix.
+  // Net gain can be positive or negative; the sign leads the € ("-€79.500",
+  // "+€42.500"). Accept ASCII '-' as well as the Unicode minus '−' (U+2212).
   expect(netGain).toMatch(/[+−-]?€[+−-]?[\d.,]+/)
 
   const dividends = await page
@@ -387,12 +386,12 @@ test("E2E-D-OV-015 — Portfolio split card is hidden when only one portfolio ex
   await expect(split).toHaveCount(0)
 })
 
-test("E2E-D-OV-016 — Goal CTA navigates to /planning and opens the goal editor", async ({
+test("E2E-D-OV-016 — Goal CTA navigates to /goals and opens the goal editor", async ({
   page,
 }) => {
   // The CTA used to fire requestNew('goal') from a page that has no
   // subscriber — the click was silently a no-op. Replacing it with a Link
-  // that carries ?new=goal makes /planning open its editor on mount.
+  // that carries ?new=goal makes /goals open its editor on mount.
   const goalsRes = await page.request.get("/api/goals")
   const goals = (await goalsRes.json()) as { id: number }[]
   for (const g of goals) {
@@ -403,13 +402,13 @@ test("E2E-D-OV-016 — Goal CTA navigates to /planning and opens the goal editor
   await page.waitForSelector('[data-testid="kpi-portfolio-value"]')
 
   const cta = page.locator('[data-testid="goal-progress-empty-cta"]')
-  await expect(cta).toHaveAttribute("href", /\/planning\?new=goal/)
+  await expect(cta).toHaveAttribute("href", /\/goals\?new=goal/)
   await cta.click()
 
-  await page.waitForURL(/\/planning(\?|$)/)
+  await page.waitForURL(/\/goals(\?|$)/)
   await expect(page.locator('[data-testid="goal-editor-title"]')).toBeVisible()
   // The query is stripped once consumed so a refresh doesn't reopen.
-  await expect(page).toHaveURL(/\/planning$/)
+  await expect(page).toHaveURL(/\/goals$/)
 })
 
 test("E2E-D-OV-017 — Goal items disclose on-track verdict and projected reach year", async ({
@@ -423,22 +422,29 @@ test("E2E-D-OV-017 — Goal items disclose on-track verdict and projected reach 
   // Verdict is conveyed in text (not color alone): "On track"/"Behind", plus the
   // projected reach year or "not within 40y" when never reached.
   const text = await status.textContent()
-  expect(text).toMatch(/(On track|Behind) · (reaches \d{4}|not within 40y)/)
+  expect(text).toMatch(
+    /^(On track · reaches \d{4}|€[\d.,]+\/mo more gets you there by \d{4} · at today’s pace, (it reaches \d{4}|not in the next 40 years)|Behind · .+)$/
+  )
+  expect(text).not.toContain("40y")
 })
 
-test("E2E-D-OV-018 — Dividend KPI shows a 12m run-rate with a yield whose source is disclosed", async ({
+test("E2E-D-OV-018 — Dividend KPI shows the 12-month income with a yield explained in words (C1)", async ({
   page,
 }) => {
   await page.goto("/")
   await page.waitForSelector('[data-testid="kpi-dividends"]')
 
   const label = page.locator('[data-testid="kpi-dividends"] .label')
-  await expect(label).toHaveText(/run-rate/i)
+  await expect(label).toHaveText(/passive income \(12 mo\)/i)
 
-  // "All portfolios · X% yield (override|derived|fallback) · €… since inception"
-  // — the scope cue (all portfolios / this portfolio) must stay disclosed.
+  // Dividends + interest (N7), with the window's end disclosed, then the
+  // dividend yield with its provenance.
   const sub = page.locator('[data-testid="kpi-dividends-sub"]')
-  await expect(sub).toHaveText(
-    /(all portfolios|this portfolio).*%\s+yield\s+\((override|derived|fallback)\).*since inception/i
+  await expect(sub).toHaveText(/€[\d.,]+ dividends \+ €[\d.,]+ interest · to /)
+  // C1: no "(derived)" — the yield says what it divides.
+  const yieldLine = page.getByTestId("kpi-dividends-yield")
+  await expect(yieldLine).toHaveText(
+    /(% yield — a year’s dividends ÷\s+today’s value|No dividends in the last 12 months yet).*since you started/
   )
+  await expect(yieldLine).not.toContainText("derived")
 })

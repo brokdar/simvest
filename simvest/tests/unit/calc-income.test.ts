@@ -115,9 +115,15 @@ describe("inferCadence", () => {
     expect(inferCadence(gapEvents(700, 3))).toBe("irregular")
   })
 
-  it("UNIT-CALC-INC-007 — <2 events returns irregular", () => {
-    expect(inferCadence([])).toBe("irregular")
-    expect(inferCadence([ev(1, "2024-01-01", 5)])).toBe("irregular")
+  it("UNIT-CALC-INC-007 — <2 events is 'single', not 'irregular' (C10)", () => {
+    expect(inferCadence([])).toBe("single")
+    expect(inferCadence([ev(1, "2024-01-01", 5)])).toBe("single")
+  })
+
+  it("UNIT-CALC-INC-008 — daily interest reads Daily, weekly reads Weekly (C10)", () => {
+    expect(inferCadence(gapEvents(1, 60))).toBe("daily")
+    expect(inferCadence(gapEvents(7, 10))).toBe("weekly")
+    expect(inferCadence(gapEvents(30, 12))).toBe("monthly")
   })
 })
 

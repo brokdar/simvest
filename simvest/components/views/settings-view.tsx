@@ -1,8 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { useData, useDataActions } from "@/components/providers/data-provider"
+import {
+  useData,
+  useDataActions,
+  useGoalEvaluator,
+} from "@/components/providers/data-provider"
 import { Icon } from "@/components/icon"
+import { useToast } from "@/components/providers/toast"
 import {
   PortfolioEditor,
   type PortfolioEditorPayload,
@@ -20,7 +25,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { fmtCount, fmtEUR } from "@/lib/format"
+import { fmtCount, fmtEUR, fmtNum, fmtPct } from "@/lib/format"
+import { COMBINED_PORTFOLIO_ID } from "@/lib/types"
 import { useLocale } from "@/lib/locale"
 import { useResolvedLocale } from "@/components/use-resolved-locale"
 import {
@@ -30,7 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { PortfolioDTO } from "@/lib/types"
+import type { AboutInfo, PortfolioDTO } from "@/lib/types"
 import { IDENTITY_COLORS, identityColorName, swatch } from "@/lib/palette"
 import { fmtMonthKey } from "@/lib/dates"
 import { SegControl, type SegOption } from "@/components/ui/seg-control"
@@ -39,10 +45,16 @@ import type { ThemePreference } from "@/lib/theme"
 
 const PALETTE = IDENTITY_COLORS.map((c) => c.hex)
 
-export function SettingsView() {
-  const { portfolios, goals, settings } = useData()
+export function SettingsView({ about }: { about?: AboutInfo }) {
+  const { portfolios, goals, settings, combinedPortfolio } = useData()
+  const evaluator = useGoalEvaluator()
+  const { locale } = useResolvedLocale()
+  // The real rate, shown beside the assumptions so they're set knowing it
+  // (N1): an "optimistic" 10% means little next to an 11,2% record.
+  const record = evaluator.historicalReturnWithSource(COMBINED_PORTFOLIO_ID)
   const { updatePortfolio, deletePortfolio, addPortfolio, updateSettings } =
     useDataActions()
+  const { toast } = useToast()
   const [showAdd, setShowAdd] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -66,8 +78,8 @@ export function SettingsView() {
         <div>
           <h1 className="title">Settings</h1>
           <div className="muted small" style={{ marginTop: 4 }}>
-            Manage your portfolios — name, color, monthly contribution, and
-            starting balance.
+            Your accounts, how the numbers look, and the assumptions behind
+            every projection. Changes save as you go.
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -89,7 +101,7 @@ export function SettingsView() {
         </div>
       </div>
 
-      <div className="card card-pad">
+      <div className="card card-pad" id="portfolios">
         <div
           style={{
             display: "flex",
@@ -102,10 +114,11 @@ export function SettingsView() {
         >
           <h3 style={{ fontSize: "var(--fs-lg)" }}>Portfolios</h3>
           <div className="muted small" data-testid="total-monthly-contribution">
-            Total monthly contribution:{" "}
+            Your monthly plan:{" "}
             <strong className="mono" style={{ color: "var(--neutral-800)" }}>
               {fmtEUR(total)}
-            </strong>
+            </strong>{" "}
+            · the sum of each portfolio’s contribution
           </div>
         </div>
 
@@ -138,6 +151,44 @@ export function SettingsView() {
         <div style={{ marginBottom: 14 }}>
           <h3 style={{ fontSize: "var(--fs-lg)" }}>Preferences</h3>
         </div>
+        {/* `settings.monthlySaving` (N9): stored since day one but never
+            shown. It isn't the plan — that's the per-portfolio sum above —
+            so it gets the one job it can honestly do: pre-fill new ones. */}
+        <div
+          className="settings-pref-row"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+            padding: "10px 0",
+          }}
+          data-testid="settings-default-contribution-row"
+        >
+          <div style={{ minWidth: 0, flex: "1 1 240px" }}>
+            <div style={{ fontWeight: 600, fontSize: "var(--fs-sm)" }}>
+              Starting contribution for new portfolios
+            </div>
+            <div className="muted small">
+              Pre-fills the monthly contribution when you add a portfolio. It
+              doesn’t change your plan ({fmtEUR(total, { decimals: 0 })}
+              /month today) — that’s each portfolio’s own amount above.
+            </div>
+          </div>
+          <div style={{ width: 160 }}>
+            <MoneyInput
+              value={settings.monthlySaving}
+              onChange={(v) => {
+                if (v !== null && v >= 0) updateSettings({ monthlySaving: v })
+              }}
+              locale={locale}
+              min={0}
+              ariaLabel="Starting contribution for new portfolios"
+              testId="settings-default-contribution"
+            />
+          </div>
+        </div>
         <DefaultEntryDayRow
           value={settings.defaultEntryDay}
           onChange={(v) => updateSettings({ defaultEntryDay: v })}
@@ -156,8 +207,9 @@ export function SettingsView() {
             className="muted small"
             style={{ marginTop: 4, fontSize: "var(--fs-xs)" }}
           >
-            Used across all goals on the Planning page. Individual goals can
-            override SWR and dividend yield locally.
+            The what-ifs behind the Projection and every goal. A goal can set
+            its own withdrawal rate, dividend yield and return without touching
+            these.
           </div>
         </div>
         <SliderRow
@@ -166,8 +218,9 @@ export function SettingsView() {
           min={0}
           max={8}
           step={0.1}
-          suffix="%"
+          unit="percent"
           onChange={(v) => updateSettings({ inflation: round1(v) })}
+          hint="How fast prices rise each year. Turns future euros into today’s money on the Projection and in income goals."
           testId="settings-inflation"
         />
         <SliderRow
@@ -176,8 +229,9 @@ export function SettingsView() {
           min={0}
           max={8}
           step={0.1}
-          suffix="%"
+          unit="percent"
           onChange={(v) => updateSettings({ conservativeReturn: round1(v) })}
+          hint="A cautious yearly growth rate — the lower edge of the band on the Projection and the goal charts."
           testId="settings-conservative-return"
         />
         <SliderRow
@@ -186,27 +240,56 @@ export function SettingsView() {
           min={5}
           max={15}
           step={0.1}
-          suffix="%"
+          unit="percent"
           onChange={(v) => updateSettings({ optimisticReturn: round1(v) })}
+          hint="A hopeful yearly growth rate — the upper edge of that same band."
           testId="settings-optimistic-return"
         />
+        <div
+          className="muted small"
+          style={{ padding: "0 0 10px", fontSize: "var(--fs-xs)" }}
+          data-testid="settings-return-record"
+        >
+          {record.source === "assumed" ? (
+            "Not enough history yet to show your own return."
+          ) : (
+            <>
+              Your record:{" "}
+              <strong className="mono" style={{ color: "var(--neutral-800)" }}>
+                {fmtPct(record.value, 1)}/yr
+              </strong>{" "}
+              across all accounts (
+              {fmtCount(combinedPortfolio.entries.length, "month", "months")}).{" "}
+              {record.value > settings.optimisticReturn
+                ? "That’s above your optimistic case — the Projection shows it separately as “Your track record”."
+                : record.value < settings.conservativeReturn
+                  ? "That’s below your conservative case."
+                  : "That sits inside your range."}
+            </>
+          )}
+        </div>
         <SliderRow
           label="Default safe withdrawal rate"
           value={settings.defaultSwr}
           min={2.5}
           max={6}
           step={0.1}
-          suffix="%"
+          unit="percent"
           onChange={(v) => updateSettings({ defaultSwr: round1(v) })}
+          hint={`How much of the pot you’d take out each year in retirement — income goals use it to size the pot. ${fmtPct(settings.defaultSwr)} of ${fmtEUR(1_000_000, { compact: true })} is ${fmtEUR((settings.defaultSwr / 100) * 1_000_000, { compact: true })} a year.`}
           testId="settings-default-swr"
         />
       </div>
 
+      {about && <AboutDataCard about={about} />}
+
       <PortfolioEditor
         open={showAdd}
         onOpenChange={setShowAdd}
+        defaultMonthlyContribution={settings.monthlySaving}
         onSave={async (form) => {
           await addPortfolio(form)
+          toast(`Added “${form.name}”`)
         }}
       />
 
@@ -277,6 +360,7 @@ export function SettingsView() {
                   onClick={async () => {
                     await deletePortfolio(p.id)
                     setPendingDeleteId(null)
+                    toast(`Deleted “${p.name}” and its entries`, "info")
                   }}
                 >
                   Delete
@@ -286,6 +370,74 @@ export function SettingsView() {
           </AlertDialog>
         )
       })()}
+    </div>
+  )
+}
+
+/**
+ * C12: a self-hosted app owes its operator the basics — which version is
+ * running, where the database file is, what's in it, and a one-click backup.
+ * The download is a consistent SQLite snapshot (GET /api/backup), safe to
+ * take while the app is running.
+ */
+function AboutDataCard({ about }: { about: AboutInfo }) {
+  const { toast } = useToast()
+  const c = about.counts
+  return (
+    <div
+      className="card card-pad"
+      style={{ marginTop: 14 }}
+      data-testid="about-data-card"
+    >
+      <h3 style={{ fontSize: "var(--fs-lg)" }}>About &amp; data</h3>
+      <div
+        className="muted small"
+        style={{ marginTop: 4, fontSize: "var(--fs-xs)" }}
+      >
+        Everything Simvest knows lives in one SQLite file on your server. Back
+        it up before upgrading or moving machines.
+      </div>
+      <dl className="about-grid">
+        <dt>Version</dt>
+        <dd className="mono" data-testid="about-version">
+          {about.version}
+        </dd>
+        <dt>Database file</dt>
+        <dd>
+          <code className="about-path" data-testid="about-db-path">
+            {about.dbPath}
+          </code>
+          <div className="muted small" style={{ fontSize: "var(--fs-2xs)" }}>
+            Set by DATABASE_URL. With Docker Compose it sits in the simvest-data
+            volume.
+            {about.dbBytes !== null &&
+              ` About ${fmtNum(about.dbBytes / 1_048_576, 1)} MB.`}
+          </div>
+        </dd>
+        <dt>What’s in it</dt>
+        <dd data-testid="about-counts">
+          {fmtCount(c.portfolios, "portfolio", "portfolios")} ·{" "}
+          {fmtCount(c.entries, "monthly entry", "monthly entries")} ·{" "}
+          {fmtCount(c.holdings, "holding", "holdings")} ·{" "}
+          {fmtCount(c.incomeEvents, "payout", "payouts")} ·{" "}
+          {fmtCount(c.goals, "goal", "goals")}
+        </dd>
+      </dl>
+      <div className="about-actions">
+        <a
+          href="/api/backup"
+          download
+          className="btn btn-secondary"
+          data-testid="about-backup-download"
+          onClick={() => toast("Backup started — check your downloads", "info")}
+        >
+          <Icon name="download" size={15} /> Download a backup
+        </a>
+        <span className="muted small" style={{ fontSize: "var(--fs-2xs)" }}>
+          A complete copy of the database. To restore, stop Simvest and put the
+          file back at the path above.
+        </span>
+      </div>
     </div>
   )
 }
@@ -466,8 +618,8 @@ function DefaultEntryDayRow({
           className="muted small"
           style={{ fontSize: "var(--fs-2xs)", marginTop: 4 }}
         >
-          Pre-fills the date when adding a new snapshot. Existing entries keep
-          their stored day.
+          Which day of the month a new entry on Monthly Entries starts on.
+          Existing entries keep their stored day.
         </div>
       </div>
       <div
@@ -630,7 +782,12 @@ function PortfolioRow({
             {fmtCount(portfolio.entries.length, "entry", "entries")}
           </div>
         </div>
-        <div className="settings-pf-contrib">
+        <div
+          className="settings-pf-contrib"
+          id={`contribution-${portfolio.id}`}
+        >
+          {/* C13: €0 is a real choice, so it shows as "0,00" — never a blank
+              field that looks unset — and the caption says what it means. */}
           <MoneyInput
             value={portfolio.targetMonthlyContribution}
             onChange={(v) => {
@@ -640,10 +797,18 @@ function PortfolioRow({
             }}
             locale={locale}
             min={0}
+            allowEmpty={false}
             ariaLabel={`${portfolio.name} monthly contribution`}
+            testId={`settings-contribution-${portfolio.id}`}
           />
-          <div className="muted small" style={{ fontSize: "var(--fs-2xs)" }}>
-            Monthly contribution
+          <div
+            className="muted small"
+            style={{ fontSize: "var(--fs-2xs)" }}
+            data-testid={`settings-contribution-caption-${portfolio.id}`}
+          >
+            {portfolio.targetMonthlyContribution > 0
+              ? "Monthly contribution · used by Projection and Goals"
+              : "Nothing going in each month — goals plan with €0 here"}
           </div>
         </div>
         <div
@@ -653,24 +818,23 @@ function PortfolioRow({
         >
           {hasStartingBalance ? (
             <>
-              <span style={{ color: "var(--neutral-500)" }}>Cost basis </span>
+              <span style={{ color: "var(--neutral-500)" }}>
+                Paid in before tracking{" "}
+              </span>
               <strong
                 className="mono"
                 style={{ color: "var(--neutral-800)", fontWeight: 600 }}
               >
                 {fmtEUR(portfolio.startingValue, { decimals: 2 })}
               </strong>
-              <span style={{ color: "var(--neutral-500)" }}>
-                {" "}
-                · anchored to{" "}
-              </span>
+              <span style={{ color: "var(--neutral-500)" }}> · as of </span>
               <strong style={{ color: "var(--neutral-800)", fontWeight: 600 }}>
                 {fmtMonthKey(portfolio.startingDate!)}
               </strong>
             </>
           ) : (
             <span style={{ color: "var(--neutral-400)" }}>
-              No starting balance — tracking from first entry
+              Tracked from its first entry — nothing paid in before
             </span>
           )}
         </div>
@@ -679,6 +843,7 @@ function PortfolioRow({
           className="btn btn-icon btn-ghost settings-pf-export"
           onClick={onExport}
           aria-label={`Export ${portfolio.name}`}
+          title="Download this portfolio as a file you can import again"
           data-testid={`portfolio-export-${portfolio.id}`}
         >
           <Icon name="download" size={14} />
@@ -687,6 +852,7 @@ function PortfolioRow({
           type="button"
           className="btn btn-secondary btn-sm settings-pf-edit"
           onClick={onEdit}
+          title="Change name, colour, contribution or money paid in before tracking"
           data-testid={`portfolio-edit-${portfolio.id}`}
         >
           <Icon name="edit" size={12} /> Edit
@@ -695,6 +861,7 @@ function PortfolioRow({
           type="button"
           className="btn btn-icon btn-ghost settings-pf-delete"
           aria-label={`Delete ${portfolio.name}`}
+          title="Delete this portfolio and its entries — asks first"
           onClick={onDelete}
         >
           <Icon name="trash" size={14} />
@@ -737,6 +904,7 @@ function ColorPicker({
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-label="Pick color"
+        title="The colour this account uses in every chart"
         aria-expanded={open}
         aria-haspopup="dialog"
         className="settings-color-trigger"

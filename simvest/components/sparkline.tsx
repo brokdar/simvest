@@ -8,6 +8,12 @@ type Props = {
   width?: number
   height?: number
   filled?: boolean
+  /**
+   * Fixed value range. Pass one shared domain to every sparkline in a column
+   * so equal heights mean equal amounts (N12); omitted, the line auto-scales
+   * to its own min/max.
+   */
+  domain?: { min: number; max: number }
 }
 
 export function Sparkline({
@@ -16,10 +22,11 @@ export function Sparkline({
   width = 120,
   height = 36,
   filled = true,
+  domain,
 }: Props) {
   if (!data.length) return null
-  const min = Math.min(...data)
-  const max = Math.max(...data)
+  const min = domain?.min ?? Math.min(...data)
+  const max = domain?.max ?? Math.max(...data)
   const range = max - min || 1
   const pts = data.map((v, i) => [
     (i / Math.max(1, data.length - 1)) * width,

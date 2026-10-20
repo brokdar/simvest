@@ -71,7 +71,7 @@ test.describe("Data flow — cross-cutting", () => {
     ).not.toBeAttached()
 
     // Client-side navigate to Growth Chart — NO reload
-    await navClick(page, "nav-chart", "**/chart")
+    await navClick(page, "nav-projection", "**/projection")
 
     // Wait for chart to render — current source uses growth-chart-svg testid.
     await expect(page.locator('[data-testid="growth-chart-svg"]')).toBeVisible({
@@ -119,8 +119,8 @@ test.describe("Data flow — cross-cutting", () => {
   test("E2E-X-DATAFLOW-004 — new goal appears in Overview Goal progress card without reload", async ({
     page,
   }) => {
-    await page.goto("/planning")
-    await expect(page.locator("h1")).toContainText("Planning")
+    await page.goto("/goals")
+    await expect(page.locator("h1")).toContainText("Goals")
 
     // Open goal editor
     await page.getByTestId("action-new-goal").click()
@@ -184,7 +184,7 @@ test.describe("Data flow — cross-cutting", () => {
     ).toContainText(selectedName!)
 
     // Client-side navigate to Chart
-    await navClick(page, "nav-chart", "**/chart")
+    await navClick(page, "nav-projection", "**/projection")
 
     // Portfolio name should still be the same
     await expect(
@@ -213,12 +213,10 @@ test.describe("Data flow — cross-cutting", () => {
       await route.continue()
     })
 
-    // Client-side navigate through multiple routes (Forecast, Entries, Planning).
-    // /simulation and /goals were retired and now redirect to /planning;
-    // nav-simulation and nav-goals testids no longer exist.
-    await navClick(page, "nav-chart", "**/chart")
+    // Client-side navigate through multiple routes (Projection, Entries, Goals).
+    await navClick(page, "nav-projection", "**/projection")
     await navClick(page, "nav-entries", "**/entries")
-    await navClick(page, "nav-planning", "**/planning")
+    await navClick(page, "nav-goals", "**/goals")
 
     // Give any async fetches time to fire
     await page.waitForTimeout(500)

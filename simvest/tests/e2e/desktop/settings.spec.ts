@@ -57,7 +57,7 @@ test("E2E-D-SETTINGS-002 — Total monthly contribution reflects sum of all port
       .nth(i)
       .locator('input[aria-label*="monthly contribution"]')
       .inputValue()
-    // MoneyInput renders locale-formatted text (e.g. "500.00"); parseFloat handles it.
+    // MoneyInput renders locale-formatted text (e.g. "1,250.00"); parseFloat handles it.
     sum += parseFloat(val) || 0
   }
 
@@ -325,9 +325,10 @@ test("E2E-D-SETTINGS-011 — Clicking Add portfolio opens the portfolio editor d
   )
   await expect(nameInput).toHaveValue("")
 
-  // Contribution defaults to 500, rendered locale-formatted by MoneyInput.
+  // Contribution defaults to Settings → "Starting contribution for new
+  // portfolios" (seed: 1250), rendered locale-formatted by MoneyInput.
   const contributionInput = page.getByTestId("monthly-contribution-input")
-  await expect(contributionInput).toHaveValue("500.00")
+  await expect(contributionInput).toHaveValue("1,250.00")
 })
 
 // ---------------------------------------------------------------------------
@@ -450,9 +451,9 @@ test("E2E-D-SETTINGS-015 — Cancelling the add-portfolio dialog resets state on
   // Name should be reset to empty
   await expect(nameInput).toHaveValue("")
 
-  // Contribution should be reset to 500 (locale-formatted)
+  // Contribution should be reset to the settings default (locale-formatted)
   const contributionInput = page.getByTestId("monthly-contribution-input")
-  await expect(contributionInput).toHaveValue("500.00")
+  await expect(contributionInput).toHaveValue("1,250.00")
 })
 
 // ---------------------------------------------------------------------------

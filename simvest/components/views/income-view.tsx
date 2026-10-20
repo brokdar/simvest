@@ -12,12 +12,16 @@ import { IncomeCalendarHeatmap } from "@/components/charts/income-calendar-heatm
 import { MonthlyPayoutsChart } from "@/components/charts/monthly-payouts-chart"
 import { GoalProgressStrip } from "@/components/goal-progress-strip"
 import { KpiRow } from "@/components/views/income/kpi-row"
+import { ComingUpCard } from "@/components/views/income/coming-up-card"
 import { PerHoldingTable } from "@/components/views/income/per-holding-table"
 import { RecentPayoutsTable } from "@/components/views/income/recent-payouts-table"
 import { useIncomeSearchParams } from "@/components/views/income/use-income-search-params"
 import { SegControl } from "@/components/ui/seg-control"
 import { CsvExportButton } from "@/components/csv-export-button"
+import { ViewHeadline } from "@/components/view-headline"
 import { eventAmount, totalIncome } from "@/lib/calc"
+import { incomeWindow } from "@/lib/income-window"
+import { incomeHeadline } from "@/lib/narrative"
 import { toCsv, type CsvColumn } from "@/lib/export/to-csv"
 import { fmtEUR } from "@/lib/format"
 import {
@@ -64,6 +68,9 @@ export function IncomeView() {
     deleteIncomeEvent,
     updateSettings,
   } = useDataActions()
+
+  const portfolioName = (id: number) =>
+    portfolios.find((p) => p.id === id)?.name ?? "A portfolio"
 
   const scopeId =
     activePortfolio.id === COMBINED_PORTFOLIO_ID
@@ -112,6 +119,29 @@ export function IncomeView() {
     return result
   }, [incomeEvents, scopeId, kindFilter])
 
+  // The persistent `?holding=` filter narrows the two lists (per-holding table
+  // and recent payouts) to that source; the charts keep every source and dim
+  // the rest, so the filtered state stays visible next to its context.
+  const holdingFilter = params.holding
+  const filteredEvents = useMemo(
+    () =>
+      holdingFilter === null
+        ? scopedEvents
+        : scopedEvents.filter((e) =>
+            holdingFilter === "interest"
+              ? e.kind === "interest"
+              : e.holdingId === holdingFilter
+          ),
+    [scopedEvents, holdingFilter]
+  )
+  const holdingFilterName =
+    holdingFilter === null
+      ? null
+      : holdingFilter === "interest"
+        ? "Interest"
+        : (holdings.find((h) => h.id === holdingFilter)?.name ??
+          "an unknown holding")
+
   const totalScoped = useMemo(
     () => scopedEvents.reduce((s, e) => s + eventAmount(e, basis), 0),
     [scopedEvents, basis]
@@ -139,6 +169,27 @@ export function IncomeView() {
     () => totalIncome(incomeEvents, scopeId, "interest", basis),
     [incomeEvents, scopeId, basis]
   )
+  // P7: the page's one sentence, from the same like-for-like window the
+  // "Last 12 months" KPI uses.
+  const headline = useMemo(() => {
+    const window = incomeWindow(scopedEvents, { basis, now: asOf })
+    return incomeHeadline({
+      events: scopedEvents,
+      basis,
+      window,
+      now: asOf,
+      noun:
+        kindFilter === "dividend"
+          ? "dividends"
+          : kindFilter === "interest"
+            ? "interest"
+            : "income",
+      lagging: window.lagging.map((l) => ({
+        name:
+          portfolios.find((p) => p.id === l.portfolioId)?.name ?? "A portfolio",
+      })),
+    })
+  }, [scopedEvents, basis, asOf, kindFilter, portfolios])
   const sort = useMemo(
     () => ({ key: params.sortKey, dir: params.sortDir }),
     [params.sortKey, params.sortDir]
@@ -169,6 +220,7 @@ export function IncomeView() {
             · {fmtEUR(totalDividend)} dividends, {fmtEUR(totalInterest)}{" "}
             interest
           </div>
+          <ViewHeadline text={headline} testId="income-headline" />
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <CsvExportButton
@@ -230,16 +282,26 @@ export function IncomeView() {
           value={kindFilter}
           onChange={(v) => setKind(v)}
         />
+        {/* C9: say "tax" out loud — Net/Gross alone is jargon. */}
         <SegControl<"net" | "gross">
-          ariaLabel="Basis"
+          ariaLabel="Show amounts before or after tax"
           testId="income-basis-toggle"
           options={[
-            { value: "net", label: "Net" },
-            { value: "gross", label: "Gross" },
+            { value: "net", label: "After tax" },
+            { value: "gross", label: "Before tax" },
           ]}
           value={basis}
           onChange={(v) => updateSettings({ dividendBasis: v })}
         />
+        <span
+          className="muted small"
+          style={{ fontSize: "var(--fs-2xs)" }}
+          data-testid="income-basis-hint"
+        >
+          {basis === "net"
+            ? "What reached your account, after withholding tax"
+            : "What was paid out, before withholding tax"}
+        </span>
       </div>
 
       {noHoldings && kindFilter !== "interest" ? (
@@ -279,13 +341,53 @@ export function IncomeView() {
             basis={basis}
             totalScoped={totalScoped}
             asOf={asOf}
+            portfolioName={portfolioName}
           />
-          <div
-            className="card card-pad muted"
-            data-testid="income-empty-state"
-            style={{ textAlign: "center" }}
-          >
-            No payouts recorded yet — record your first to populate this view.
+          <div className="card card-pad" data-testid="income-empty-state">
+            <div className="empty-state">
+              <div className="empty-title">
+                {kindFilter === "interest"
+                  ? "No interest recorded yet"
+                  : kindFilter === "dividend"
+                    ? "No dividends recorded yet"
+                    : "No payouts recorded yet"}
+              </div>
+              <div className="empty-sub">
+                Record a dividend or an interest payment — or import a broker
+                export from Monthly entries — and the charts and totals fill in.
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap",
+                  justifyContent: "center",
+                }}
+              >
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => {
+                    setEditing(null)
+                    setShowDividendEditor(true)
+                  }}
+                  data-testid="income-empty-dividend"
+                >
+                  <Icon name="plus" size={14} /> Record dividend
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    setEditing(null)
+                    setShowInterestEditor(true)
+                  }}
+                  data-testid="income-empty-interest"
+                >
+                  <Icon name="plus" size={14} /> Record interest
+                </button>
+              </div>
+            </div>
           </div>
         </>
       ) : (
@@ -297,11 +399,46 @@ export function IncomeView() {
             basis={basis}
             totalScoped={totalScoped}
             asOf={asOf}
+            portfolioName={portfolioName}
           />
+
+          <ComingUpCard
+            events={scopedEvents}
+            basis={basis}
+            today={today}
+            portfolioName={portfolioName}
+          />
+
+          {holdingFilterName !== null && (
+            <div
+              className="income-filter-bar"
+              role="status"
+              data-testid="income-holding-filter"
+            >
+              <span className="muted small">
+                Showing payouts from{" "}
+                <strong style={{ color: "var(--neutral-800)" }}>
+                  {holdingFilterName}
+                </strong>{" "}
+                · {filteredEvents.length}{" "}
+                {filteredEvents.length === 1 ? "payout" : "payouts"}
+              </span>
+              <button
+                type="button"
+                className="chip primary income-filter-clear"
+                onClick={() => toggleHolding(holdingFilter!)}
+                aria-label="Clear filter: show all sources"
+                data-testid="income-holding-filter-clear"
+              >
+                <Icon name="close" size={12} /> Show all
+              </button>
+            </div>
+          )}
 
           <GoalProgressStrip
             goals={dividendGoals}
             goalEvals={goalEvals}
+            portfolios={portfolios}
             title="Dividend goal progress"
             testId="income-goal-progress"
           />
@@ -342,6 +479,7 @@ export function IncomeView() {
                 highlightedHoldingId={highlightedHoldingId}
                 onHighlightChange={setHoverHoldingId}
                 onSelect={(id) => toggleHolding(id)}
+                selectedHoldingId={params.holding}
               />
             </div>
           </div>
@@ -351,12 +489,13 @@ export function IncomeView() {
               Per Holding
             </h3>
             <PerHoldingTable
-              events={scopedEvents}
+              events={filteredEvents}
               basis={basis}
               totalScoped={totalScoped}
               sort={sort}
               onSortChange={setSort}
               highlightedHoldingId={highlightedHoldingId}
+              selectedHoldingId={params.holding}
               onRowHover={setHoverHoldingId}
               onRowSelect={(id) => toggleHolding(id)}
               asOf={asOf}
@@ -372,14 +511,16 @@ export function IncomeView() {
               basis={basis}
               selectedMonth={params.month}
               onMonthSelect={setMonth}
+              asOf={asOf}
             />
           </div>
 
           <div style={{ marginTop: 16 }}>
             <RecentPayoutsTable
-              events={scopedEvents}
+              events={filteredEvents}
               basis={basis}
               selectedMonth={params.month}
+              portfolioName={portfolioName}
               onEdit={(e) => {
                 setShowDividendEditor(false)
                 setShowInterestEditor(false)

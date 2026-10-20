@@ -148,6 +148,7 @@ export function restorePortfolio(
             targetYear: g.targetYear,
             swr: g.swr,
             yieldAssumed: g.yieldAssumed,
+            returnAssumed: g.returnAssumed ?? null,
             createdAt: g.createdAt,
           }))
         )

@@ -12,22 +12,22 @@ test.describe("Shell navigation — desktop", () => {
     await expect(page.getByTestId("sidebar")).toBeVisible()
 
     const navOverview = page.getByTestId("nav-overview")
-    const navChart = page.getByTestId("nav-chart")
+    const navChart = page.getByTestId("nav-projection")
     const navEntries = page.getByTestId("nav-entries")
-    const navPlanning = page.getByTestId("nav-planning")
+    const navPlanning = page.getByTestId("nav-goals")
     const navSettings = page.getByTestId("nav-settings")
 
     await expect(navOverview).toBeVisible()
     await expect(navOverview).toContainText("Overview")
 
     await expect(navChart).toBeVisible()
-    await expect(navChart).toContainText("Forecast")
+    await expect(navChart).toContainText("Projection")
 
     await expect(navEntries).toBeVisible()
     await expect(navEntries).toContainText("Monthly Entries")
 
     await expect(navPlanning).toBeVisible()
-    await expect(navPlanning).toContainText("Planning")
+    await expect(navPlanning).toContainText("Goals")
 
     await expect(navSettings).toBeVisible()
     await expect(navSettings).toContainText("Settings")
@@ -42,27 +42,27 @@ test.describe("Shell navigation — desktop", () => {
 
     // No other nav item should be active
     for (const testId of [
-      "nav-chart",
+      "nav-projection",
       "nav-entries",
-      "nav-planning",
+      "nav-goals",
       "nav-settings",
     ]) {
       await expect(page.getByTestId(testId)).not.toHaveClass(/active/)
     }
   })
 
-  // E2E-D-NAV-003 — Clicking "Growth Chart" navigates to /chart and updates active state
-  test("E2E-D-NAV-003 — clicking Growth Chart navigates to /chart and updates active state", async ({
+  // E2E-D-NAV-003 — Clicking "Growth Chart" navigates to /projection and updates active state
+  test("E2E-D-NAV-003 — clicking Growth Chart navigates to /projection and updates active state", async ({
     page,
   }) => {
     await page.goto("/")
-    await page.getByTestId("nav-chart").click()
-    await page.waitForURL("**/chart")
+    await page.getByTestId("nav-projection").click()
+    await page.waitForURL("**/projection")
 
-    expect(page.url()).toContain("/chart")
-    await expect(page.getByTestId("nav-chart")).toHaveClass(/active/)
+    expect(page.url()).toContain("/projection")
+    await expect(page.getByTestId("nav-projection")).toHaveClass(/active/)
     await expect(page.getByTestId("nav-overview")).not.toHaveClass(/active/)
-    await expect(page.getByTestId("topbar-crumb")).toContainText("Forecast")
+    await expect(page.getByTestId("topbar-crumb")).toContainText("Projection")
   })
 
   // E2E-D-NAV-004 — Clicking "Monthly Entries" navigates to /entries
@@ -80,29 +80,33 @@ test.describe("Shell navigation — desktop", () => {
     )
   })
 
-  // E2E-D-NAV-005 — Clicking "Planning" navigates to /planning
-  test("E2E-D-NAV-005 — clicking Planning navigates to /planning", async ({
+  // E2E-D-NAV-005 — Clicking "Goals" navigates to /goals
+  test("E2E-D-NAV-005 — clicking Goals navigates to /goals", async ({
     page,
   }) => {
     await page.goto("/")
-    await page.getByTestId("nav-planning").click()
-    await page.waitForURL("**/planning")
+    await page.getByTestId("nav-goals").click()
+    await page.waitForURL("**/goals")
 
-    expect(page.url()).toContain("/planning")
-    await expect(page.getByTestId("nav-planning")).toHaveClass(/active/)
+    expect(page.url()).toContain("/goals")
+    await expect(page.getByTestId("nav-goals")).toHaveClass(/active/)
   })
 
-  // E2E-D-NAV-006 — /goals and /simulation redirect to /planning (back-compat)
-  test("E2E-D-NAV-006 — /goals and /simulation redirect to /planning", async ({
+  // E2E-D-NAV-006 — old paths redirect to the renamed routes (back-compat, C6)
+  test("E2E-D-NAV-006 — /planning, /simulation and /chart redirect to the renamed routes", async ({
     page,
   }) => {
-    await page.goto("/planning")
-    await page.waitForURL("**/planning")
-    expect(page.url()).toContain("/planning")
+    await page.goto("/planning?goal=1")
+    await page.waitForURL(/\/goals(\?|$)/)
+    expect(page.url()).toContain("/goals")
+
+    await page.goto("/chart")
+    await page.waitForURL("**/projection")
+    await expect(page.locator("h1.title")).toHaveText("Projection")
 
     await page.goto("/simulation")
-    await page.waitForURL("**/planning")
-    expect(page.url()).toContain("/planning")
+    await page.waitForURL("**/goals")
+    expect(page.url()).toContain("/goals")
   })
 
   // E2E-D-NAV-007 — Topbar breadcrumb shows "Simvest / Overview" on root
@@ -123,7 +127,7 @@ test.describe("Shell navigation — desktop", () => {
     await page.goto("/")
     await expect(page.getByTestId("action-new-entry")).not.toBeAttached()
 
-    await page.goto("/chart")
+    await page.goto("/projection")
     await expect(page.getByTestId("action-new-entry")).not.toBeAttached()
 
     await page.goto("/entries")
@@ -166,17 +170,17 @@ test.describe("Shell navigation — desktop", () => {
     ).toBeVisible()
   })
 
-  // E2E-D-NAV-010 — "New goal" topbar action only renders on /planning and
+  // E2E-D-NAV-010 — "New goal" topbar action only renders on /goals and
   // opens the goal editor dialog when clicked. Tests the EditorIntent
   // context bus contract; replaces the legacy `simvest:new-goal`
   // window-event assertion.
-  test("E2E-D-NAV-010 — New goal topbar action opens the goal editor on /planning", async ({
+  test("E2E-D-NAV-010 — New goal topbar action opens the goal editor on /goals", async ({
     page,
   }) => {
     await page.goto("/")
     await expect(page.getByTestId("action-new-goal")).not.toBeAttached()
 
-    await page.goto("/planning")
+    await page.goto("/goals")
     const newGoalBtn = page.getByTestId("action-new-goal")
     await expect(newGoalBtn).toBeVisible()
     await expect(newGoalBtn).toContainText("New goal")
@@ -196,12 +200,12 @@ test.describe("Shell navigation — desktop", () => {
     await expect(sidebar).toContainText("Simvest")
   })
 
-  // E2E-D-NAV-012 — Direct navigation to /chart from URL bar sets correct active item
-  test("E2E-D-NAV-012 — direct navigation to /chart sets correct active nav item", async ({
+  // E2E-D-NAV-012 — Direct navigation to /projection from URL bar sets correct active item
+  test("E2E-D-NAV-012 — direct navigation to /projection sets correct active nav item", async ({
     page,
   }) => {
-    await page.goto("/chart")
-    await expect(page.getByTestId("nav-chart")).toHaveClass(/active/)
+    await page.goto("/projection")
+    await expect(page.getByTestId("nav-projection")).toHaveClass(/active/)
     await expect(page.getByTestId("nav-overview")).not.toHaveClass(/active/)
   })
 })

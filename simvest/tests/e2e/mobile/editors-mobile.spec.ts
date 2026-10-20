@@ -102,7 +102,7 @@ test.describe("Editors — mobile", () => {
   test("E2E-M-EDIT-006 — goal editor dialog fits within iPhone viewport", async ({
     page,
   }) => {
-    await page.goto("/planning")
+    await page.goto("/goals")
 
     const actionBtn = page.getByTestId("action-new-goal")
     await expect(actionBtn).toBeVisible()
@@ -130,7 +130,7 @@ test.describe("Editors — mobile", () => {
   test("E2E-M-EDIT-007 — goal editor name input is focusable and accepts keyboard input on mobile", async ({
     page,
   }) => {
-    await page.goto("/planning")
+    await page.goto("/goals")
     await page.getByTestId("action-new-goal").tap()
     await expect(page.locator('[data-slot="dialog-content"]')).toBeVisible()
 
@@ -147,7 +147,7 @@ test.describe("Editors — mobile", () => {
   test.fixme("E2E-M-EDIT-008 — goal editor footer stays above virtual keyboard (README finding #4 — iOS keyboard push)", async ({
     page,
   }) => {
-    await page.goto("/planning")
+    await page.goto("/goals")
     await page.getByTestId("action-new-goal").tap()
     await expect(page.locator('[data-slot="dialog-content"]')).toBeVisible()
 
@@ -169,7 +169,7 @@ test.describe("Editors — mobile", () => {
   test("E2E-M-EDIT-009 — goal editor color swatches are tappable on mobile", async ({
     page,
   }) => {
-    await page.goto("/planning")
+    await page.goto("/goals")
     await page.getByTestId("action-new-goal").tap()
     await expect(page.locator('[data-slot="dialog-content"]')).toBeVisible()
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { aggregateIncomeByMonthSource, filterEventsByMonth } from "@/lib/calc"
 import { niceTicks } from "@/lib/charts/scales"
 import { fmtAxisEUR, fmtEUR } from "@/lib/format"
@@ -10,8 +10,11 @@ import {
   type IncomeKind,
 } from "@/lib/types"
 import { MonthDetailTooltip } from "./month-detail-tooltip"
+import { useChartTouch } from "./use-chart-touch"
 import { buildSourceColors, OTHERS_COLOR } from "./income-source-palette"
 import { svgNum } from "@/lib/charts/svg"
+import { estimateLabelWidth, nonCollidingTicks } from "@/lib/charts/ticks"
+import { monthIdx, trailing12ByCalendar } from "@/lib/income-window"
 
 type Props = {
   events: IncomeEventDTO[]
@@ -45,6 +48,13 @@ export function MonthlyPayoutsChart({
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [W, setW] = useState(640)
   const [hoverIdx, setHoverIdx] = useState<number | null>(null)
+  // Touch readout, pinned by `useChartTouch` like the other charts (M3). A tap
+  // only reveals the month — it never selects it, so it doesn't rewrite the
+  // URL, expand the payouts ledger or scroll the page out from under you.
+  const [touchIdx, setTouchIdx] = useState<number | null>(null)
+  // Last input that pressed the chart, so a tap's synthetic click/focus can be
+  // told apart from a real mouse click or keyboard focus.
+  const lastPointer = useRef<string>("mouse")
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -99,19 +109,15 @@ export function MonthlyPayoutsChart({
     [buckets, colors]
   )
 
-  // Sliding-window trailing-12mo sum — O(n).
-  const trailing12: number[] = useMemo(() => {
-    const out: number[] = []
-    let sum = 0
-    const window: number[] = []
-    for (const b of buckets) {
-      window.push(b.total)
-      sum += b.total
-      if (window.length > 12) sum -= window.shift()!
-      out.push(sum)
-    }
-    return out
-  }, [buckets])
+  // Trailing-12 *calendar* months: buckets skip months without payouts, so a
+  // window of 12 buckets used to stretch over gaps (N5).
+  const trailing12: number[] = useMemo(
+    () =>
+      trailing12ByCalendar(
+        buckets.map((b) => ({ idx: monthIdx(b.year, b.month), total: b.total }))
+      ),
+    [buckets]
+  )
 
   const H = height
   const pad = { l: 52, r: 48, t: 16, b: 32 }
@@ -144,7 +150,39 @@ export function MonthlyPayoutsChart({
   const yLine = (v: number) => baseY - (v / lineMax) * ih
   const barW = Math.max(4, Math.min(40, band * 0.6))
 
-  const tickStride = Math.max(1, Math.ceil(n / 6))
+  // Client px → month index. The SVG letterboxes its viewBox
+  // (`preserveAspectRatio="xMidYMid meet"`), so undo that scale + offset.
+  const resolveIndex = useCallback(
+    (clientX: number, _clientY: number, rect: DOMRect) => {
+      if (n === 0 || rect.width === 0) return null
+      const scale = Math.min(rect.width / W, rect.height / H)
+      const offsetX = (rect.width - W * scale) / 2
+      const vx = (clientX - rect.left - offsetX) / scale
+      const i = Math.floor((vx - pad.l) / Math.max(1, band))
+      return Math.max(0, Math.min(n - 1, i))
+    },
+    [n, W, H, pad.l, band]
+  )
+  const touch = useChartTouch({
+    resolveIndex,
+    activeIndex: touchIdx,
+    setActiveIndex: setTouchIdx,
+    containerRef,
+  })
+
+  // Aim for ~one label per 64px, then drop any that would still touch (M4):
+  // the always-drawn last month used to land on the stride label before it.
+  const tickStride = Math.max(
+    1,
+    Math.ceil(n / Math.max(2, Math.floor(iw / 64)))
+  )
+  const shownTicks = nonCollidingTicks(
+    buckets.flatMap((b, i) =>
+      i % tickStride === 0 || i === n - 1
+        ? [{ index: i, x: x(i), width: estimateLabelWidth(b.label, 11) }]
+        : []
+    )
+  )
 
   const linePath = trailing12
     .map(
@@ -171,8 +209,10 @@ export function MonthlyPayoutsChart({
     selectedMonth === null
       ? -1
       : buckets.findIndex((b) => b.key === selectedMonth)
-  // Hover (mouse/keyboard) wins; otherwise the selected month drives the readout.
-  const activeIdx = hoverIdx ?? (selectedIdx >= 0 ? selectedIdx : null)
+  // Hover (mouse/keyboard) wins, then a touch pin; otherwise the selected
+  // month drives the readout.
+  const activeIdx =
+    hoverIdx ?? touchIdx ?? (selectedIdx >= 0 ? selectedIdx : null)
   const activeBucket = activeIdx !== null ? buckets[activeIdx] : null
 
   // Tooltip follows the active bar's x (clamped inside the chart) and sits
@@ -229,8 +269,19 @@ export function MonthlyPayoutsChart({
         width="100%"
         height={H}
         preserveAspectRatio="xMidYMid meet"
-        style={{ display: "block" }}
+        // pan-y keeps vertical page scroll while a horizontal drag scrubs.
+        style={{ display: "block", touchAction: "pan-y" }}
         onMouseLeave={() => setHoverIdx(null)}
+        onPointerDown={(e) => {
+          lastPointer.current = e.pointerType
+        }}
+        onKeyDownCapture={() => {
+          lastPointer.current = "keyboard"
+        }}
+        onTouchStart={touch.onTouchStart}
+        onTouchMove={touch.onTouchMove}
+        onTouchEnd={touch.onTouchEnd}
+        onTouchCancel={() => setTouchIdx(null)}
       >
         {/* Left-axis gridlines + labels (bar scale). */}
         {barScale.ticks.map((t) => (
@@ -330,7 +381,7 @@ export function MonthlyPayoutsChart({
 
         {/* Highlighted holding's own monthly bars, drawn on top at full color. */}
         {highlightActive && (
-          <g data-testid="income-bar-highlight">
+          <g data-testid="income-highlight-bar">
             {buckets.map((b, i) => {
               const amt =
                 b.sources.find((s) => s.id === highlightedHoldingId)?.amount ??
@@ -379,7 +430,7 @@ export function MonthlyPayoutsChart({
 
         {/* Month axis labels. */}
         {buckets.map((b, i) =>
-          i % tickStride === 0 || i === n - 1 ? (
+          shownTicks.has(i) ? (
             <text
               key={`tk-${b.key}`}
               x={x(i)}
@@ -405,19 +456,24 @@ export function MonthlyPayoutsChart({
             fill="transparent"
             data-testid={`income-bar-hit-${b.key}`}
             className="focus-ring-svg"
-            style={{ touchAction: "manipulation", cursor: "pointer" }}
+            data-chart-hit=""
+            style={{ cursor: "pointer" }}
             // Only a real mouse sets the transient hover. On touch the synthetic
-            // pointerenter would otherwise pin `hoverIdx` (no matching leave),
-            // keeping the tooltip stuck open after a tap-to-deselect — so touch
-            // taps drive the readout through `selectedMonth` instead.
+            // pointerenter/focus would otherwise pin `hoverIdx` (no matching
+            // leave), so touch drives the readout through `touchIdx` instead.
             onPointerEnter={(e) => {
               if (e.pointerType === "mouse") setHoverIdx(i)
             }}
-            onFocus={() => setHoverIdx(i)}
+            onFocus={() => {
+              if (lastPointer.current !== "touch") setHoverIdx(i)
+            }}
             onBlur={() => setHoverIdx(null)}
-            onClick={() =>
+            onClick={() => {
+              // A tap already showed the month via `useChartTouch`; selecting
+              // (filter the ledger) stays a deliberate mouse/keyboard action.
+              if (lastPointer.current === "touch") return
               onMonthSelect(selectedMonth === b.key ? null : b.key)
-            }
+            }}
             onKeyDown={(e) => {
               // role="button" promises Enter/Space activation — a native
               // <rect> doesn't provide it, so wire it explicitly.
@@ -463,7 +519,8 @@ export function MonthlyPayoutsChart({
       <div className="muted small" style={{ marginTop: 4 }}>
         Bars stack each month’s payouts by holding (colors match{" "}
         <strong>By Source</strong>). The line is your total income over the
-        trailing 12 months — an annual run-rate, read against the right axis.
+        trailing 12 months — what a full year pays at the current pace, read
+        against the right axis.
       </div>
     </div>
   )

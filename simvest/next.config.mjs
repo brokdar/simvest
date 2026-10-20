@@ -24,11 +24,13 @@ const nextConfig = {
     preloadEntriesOnStart: false,
   },
   async redirects() {
-    // /goals and /simulation were merged into /planning; /dividends was
-    // renamed to /income. These redirects exist for stale bookmarks only.
+    // /simulation was merged into the goal planner, which now lives at
+    // /goals (it was /planning); /chart was renamed to /projection and
+    // /dividends to /income. These redirects exist for stale bookmarks only.
     return [
-      { source: "/goals", destination: "/planning", permanent: true },
-      { source: "/simulation", destination: "/planning", permanent: true },
+      { source: "/planning", destination: "/goals", permanent: true },
+      { source: "/simulation", destination: "/goals", permanent: true },
+      { source: "/chart", destination: "/projection", permanent: true },
       { source: "/dividends", destination: "/income", permanent: true },
     ]
   },

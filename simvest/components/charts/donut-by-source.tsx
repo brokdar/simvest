@@ -5,7 +5,7 @@ import { aggregateIncomeBySource } from "@/lib/calc"
 import { fmtEUR, fmtPct } from "@/lib/format"
 import type { DividendBasis, IncomeEventDTO, IncomeKind } from "@/lib/types"
 import { OTHERS_COLOR, SOURCE_PALETTE } from "./income-source-palette"
-import { svgNum } from "@/lib/charts/svg"
+import { donutSlicePath } from "@/lib/charts/donut"
 
 type Props = {
   events: IncomeEventDTO[]
@@ -14,6 +14,8 @@ type Props = {
   highlightedHoldingId: number | "interest" | null
   onHighlightChange: (id: number | "interest" | null) => void
   onSelect: (id: number | "interest") => void
+  /** The persistent `?holding=` filter — each legend button's aria-pressed. */
+  selectedHoldingId?: number | "interest" | null
 }
 
 type DonutSlice =
@@ -46,6 +48,7 @@ export function DonutBySource({
   highlightedHoldingId,
   onHighlightChange,
   onSelect,
+  selectedHoldingId = null,
 }: Props) {
   const legendId = useId()
 
@@ -139,7 +142,8 @@ export function DonutBySource({
                 onBlur={() => onHighlightChange(null)}
                 onClick={() => s.kind === "holding" && onSelect(s.id)}
                 disabled={isOthers}
-                className="focus-ring"
+                aria-pressed={isOthers ? undefined : selectedHoldingId === s.id}
+                className="donut-legend-btn focus-ring"
                 aria-label={`${s.name}, ${fmtEUR(s.total)}, ${fmtPct(s.pct, 1)}`}
                 style={{
                   width: "100%",
@@ -208,6 +212,8 @@ function Donut({
   highlightedHoldingId: number | "interest" | null
   onHighlightChange: (id: number | "interest" | null) => void
   onSelect: (id: number | "interest") => void
+  /** The persistent `?holding=` filter — each legend button's aria-pressed. */
+  selectedHoldingId?: number | "interest" | null
   legendId: string
 }) {
   const size = 220
@@ -217,6 +223,14 @@ function Donut({
   const innerRadius = 60
 
   const grandTotal = slices.reduce((s, sl) => s + sl.total, 0) || 1
+  // Hovering/focusing a slice (or its legend row) swaps the centre readout
+  // from the grand total to that slice's own amount and share.
+  const focused =
+    highlightedHoldingId === null
+      ? undefined
+      : slices.find(
+          (s) => s.kind === "holding" && s.id === highlightedHoldingId
+        )
   // Precompute slice arc ranges so we don't mutate a render-scoped cursor.
   const arcs = (() => {
     const out: Array<{ start: number; end: number }> = []
@@ -281,7 +295,7 @@ function Donut({
         fontFamily="var(--font-body)"
         style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}
       >
-        Total
+        {focused ? fmtPct(focused.pct, 1) : "Total"}
       </text>
       <text
         x={cx}
@@ -293,32 +307,8 @@ function Donut({
         fontFamily="var(--font-head)"
         style={{ fontVariantNumeric: "tabular-nums" }}
       >
-        {fmtEUR(grandTotal, { compact: true })}
+        {fmtEUR(focused ? focused.total : grandTotal, { compact: true })}
       </text>
     </svg>
   )
-}
-
-function donutSlicePath(
-  start: number,
-  end: number,
-  outerR: number,
-  innerR: number
-): string {
-  const largeArc = end - start > Math.PI ? 1 : 0
-  const x1 = Math.cos(start) * outerR
-  const y1 = Math.sin(start) * outerR
-  const x2 = Math.cos(end) * outerR
-  const y2 = Math.sin(end) * outerR
-  const x3 = Math.cos(end) * innerR
-  const y3 = Math.sin(end) * innerR
-  const x4 = Math.cos(start) * innerR
-  const y4 = Math.sin(start) * innerR
-  return [
-    `M ${svgNum(x1, 2)} ${svgNum(y1, 2)}`,
-    `A ${outerR} ${outerR} 0 ${largeArc} 1 ${svgNum(x2, 2)} ${svgNum(y2, 2)}`,
-    `L ${svgNum(x3, 2)} ${svgNum(y3, 2)}`,
-    `A ${innerR} ${innerR} 0 ${largeArc} 0 ${svgNum(x4, 2)} ${svgNum(y4, 2)}`,
-    "Z",
-  ].join(" ")
 }

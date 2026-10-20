@@ -20,6 +20,8 @@ type Props = {
   basis: DividendBasis
   events: IncomeEventDTO[]
   testId: string
+  /** Replaces the €0 summary for a month that isn't data (N5). */
+  emptyText?: string
 }
 
 /**
@@ -37,6 +39,7 @@ export function MonthDetailTooltip({
   basis,
   events,
   testId,
+  emptyText,
 }: Props) {
   return (
     <div
@@ -62,6 +65,7 @@ export function MonthDetailTooltip({
         month={month}
         basis={basis}
         events={events}
+        emptyText={emptyText}
       />
     </div>
   )

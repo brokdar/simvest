@@ -38,12 +38,17 @@ export const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
   {
     title: "Planning",
     items: [
-      { href: "/chart", label: "Forecast", icon: "chart", testId: "nav-chart" },
       {
-        href: "/planning",
-        label: "Planning",
+        href: "/projection",
+        label: "Projection",
+        icon: "chart",
+        testId: "nav-projection",
+      },
+      {
+        href: "/goals",
+        label: "Goals",
         icon: "target",
-        testId: "nav-planning",
+        testId: "nav-goals",
       },
     ],
   },

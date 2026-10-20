@@ -71,6 +71,7 @@ export async function getGoals(): Promise<GoalDTO[]> {
     targetYear: g.targetYear,
     swr: g.swr,
     yieldAssumed: g.yieldAssumed,
+    returnAssumed: g.returnAssumed,
   }))
 }
 

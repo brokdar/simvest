@@ -110,6 +110,56 @@ export async function applyPastedEntries(
   return res.counts
 }
 
+/** One account's row in a catch-up batch (W2). */
+export type BatchEntryInput = {
+  portfolioId: number
+  year: number
+  month: number
+  day: number
+  invested: number
+  value: number
+  note: string
+}
+
+/**
+ * Catch-up save: one value per account, all accounts in one request. The
+ * server validates the whole batch (all-or-nothing) before writing, so local
+ * state only changes once every row has landed.
+ */
+export async function logEntries(
+  deps: MutationDeps,
+  rows: BatchEntryInput[]
+): Promise<{ added: number; updated: number }> {
+  const res = await deps.fetch.request<{
+    entries: (EntryDTO & { portfolioId: number })[]
+    counts: { added: number; updated: number }
+  }>("POST", "/api/entries/batch", { body: { entries: rows } })
+
+  const byPortfolio = new Map<number, EntryDTO[]>()
+  for (const { portfolioId, ...saved } of res.entries) {
+    const list = byPortfolio.get(portfolioId) ?? []
+    list.push(saved)
+    byPortfolio.set(portfolioId, list)
+  }
+  deps.setPortfolios((prev) =>
+    prev.map((p) => {
+      const saved = byPortfolio.get(p.id)
+      if (!saved) return p
+      const next = [...p.entries]
+      for (const e of saved) {
+        const idx = next.findIndex(
+          (x) => x.year === e.year && x.month === e.month
+        )
+        if (idx >= 0) next[idx] = e
+        else next.push(e)
+      }
+      next.sort((a, b) => a.year - b.year || a.month - b.month)
+      return { ...p, entries: next }
+    })
+  )
+  return res.counts
+}
+
 export async function deleteEntry(
   deps: MutationDeps,
   portfolioId: number,
@@ -396,30 +446,37 @@ export async function deleteIncomeEvent(
 // ── Settings (non-debounced wire write) ─────────────────────────────────
 
 /**
- * Fire-and-forget settings PATCH for the debounced flusher in the provider.
- * `keepalive: true` lets the request survive a `pagehide`. Errors are
- * intentionally swallowed — the UI state is the source of truth client-side.
+ * Settings PATCH for the debounced flusher in the provider. `keepalive: true`
+ * lets the request survive a `pagehide`. It never rejects — the UI state is
+ * the source of truth client-side — but resolves `true`/`false` so the
+ * provider can confirm the save or say it didn't stick (D6).
  */
 export function flushSettings(
   deps: MutationDeps,
   body: Partial<SettingsDTO>
-): void {
-  deps.fetch
+): Promise<boolean> {
+  return deps.fetch
     .request<SettingsDTO>("PATCH", "/api/settings", { body, keepalive: true })
-    .catch(() => {})
+    .then(
+      () => true,
+      () => false
+    )
 }
 
 export function flushPortfolioPatch(
   deps: MutationDeps,
   id: number,
   body: Record<string, unknown>
-): void {
-  deps.fetch
+): Promise<boolean> {
+  return deps.fetch
     .request<PortfolioDTO>("PATCH", `/api/portfolios/${id}`, {
       body,
       keepalive: true,
     })
-    .catch(() => {})
+    .then(
+      () => true,
+      () => false
+    )
 }
 
 // ── Broker import ───────────────────────────────────────────────────────

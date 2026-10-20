@@ -68,6 +68,7 @@ function makeGoal(overrides: Partial<GoalDTO> = {}): GoalDTO {
     targetYear: new Date().getFullYear() + 10,
     swr: null,
     yieldAssumed: null,
+    returnAssumed: null,
     ...overrides,
   }
 }
