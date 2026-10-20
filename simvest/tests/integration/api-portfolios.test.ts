@@ -72,7 +72,7 @@ describe("GET /api/portfolios", () => {
     for (const entry of portfolio.entries) {
       expect(typeof entry.label).toBe("string")
       expect(entry.label.length).toBeGreaterThan(0)
-      expect(entry.label).toMatch(/^[A-Z][a-z]{2} \d{2}$/)
+      expect(entry.label).toMatch(/^[A-Z][a-z]{2} ’\d{2}$/)
     }
     // Clean up
     db.delete(portfolios).where(eq(portfolios.id, p.id)).run()

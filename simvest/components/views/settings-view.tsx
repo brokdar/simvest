@@ -20,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { fmtEUR } from "@/lib/format"
+import { fmtCount, fmtEUR } from "@/lib/format"
 import { useLocale } from "@/lib/locale"
 import { useResolvedLocale } from "@/components/use-resolved-locale"
 import {
@@ -31,24 +31,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { PortfolioDTO } from "@/lib/types"
+import { IDENTITY_COLORS, identityColorName, swatch } from "@/lib/palette"
+import { fmtMonthKey } from "@/lib/dates"
+import { SegControl, type SegOption } from "@/components/ui/seg-control"
+import { useTheme } from "@/components/providers/theme"
+import type { ThemePreference } from "@/lib/theme"
 
-const PALETTE = [
-  "#1E40AF",
-  "#059669",
-  "#7C3AED",
-  "#0F766E",
-  "#B45309",
-  "#334155",
-]
-
-const COLOR_NAMES: Record<string, string> = {
-  "#1E40AF": "Blue",
-  "#059669": "Green",
-  "#7C3AED": "Purple",
-  "#0F766E": "Teal",
-  "#B45309": "Amber",
-  "#334155": "Slate",
-}
+const PALETTE = IDENTITY_COLORS.map((c) => c.hex)
 
 export function SettingsView() {
   const { portfolios, goals, settings } = useData()
@@ -111,7 +100,7 @@ export function SettingsView() {
             flexWrap: "wrap",
           }}
         >
-          <h3 style={{ fontSize: 15 }}>Portfolios</h3>
+          <h3 style={{ fontSize: "var(--fs-lg)" }}>Portfolios</h3>
           <div className="muted small" data-testid="total-monthly-contribution">
             Total monthly contribution:{" "}
             <strong className="mono" style={{ color: "var(--neutral-800)" }}>
@@ -147,7 +136,7 @@ export function SettingsView() {
 
       <div className="card card-pad" style={{ marginTop: 14 }}>
         <div style={{ marginBottom: 14 }}>
-          <h3 style={{ fontSize: 15 }}>Preferences</h3>
+          <h3 style={{ fontSize: "var(--fs-lg)" }}>Preferences</h3>
         </div>
         <DefaultEntryDayRow
           value={settings.defaultEntryDay}
@@ -157,12 +146,16 @@ export function SettingsView() {
           value={settings.locale}
           onChange={(v) => updateSettings({ locale: v })}
         />
+        <AppearanceRow />
       </div>
 
       <div className="card card-pad" style={{ marginTop: 14 }}>
         <div style={{ marginBottom: 4 }}>
-          <h3 style={{ fontSize: 15 }}>Planning assumptions</h3>
-          <div className="muted small" style={{ marginTop: 4, fontSize: 12 }}>
+          <h3 style={{ fontSize: "var(--fs-lg)" }}>Planning assumptions</h3>
+          <div
+            className="muted small"
+            style={{ marginTop: 4, fontSize: "var(--fs-xs)" }}
+          >
             Used across all goals on the Planning page. Individual goals can
             override SWR and dividend yield locally.
           </div>
@@ -259,13 +252,21 @@ export function SettingsView() {
                   Delete &ldquo;{p.name}&rdquo;?
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  This will permanently remove all {p.entries.length} entries.
+                  This will permanently remove{" "}
+                  {p.entries.length === 1
+                    ? "its 1 entry"
+                    : `all ${fmtCount(p.entries.length, "entry", "entries")}`}
+                  .
                   {linkedGoals.length > 0 && (
                     <>
                       {" "}
-                      It will also delete {linkedGoals.length} linked goal
-                      {linkedGoals.length > 1 ? "s" : ""} (
-                      {linkedGoals.map((g) => g.name).join(", ")}).
+                      It will also delete{" "}
+                      {fmtCount(
+                        linkedGoals.length,
+                        "linked goal",
+                        "linked goals"
+                      )}{" "}
+                      ({linkedGoals.map((g) => g.name).join(", ")}).
                     </>
                   )}
                 </AlertDialogDescription>
@@ -337,7 +338,9 @@ function NumberFormatRow({
       }}
     >
       <div>
-        <div style={{ fontWeight: 600, fontSize: 13 }}>Number format</div>
+        <div style={{ fontWeight: 600, fontSize: "var(--fs-sm)" }}>
+          Number format
+        </div>
         <div className="muted small" style={{ marginTop: 4 }}>
           Controls the decimal separator used for money inputs and the
           formatting shown on cards, charts, and exports. Auto follows your
@@ -382,6 +385,59 @@ function NumberFormatRow({
   )
 }
 
+const THEME_OPTIONS: SegOption<ThemePreference>[] = [
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+  { value: "system", label: "System" },
+]
+
+/**
+ * Colour theme. Stored in this browser (localStorage), not the database, so
+ * a phone and a laptop can differ; applied before first paint by the init
+ * script in the root layout. "System" follows the OS and switches live.
+ */
+function AppearanceRow() {
+  const { preference, resolved, setPreference } = useTheme()
+  return (
+    <div
+      data-testid="appearance-row"
+      className="settings-pref-row"
+      style={{
+        padding: "14px 0 4px",
+        borderTop: "1px solid var(--border)",
+        marginTop: 14,
+      }}
+    >
+      <div>
+        <div style={{ fontWeight: 600, fontSize: "var(--fs-sm)" }}>
+          Appearance
+        </div>
+        <div className="muted small" style={{ marginTop: 4 }}>
+          Light, dark, or follow your device. Saved in this browser only.
+          {preference === "system" && (
+            <>
+              {" "}
+              Your device is currently using the <strong>
+                {resolved}
+              </strong>{" "}
+              theme.
+            </>
+          )}
+        </div>
+      </div>
+      <div className="settings-pref-control">
+        <SegControl
+          options={THEME_OPTIONS}
+          value={preference}
+          onChange={setPreference}
+          ariaLabel="Theme"
+          testId="theme-control"
+        />
+      </div>
+    </div>
+  )
+}
+
 function DefaultEntryDayRow({
   value,
   onChange,
@@ -403,10 +459,13 @@ function DefaultEntryDayRow({
       style={{ padding: "4px 0" }}
     >
       <div>
-        <div style={{ fontWeight: 600, fontSize: 13 }}>
+        <div style={{ fontWeight: 600, fontSize: "var(--fs-sm)" }}>
           Default day for monthly entries
         </div>
-        <div className="muted small" style={{ fontSize: 11, marginTop: 4 }}>
+        <div
+          className="muted small"
+          style={{ fontSize: "var(--fs-2xs)", marginTop: 4 }}
+        >
           Pre-fills the date when adding a new snapshot. Existing entries keep
           their stored day.
         </div>
@@ -469,7 +528,7 @@ function DefaultEntryDayRow({
                 border: "1px solid var(--border)",
                 background: isCustom ? "var(--surface)" : "transparent",
                 color: "inherit",
-                fontSize: 12,
+                fontSize: "var(--fs-xs)",
                 textAlign: "center",
                 opacity: isCustom ? 1 : 0.5,
               }}
@@ -501,7 +560,7 @@ function SegmentButton({
       className="settings-segment-btn"
       style={{
         padding: "6px 12px",
-        fontSize: 12,
+        fontSize: "var(--fs-xs)",
         fontWeight: 600,
         borderRadius: 6,
         border: "1px solid",
@@ -567,9 +626,8 @@ function PortfolioRow({
             value={portfolio.name}
             onChange={(e) => onChange({ name: e.target.value })}
           />
-          <div className="muted small" style={{ fontSize: 11 }}>
-            {portfolio.entries.length}{" "}
-            {portfolio.entries.length === 1 ? "entry" : "entries"}
+          <div className="muted small" style={{ fontSize: "var(--fs-2xs)" }}>
+            {fmtCount(portfolio.entries.length, "entry", "entries")}
           </div>
         </div>
         <div className="settings-pf-contrib">
@@ -584,13 +642,13 @@ function PortfolioRow({
             min={0}
             ariaLabel={`${portfolio.name} monthly contribution`}
           />
-          <div className="muted small" style={{ fontSize: 11 }}>
+          <div className="muted small" style={{ fontSize: "var(--fs-2xs)" }}>
             Monthly contribution
           </div>
         </div>
         <div
           className="settings-pf-summary muted small"
-          style={{ fontSize: 12, color: "var(--neutral-600)" }}
+          style={{ fontSize: "var(--fs-xs)", color: "var(--neutral-600)" }}
           data-testid={`portfolio-starting-summary-${portfolio.id}`}
         >
           {hasStartingBalance ? (
@@ -607,7 +665,7 @@ function PortfolioRow({
                 · anchored to{" "}
               </span>
               <strong style={{ color: "var(--neutral-800)", fontWeight: 600 }}>
-                {formatAnchor(portfolio.startingDate!, locale)}
+                {fmtMonthKey(portfolio.startingDate!)}
               </strong>
             </>
           ) : (
@@ -665,14 +723,6 @@ function round1(v: number) {
   return Math.round(v * 10) / 10
 }
 
-function formatAnchor(startingDate: string, locale: string): string {
-  const y = parseInt(startingDate.slice(0, 4), 10)
-  const m = parseInt(startingDate.slice(5, 7), 10)
-  if (!Number.isFinite(y) || !Number.isFinite(m)) return startingDate
-  const d = new Date(y, m - 1, 1)
-  return d.toLocaleDateString(locale, { month: "short", year: "numeric" })
-}
-
 function ColorPicker({
   value,
   onChange,
@@ -694,7 +744,7 @@ function ColorPicker({
           width: 28,
           height: 28,
           borderRadius: 8,
-          background: value,
+          background: swatch(value),
           border: "2px solid var(--surface)",
           boxShadow: "0 0 0 1px var(--border)",
           cursor: "pointer",
@@ -728,14 +778,14 @@ function ColorPicker({
                 onChange(c)
                 setOpen(false)
               }}
-              aria-label={COLOR_NAMES[c] ?? c}
+              aria-label={identityColorName(c)}
               aria-pressed={value === c}
               className="settings-palette-swatch"
               style={{
                 width: 22,
                 height: 22,
                 borderRadius: 6,
-                background: c,
+                background: swatch(c),
                 border: `2px solid ${value === c ? "var(--neutral-800)" : "transparent"}`,
                 cursor: "pointer",
               }}

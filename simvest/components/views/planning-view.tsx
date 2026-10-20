@@ -26,7 +26,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { projectFuture, type GoalEvaluation } from "@/lib/calc"
-import { fmtEUR, fmtPct } from "@/lib/format"
+import { fmtEUR, fmtNum, fmtPct } from "@/lib/format"
 import type {
   GoalDTO,
   GoalKind,
@@ -34,6 +34,9 @@ import type {
   PortfolioDTO,
   SettingsDTO,
 } from "@/lib/types"
+import { swatch } from "@/lib/palette"
+import { DEFAULT_IDENTITY_HEX } from "@/lib/palette"
+import { fmtYearShort } from "@/lib/dates"
 
 type ActiveId = number | "scratch" | null
 
@@ -358,24 +361,26 @@ function GoalTile({
         padding: "12px 14px",
         background: "var(--surface)",
         border: `1.5px solid ${active ? "var(--primary)" : "var(--border)"}`,
-        borderLeft: `4px solid ${goal.color}`,
+        borderLeft: `4px solid ${swatch(goal.color)}`,
         borderRadius: 10,
         textAlign: "left",
         cursor: "pointer",
-        boxShadow: active ? "0 4px 14px rgba(0,0,0,0.06)" : "none",
+        boxShadow: active ? "var(--sh-md)" : "none",
         scrollSnapAlign: "start",
       }}
     >
-      <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 2 }}>
+      <div
+        style={{ fontWeight: 700, fontSize: "var(--fs-sm)", marginBottom: 2 }}
+      >
         {goal.name}
       </div>
-      <div className="muted small" style={{ fontSize: 11 }}>
+      <div className="muted small" style={{ fontSize: "var(--fs-2xs)" }}>
         {headline} · {scopeLabel}
       </div>
       <div style={{ marginTop: 8 }}>
         <span
           className={`chip ${ev.onTrack ? "positive" : "negative"}`}
-          style={{ fontSize: 11.5 }}
+          style={{ fontSize: "var(--fs-2xs)" }}
         >
           {ev.onTrack ? "✓ on track" : "△ behind"}
         </span>
@@ -384,7 +389,7 @@ function GoalTile({
         <div
           style={{
             width: `${pct * 100}%`,
-            background: goal.color,
+            background: swatch(goal.color),
             height: "100%",
           }}
         />
@@ -417,13 +422,18 @@ function ScratchpadTile({
         scrollSnapAlign: "start",
       }}
     >
-      <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 2 }}>
+      <div
+        style={{ fontWeight: 700, fontSize: "var(--fs-sm)", marginBottom: 2 }}
+      >
         Scratchpad
       </div>
-      <div className="muted small" style={{ fontSize: 11 }}>
+      <div className="muted small" style={{ fontSize: "var(--fs-2xs)" }}>
         Try numbers — nothing is saved.
       </div>
-      <div className="muted small" style={{ fontSize: 11, marginTop: 18 }}>
+      <div
+        className="muted small"
+        style={{ fontSize: "var(--fs-2xs)", marginTop: 18 }}
+      >
         ╌╌╌╌╌╌╌╌╌╌╌
       </div>
     </button>
@@ -501,31 +511,34 @@ function Workspace({
                 width: 10,
                 height: 10,
                 borderRadius: 2,
-                background: local.color,
+                background: swatch(local.color),
               }}
             />
-            <span style={{ fontSize: 16, fontWeight: 700 }}>
+            <span style={{ fontSize: "var(--fs-xl)", fontWeight: 700 }}>
               {isScratch ? "Scratchpad" : local.name}
             </span>
-            <span className="muted small" style={{ fontSize: 12 }}>
+            <span className="muted small" style={{ fontSize: "var(--fs-xs)" }}>
               · {isScratch ? "no goal attached" : "solving"}
             </span>
             {dirty && (
               <span
                 className="chip negative"
-                style={{ fontSize: 10.5 }}
+                style={{ fontSize: "var(--fs-2xs)" }}
                 data-testid="workspace-modified-chip"
               >
                 ◆ modified
               </span>
             )}
           </div>
-          <div className="muted small" style={{ marginTop: 4, fontSize: 12.5 }}>
+          <div
+            className="muted small"
+            style={{ marginTop: 4, fontSize: "var(--fs-xs)" }}
+          >
             {headlineFor(local)} · {scopeLabel}
             {dirty && savedGoal && (
               <>
                 {" · "}
-                <span style={{ color: "var(--neutral-700)" }}>
+                <span style={{ color: "var(--neutral-600)" }}>
                   was {fmtTarget(savedGoal)}
                 </span>
               </>
@@ -613,7 +626,7 @@ function Workspace({
         <div className="planning-chart-col">
           <div
             style={{
-              fontSize: 12,
+              fontSize: "var(--fs-xs)",
               fontWeight: 600,
               color: "var(--neutral-500)",
               letterSpacing: "0.04em",
@@ -679,7 +692,7 @@ function KpiTiles({
             label="Time to target"
             value={
               evaluation.projectedYear !== null
-                ? `${(evaluation.projectedYear - new Date().getFullYear() || 0).toFixed(1)} y`
+                ? `${fmtNum(evaluation.projectedYear - new Date().getFullYear() || 0, 1)} y`
                 : "—"
             }
             sub={
@@ -696,7 +709,7 @@ function KpiTiles({
           <KpiTile
             label="Portfolio target"
             value={fmtEUR(evaluation.portfolioTargetValue, { compact: true })}
-            sub={`at ${evaluation.swrUsed?.toFixed(1) ?? "?"}% SWR · ${fmtEUR(Math.max(0, evaluation.portfolioTargetValue), { compact: true })} needed`}
+            sub={`at ${evaluation.swrUsed != null ? fmtPct(evaluation.swrUsed) : "?"} SWR · ${fmtEUR(Math.max(0, evaluation.portfolioTargetValue), { compact: true })} needed`}
             testId="kpi-portfolio-target"
           />
           <KpiTile
@@ -717,7 +730,7 @@ function KpiTiles({
           />
           <KpiTile
             label="Assumed yield"
-            value={`${evaluation.yieldUsed?.value.toFixed(2) ?? "—"}%`}
+            value={fmtPct(evaluation.yieldUsed?.value, 2)}
             sub={
               evaluation.yieldUsed?.source === "override"
                 ? "your override"
@@ -765,7 +778,7 @@ function KpiTile({
       <div
         className="muted small"
         style={{
-          fontSize: 11.5,
+          fontSize: "var(--fs-2xs)",
           fontWeight: 600,
           letterSpacing: "0.06em",
           textTransform: "uppercase",
@@ -777,7 +790,7 @@ function KpiTile({
       <div
         className="mono"
         style={{
-          fontSize: 22,
+          fontSize: "var(--fs-4xl)",
           fontWeight: 700,
           fontFamily: "var(--font-head)",
           letterSpacing: "-0.01em",
@@ -785,7 +798,10 @@ function KpiTile({
       >
         {value}
       </div>
-      <div className="muted small" style={{ fontSize: 11, marginTop: 2 }}>
+      <div
+        className="muted small"
+        style={{ fontSize: "var(--fs-2xs)", marginTop: 2 }}
+      >
         {sub}
       </div>
     </div>
@@ -814,7 +830,7 @@ function AssumptionsPanel({
     <div className="planning-assumptions">
       <div
         style={{
-          fontSize: 12,
+          fontSize: "var(--fs-xs)",
           fontWeight: 600,
           color: "var(--neutral-500)",
           letterSpacing: "0.04em",
@@ -851,7 +867,7 @@ function AssumptionsPanel({
         <SliderField
           label={
             local.swr == null
-              ? `SWR (settings default ${settings.defaultSwr.toFixed(1)}%)`
+              ? `SWR (settings default ${fmtPct(settings.defaultSwr)})`
               : "SWR (override)"
           }
           value={local.swr ?? settings.defaultSwr}
@@ -889,9 +905,12 @@ function AssumptionsPanel({
       )}
 
       {local.scope === "portfolio" && (
-        <div className="muted small" style={{ fontSize: 11, marginTop: 10 }}>
+        <div
+          className="muted small"
+          style={{ fontSize: "var(--fs-2xs)", marginTop: 10 }}
+        >
           Scoped to{" "}
-          <strong style={{ color: "var(--neutral-700)" }}>
+          <strong style={{ color: "var(--neutral-600)" }}>
             {portfolios.find((p) => p.id === local.portfolioId)?.name ?? "—"}
           </strong>
           . Change scope or rename in the goal editor.
@@ -928,27 +947,21 @@ function GlobalAssumptionsEcho({ settings }: { settings: SettingsDTO }) {
         marginTop: 16,
         padding: "10px 14px",
         borderRadius: 8,
-        background: "var(--neutral-50, #f8fafc)",
+        background: "var(--neutral-50)",
         border: "1px solid var(--border)",
         display: "flex",
         gap: 16,
         flexWrap: "wrap",
         alignItems: "center",
-        fontSize: 12,
+        fontSize: "var(--fs-xs)",
       }}
       data-testid="global-assumptions-echo"
     >
       <span className="muted">Global assumptions:</span>
-      <Echo label="Inflation" value={`${settings.inflation.toFixed(1)}%`} />
-      <Echo
-        label="Conservative"
-        value={`${settings.conservativeReturn.toFixed(1)}%`}
-      />
-      <Echo
-        label="Optimistic"
-        value={`${settings.optimisticReturn.toFixed(1)}%`}
-      />
-      <Echo label="Default SWR" value={`${settings.defaultSwr.toFixed(1)}%`} />
+      <Echo label="Inflation" value={fmtPct(settings.inflation)} />
+      <Echo label="Conservative" value={fmtPct(settings.conservativeReturn)} />
+      <Echo label="Optimistic" value={fmtPct(settings.optimisticReturn)} />
+      <Echo label="Default SWR" value={fmtPct(settings.defaultSwr)} />
       <Link
         href="/settings"
         style={{
@@ -1020,13 +1033,13 @@ const VALUE_META: Record<
 function headlineFor(g: GoalDTO): string {
   switch (g.kind) {
     case "portfolio_value":
-      return `${fmtEUR(g.target, { compact: true })} · ${shortYear(g.targetYear)}`
+      return `${fmtEUR(g.target, { compact: true })} · ${fmtYearShort(g.targetYear)}`
     case "annual_income":
-      return `${fmtEUR(g.target, { compact: true })}/yr · ${shortYear(g.targetYear)}`
+      return `${fmtEUR(g.target, { compact: true })}/yr · ${fmtYearShort(g.targetYear)}`
     case "dividend_annual":
-      return `${fmtEUR(g.target, { compact: true })} divs/yr · ${shortYear(g.targetYear)}`
+      return `${fmtEUR(g.target, { compact: true })} divs/yr · ${fmtYearShort(g.targetYear)}`
     case "dividend_monthly":
-      return `${fmtEUR(g.target, { compact: true })} divs/mo · ${shortYear(g.targetYear)}`
+      return `${fmtEUR(g.target, { compact: true })} divs/mo · ${fmtYearShort(g.targetYear)}`
   }
 }
 
@@ -1041,10 +1054,6 @@ function fmtTarget(g: GoalDTO): string {
     case "dividend_monthly":
       return `${fmtEUR(g.target, { compact: true })}/mo`
   }
-}
-
-function shortYear(y: number): string {
-  return `'${String(y).slice(-2)}`
 }
 
 function round1(v: number) {
@@ -1073,7 +1082,7 @@ function buildScratch(): GoalDTO {
   return {
     id: -1,
     name: "Scratchpad",
-    color: "#1E40AF",
+    color: DEFAULT_IDENTITY_HEX,
     kind: "annual_income",
     scope: "combined",
     portfolioId: null,

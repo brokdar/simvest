@@ -316,7 +316,7 @@ export function IncomeView() {
                   marginBottom: 12,
                 }}
               >
-                <h3 style={{ fontSize: 15 }}>Monthly Payouts</h3>
+                <h3 style={{ fontSize: "var(--fs-lg)" }}>Monthly Payouts</h3>
                 <div className="muted small">
                   Stacked by holding · line = trailing-12-mo income
                 </div>
@@ -332,7 +332,9 @@ export function IncomeView() {
             </div>
 
             <div className="card card-pad" data-testid="income-sources-card">
-              <h3 style={{ fontSize: 15, marginBottom: 12 }}>By Source</h3>
+              <h3 style={{ fontSize: "var(--fs-lg)", marginBottom: 12 }}>
+                By Source
+              </h3>
               <DonutBySource
                 events={scopedEvents}
                 basis={basis}
@@ -345,7 +347,9 @@ export function IncomeView() {
           </div>
 
           <div style={{ marginTop: 16 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 8 }}>Per Holding</h3>
+            <h3 style={{ fontSize: "var(--fs-lg)", marginBottom: 8 }}>
+              Per Holding
+            </h3>
             <PerHoldingTable
               events={scopedEvents}
               basis={basis}
@@ -360,7 +364,9 @@ export function IncomeView() {
           </div>
 
           <div className="card card-pad" style={{ marginTop: 16 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 12 }}>Calendar Heatmap</h3>
+            <h3 style={{ fontSize: "var(--fs-lg)", marginBottom: 12 }}>
+              Calendar Heatmap
+            </h3>
             <IncomeCalendarHeatmap
               events={scopedEvents}
               basis={basis}

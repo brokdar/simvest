@@ -1,3 +1,5 @@
+import { fmtMonth } from "@/lib/dates"
+
 export type EntryDTO = {
   id: number
   year: number
@@ -192,26 +194,11 @@ export const CADENCE_LABEL: Record<IncomeCadence, string> = {
 
 export const INCOME_HOLDING_PARAM = "holding"
 
-const MONTH_LABELS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-]
-
-export function labelFor(
-  year: number,
-  month: number,
-  opts: { fullYear?: boolean } = {}
-) {
-  const y = opts.fullYear ? String(year) : String(year).slice(-2)
-  return `${MONTH_LABELS[month - 1]} ${y}`
+/**
+ * The month label carried on every `EntryDTO.label` (and the API's `label`
+ * field). Delegates to `fmtMonth`, so it is the one app-wide month format:
+ * "Apr ’26". Nothing parses it back — `year` / `month` are the data.
+ */
+export function labelFor(year: number, month: number) {
+  return fmtMonth(year, month)
 }

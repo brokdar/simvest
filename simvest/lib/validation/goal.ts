@@ -10,6 +10,7 @@ import {
   ok,
   type ValidationResult,
 } from "./_helpers"
+import { DEFAULT_IDENTITY_HEX } from "@/lib/palette"
 
 const SWR_MAX = 20
 const YIELD_MAX = 20
@@ -79,7 +80,7 @@ export function validateGoalCreate(
     yieldAssumed = n
   }
 
-  const color = asString(body.color) || "#1E40AF"
+  const color = asString(body.color) || DEFAULT_IDENTITY_HEX
 
   return ok({
     name,

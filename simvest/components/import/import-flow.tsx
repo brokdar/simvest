@@ -14,6 +14,7 @@ import type {
   ImportDecisions,
   ImportPreview,
 } from "@/lib/import/types"
+import { defaultMonthAction } from "@/lib/import/month-status"
 import { ImportStepUpload } from "./import-step-upload"
 import { ImportStepPreview } from "./import-step-preview"
 import { ImportStepSummary } from "./import-step-summary"
@@ -58,9 +59,10 @@ function reducer(state: State, action: Action): State {
         months: action.preview.months.map((m) => ({
           year: m.year,
           month: m.month,
-          // Default: replace months that don't exist yet; skip ones that do
-          // (avoids silent overwrites of user-entered data).
-          action: m.currentInvested === 0 ? "replace" : "skip",
+          // D3: new months and corrections (the statement disagrees with
+          // what's stored) default to Replace; identical months skip. The
+          // preview marks corrections so they're never a silent overwrite.
+          action: defaultMonthAction(m.status),
         })),
         importDividends: true,
         importInterest: true,
@@ -141,7 +143,13 @@ export function ImportFlow({ open, onOpenChange, portfolioId }: Props) {
               ? "Import broker transactions"
               : state.step === "preview"
                 ? "Review changes"
-                : "Import complete"}
+                : state.result.entriesUpserted +
+                      state.result.holdingsCreated +
+                      state.result.dividendsInserted +
+                      state.result.interestInserted >
+                    0
+                  ? "Import complete"
+                  : "Nothing to import"}
           </DialogTitle>
         </DialogHeader>
 
@@ -150,10 +158,10 @@ export function ImportFlow({ open, onOpenChange, portfolioId }: Props) {
             className="card"
             style={{
               padding: 10,
-              background: "var(--neg-50, #FEF2F2)",
-              borderColor: "var(--neg)",
-              color: "var(--neg)",
-              fontSize: 13,
+              background: "var(--critical-bg)",
+              borderColor: "var(--critical-border)",
+              color: "var(--critical)",
+              fontSize: "var(--fs-sm)",
             }}
             data-testid="import-error"
           >

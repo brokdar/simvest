@@ -13,12 +13,13 @@ import { SliderRow } from "@/components/slider-row"
 import { Icon } from "@/components/icon"
 import { FieldLabel } from "@/components/ui/field-label"
 import { useData, useGoalEvaluator } from "@/components/providers/data-provider"
-import { fmtEUR, fmtNum } from "@/lib/format"
+import { fmtEUR, fmtNum, fmtPct } from "@/lib/format"
 import { MoneyInput } from "@/components/money-input"
 import { useResolvedLocale } from "@/components/use-resolved-locale"
 import type { GoalDTO, GoalKind, GoalScope } from "@/lib/types"
+import { GOAL_IDENTITY_COLORS, swatch } from "@/lib/palette"
 
-const GOAL_COLORS = ["#1E40AF", "#059669", "#7C3AED", "#0F766E", "#B45309"]
+const GOAL_COLORS = GOAL_IDENTITY_COLORS.map((c) => c.hex)
 
 type Form = {
   name: string
@@ -103,11 +104,11 @@ export function GoalEditor({
       case "portfolio_value":
         return `Nominal — €${fmtAmount(form.target)} on screen by ${form.targetYear}.`
       case "annual_income":
-        return `In today's money — equivalent to €${fmtAmount(evaluation.inflatedTargetValue)}/yr in ${form.targetYear} at ${settings.inflation}% inflation. Requires a ${targetPortfolio} portfolio at ${effectiveSwr.toFixed(1)}% SWR.`
+        return `In today's money — equivalent to €${fmtAmount(evaluation.inflatedTargetValue)}/yr in ${form.targetYear} at ${fmtPct(settings.inflation)} inflation. Requires a ${targetPortfolio} portfolio at ${fmtPct(effectiveSwr)} SWR.`
       case "dividend_annual":
-        return `Nominal — requires a ${targetPortfolio} portfolio at ${effectiveYield.toFixed(1)}% yield.`
+        return `Nominal — requires a ${targetPortfolio} portfolio at ${fmtPct(effectiveYield)} yield.`
       case "dividend_monthly":
-        return `Nominal — requires a ${targetPortfolio} portfolio at ${effectiveYield.toFixed(1)}% yield (€${fmtAmount(form.target * 12)}/yr).`
+        return `Nominal — requires a ${targetPortfolio} portfolio at ${fmtPct(effectiveYield)} yield (€${fmtAmount(form.target * 12)}/yr).`
     }
   }, [form, settings.inflation, evaluation, effectiveSwr, effectiveYield])
 
@@ -164,18 +165,18 @@ export function GoalEditor({
                       borderRadius: 8,
                       border: `1.5px solid ${active ? "var(--primary)" : "var(--border)"}`,
                       background: active
-                        ? "var(--primary-50, #eef2ff)"
-                        : "white",
+                        ? "var(--primary-50)"
+                        : "var(--surface)",
                       cursor: "pointer",
                       textAlign: "left",
                     }}
                   >
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>
+                    <div style={{ fontSize: "var(--fs-sm)", fontWeight: 700 }}>
                       {opt.label}
                     </div>
                     <div
                       className="muted small"
-                      style={{ fontSize: 11, marginTop: 2 }}
+                      style={{ fontSize: "var(--fs-2xs)", marginTop: 2 }}
                     >
                       {opt.sub}
                     </div>
@@ -285,9 +286,9 @@ export function GoalEditor({
             <div
               style={{
                 gridColumn: "1 / -1",
-                fontSize: 12,
+                fontSize: "var(--fs-xs)",
                 color: "var(--neutral-500)",
-                background: "var(--neutral-50, #f8fafc)",
+                background: "var(--neutral-50)",
                 border: "1px solid var(--border)",
                 borderRadius: 6,
                 padding: "8px 10px",
@@ -308,7 +309,7 @@ export function GoalEditor({
                     className="muted small"
                     style={{ marginLeft: 6, fontWeight: 400 }}
                   >
-                    (default from Settings: {settings.defaultSwr.toFixed(1)}%)
+                    (default from Settings: {fmtPct(settings.defaultSwr)})
                   </span>
                 )}
               </FieldLabel>
@@ -327,7 +328,7 @@ export function GoalEditor({
                   type="button"
                   className="btn btn-ghost btn-sm"
                   onClick={() => setForm({ ...form, swr: null })}
-                  style={{ fontSize: 11, marginTop: 4 }}
+                  style={{ fontSize: "var(--fs-2xs)", marginTop: 4 }}
                 >
                   Reset to Settings default
                 </button>
@@ -347,8 +348,8 @@ export function GoalEditor({
                   {form.yieldAssumed != null
                     ? "(your override)"
                     : derivedYield.source === "derived"
-                      ? `(trailing 12m: ${derivedYield.value.toFixed(2)}%)`
-                      : `(default ${derivedYield.value.toFixed(1)}% — no payout history)`}
+                      ? `(trailing 12m: ${fmtPct(derivedYield.value, 2)})`
+                      : `(default ${fmtPct(derivedYield.value)} — no payout history)`}
                 </span>
               </FieldLabel>
               <SliderRow
@@ -366,7 +367,7 @@ export function GoalEditor({
                   type="button"
                   className="btn btn-ghost btn-sm"
                   onClick={() => setForm({ ...form, yieldAssumed: null })}
-                  style={{ fontSize: 11, marginTop: 4 }}
+                  style={{ fontSize: "var(--fs-2xs)", marginTop: 4 }}
                 >
                   Reset to trailing
                 </button>
@@ -386,7 +387,7 @@ export function GoalEditor({
                     width: 28,
                     height: 28,
                     borderRadius: 8,
-                    background: c,
+                    background: swatch(c),
                     border: `2px solid ${form.color === c ? "var(--neutral-800)" : "transparent"}`,
                     cursor: "pointer",
                   }}
@@ -541,13 +542,16 @@ function ScopeRadio({
         padding: "8px 12px",
         borderRadius: 8,
         border: `1.5px solid ${active ? "var(--primary)" : "var(--border)"}`,
-        background: active ? "var(--primary-50, #eef2ff)" : "white",
+        background: active ? "var(--primary-50)" : "var(--surface)",
         cursor: "pointer",
         textAlign: "left",
       }}
     >
-      <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
-      <div className="muted small" style={{ fontSize: 11, marginTop: 2 }}>
+      <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600 }}>{label}</div>
+      <div
+        className="muted small"
+        style={{ fontSize: "var(--fs-2xs)", marginTop: 2 }}
+      >
         {sub}
       </div>
     </button>

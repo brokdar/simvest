@@ -2,8 +2,10 @@ import type { EntryDTO } from "@/lib/types"
 import {
   emptyDraft,
   fromEntry,
+  setCellError as setCellErrorOnDraft,
   setCellValue,
   type CellKey,
+  type MoneyCellKey,
   type DraftRow,
 } from "@/components/entries-grid/draft-row"
 
@@ -64,6 +66,28 @@ export function updateCell<K extends CellKey>(
     existing ?? (typeof entryOrKey === "string" ? null : fromEntry(entryOrKey))
   if (seed === null) return state
   const next = setCellValue(seed, cell, value)
+  return setDraft(state, key, next)
+}
+
+/**
+ * Record (or clear) a parse error on a money cell. Seeds a draft from the
+ * entry when needed so an existing row with a rejected amount becomes dirty
+ * and blocks Save instead of being silently skipped.
+ */
+export function setCellError(
+  state: EditableEntriesState,
+  entryOrKey: EntryDTO | string,
+  cell: MoneyCellKey,
+  error: string | null
+): EditableEntriesState {
+  const key =
+    typeof entryOrKey === "string" ? entryOrKey : `entry-${entryOrKey.id}`
+  const existing = state.drafts.get(key)
+  const seed =
+    existing ?? (typeof entryOrKey === "string" ? null : fromEntry(entryOrKey))
+  if (seed === null) return state
+  const next = setCellErrorOnDraft(seed, cell, error)
+  if (next === seed) return state
   return setDraft(state, key, next)
 }
 

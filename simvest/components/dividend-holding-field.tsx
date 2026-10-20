@@ -158,7 +158,7 @@ export function DividendHoldingField({
           {!isinValid && (
             <div
               className="small"
-              style={{ color: "var(--neg)", gridColumn: "1 / -1" }}
+              style={{ color: "var(--critical)", gridColumn: "1 / -1" }}
             >
               Must match ISO 6166 (e.g. US0378331005)
             </div>

@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Icon } from "@/components/icon"
 import { FieldLabel } from "@/components/ui/field-label"
+import { fmtNum } from "@/lib/format"
 import { XLSX_MARKER } from "@/lib/import/bondora"
 import { listBrokers } from "@/lib/import/registry"
 import type { BrokerId } from "@/lib/import/types"
@@ -67,9 +68,9 @@ export function ImportStepUpload({ submitting, onPreview }: Props) {
           }}
         >
           <Icon name="upload" size={18} />
-          <span style={{ fontSize: 13 }}>
+          <span style={{ fontSize: "var(--fs-sm)" }}>
             {fileName
-              ? `${fileName} — ${(fileSize / 1024).toFixed(1)} KB`
+              ? `${fileName} — ${fmtNum(fileSize / 1024, 1)} KB`
               : broker === "bondora"
                 ? "Choose a CSV or Excel (.xlsx) file from your broker"
                 : "Choose a CSV file from your broker"}
@@ -98,7 +99,7 @@ export function ImportStepUpload({ submitting, onPreview }: Props) {
       <details style={{ marginTop: 4 }}>
         <summary
           style={{
-            fontSize: 12,
+            fontSize: "var(--fs-xs)",
             color: "var(--neutral-600)",
             cursor: "pointer",
           }}

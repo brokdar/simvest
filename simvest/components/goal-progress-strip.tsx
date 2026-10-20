@@ -2,9 +2,10 @@
 
 import type { ReactNode } from "react"
 import { ProgressRing } from "@/components/progress-ring"
-import { fmtEUR } from "@/lib/format"
+import { fmtEUR, fmtPct } from "@/lib/format"
 import type { GoalDTO } from "@/lib/types"
 import type { GoalEvaluation } from "@/lib/calc"
+import { swatch } from "@/lib/palette"
 
 function goalLineFor(g: GoalDTO): string {
   switch (g.kind) {
@@ -92,7 +93,7 @@ export function GoalProgressStrip({
               borderTop: "1px solid var(--border)",
             }}
           >
-            <ProgressRing pct={pct} color={g.color} />
+            <ProgressRing pct={pct} color={swatch(g.color)} />
             <div style={{ flex: 1 }}>
               <div
                 style={{
@@ -101,13 +102,15 @@ export function GoalProgressStrip({
                   alignItems: "baseline",
                 }}
               >
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{g.name}</div>
+                <div style={{ fontWeight: 600, fontSize: "var(--fs-md)" }}>
+                  {g.name}
+                </div>
                 <div
                   className="mono small"
                   style={{ fontWeight: 600 }}
                   data-testid="goal-pct"
                 >
-                  {(pct * 100).toFixed(1)}%
+                  {fmtPct(pct * 100)}
                 </div>
               </div>
               <div className="muted small">

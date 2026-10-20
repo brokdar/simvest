@@ -17,6 +17,7 @@ import {
 import { useEditorForm } from "@/components/use-editor-form"
 import {
   IncomeEventForm,
+  hasMoneyErrors,
   withPersistedTaxSign,
   type IncomeEventFormValue,
 } from "@/components/income-event-form"
@@ -93,6 +94,7 @@ export function DividendEditor({
     holdingValid &&
     /^\d{4}-\d{2}-\d{2}$/.test(form.paidDate) &&
     form.amount > 0 &&
+    !hasMoneyErrors(form) &&
     form.tax >= 0
 
   return (
@@ -136,7 +138,7 @@ export function DividendEditor({
           <div
             role="alert"
             className="small"
-            style={{ color: "var(--neg)" }}
+            style={{ color: "var(--critical)" }}
             data-testid="dividend-editor-error"
           >
             {submitError}

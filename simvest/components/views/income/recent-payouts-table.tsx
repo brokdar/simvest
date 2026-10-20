@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { eventAmount } from "@/lib/calc"
 import { fmtEUR } from "@/lib/format"
-import { formatEntryDate, fromISODate } from "@/lib/dates"
+import { fmtDate, fromISODate } from "@/lib/dates"
 import type { DividendBasis, IncomeEventDTO } from "@/lib/types"
 
 const DEFAULT_LIMIT = 20
@@ -85,7 +85,9 @@ export function RecentPayoutsTable({
           background: "var(--neutral-50)",
         }}
       >
-        <div style={{ fontSize: 13, fontWeight: 600 }}>Recent Payouts</div>
+        <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600 }}>
+          Recent Payouts
+        </div>
         {hasMore && (
           <button
             type="button"
@@ -130,7 +132,7 @@ export function RecentPayoutsTable({
                   data-testid={`income-row-anchor-${monthKey}`}
                 >
                   <div style={{ fontWeight: 600 }}>
-                    {formatEntryDate(year, month, day)}
+                    {fmtDate(year, month, day)}
                   </div>
                 </td>
                 <td className="td-rp-source" data-label="Source">
@@ -155,7 +157,7 @@ export function RecentPayoutsTable({
                           ? "var(--primary)"
                           : "var(--tertiary)",
                       fontWeight: 600,
-                      fontSize: 11,
+                      fontSize: "var(--fs-2xs)",
                     }}
                   >
                     {e.kind === "dividend" ? "Dividend" : "Interest"}
@@ -193,7 +195,6 @@ export function RecentPayoutsTable({
                         <button
                           type="button"
                           className="btn btn-icon btn-ghost btn-sm"
-                          style={{ color: "var(--neg)" }}
                           aria-label="Delete income event"
                         >
                           <Icon name="trash" size={14} />
@@ -206,8 +207,8 @@ export function RecentPayoutsTable({
                             {e.kind === "dividend"
                               ? `${e.holdingName ?? "Dividend"} · `
                               : "Interest · "}
-                            {formatEntryDate(year, month, day)} will be
-                            permanently removed.
+                            {fmtDate(year, month, day)} will be permanently
+                            removed.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

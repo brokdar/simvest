@@ -11,14 +11,23 @@ import type {
   DividendBasis,
 } from "@/lib/types"
 import { COMBINED_PORTFOLIO_ID, labelFor } from "@/lib/types"
+import { COMBINED_IDENTITY_HEX } from "@/lib/palette"
 
 export type KPIs = {
   value: number
   invested: number
   gain: number
   gainPct: number
-  cagr: number
+  /**
+   * Annualised return in %, or null when there's too little history for an
+   * annual rate to mean anything (N6): below `MIN_CAGR_MONTHS`, a one-month
+   * gain raised to the 12th power produced 31-digit percentages.
+   */
+  cagr: number | null
 }
+
+/** Below this many months of history, CAGR is suppressed ("not enough history yet"). */
+export const MIN_CAGR_MONTHS = 3
 
 const COMBINED_ID = COMBINED_PORTFOLIO_ID
 
@@ -101,7 +110,7 @@ export function aggregatePortfoliosWithCoverage(
       portfolio: {
         id: COMBINED_ID,
         name: "Combined",
-        color: "#1F2937",
+        color: COMBINED_IDENTITY_HEX,
         targetMonthlyContribution: 0,
         startingValue: 0,
         startingDate: null,
@@ -227,7 +236,7 @@ export function aggregatePortfoliosWithCoverage(
     portfolio: {
       id: COMBINED_ID,
       name: "Combined",
-      color: "#1F2937",
+      color: COMBINED_IDENTITY_HEX,
       targetMonthlyContribution: combinedContribution,
       startingValue: combinedStartingValue,
       startingDate: combinedStartingDate,
@@ -254,7 +263,7 @@ export function computeKPIs(portfolio: PortfolioDTO): KPIs {
   const entries = portfolio.entries
   const startingValue = portfolio.startingValue ?? 0
   if (!entries.length) {
-    return { value: 0, invested: 0, gain: 0, gainPct: 0, cagr: 0 }
+    return { value: 0, invested: 0, gain: 0, gainPct: 0, cagr: null }
   }
   // Use the latest entry that has a recorded value. Imported months without
   // a user-entered value are skipped so KPIs reflect the last known reality.
@@ -266,20 +275,21 @@ export function computeKPIs(portfolio: PortfolioDTO): KPIs {
   const gainPct = invested > 0 ? (gain / invested) * 100 : 0
 
   // Use actual elapsed time when startingDate is known; fall back to entry count.
-  let years: number
+  let months: number
   if (portfolio.startingDate) {
     const [sy, sm] = portfolio.startingDate.split("-").map(Number)
     const last = entries[entries.length - 1]
-    const months = (last.year - sy) * 12 + (last.month - sm)
-    years = Math.max(months, 1) / 12
+    months = (last.year - sy) * 12 + (last.month - sm)
   } else {
-    years = entries.length / 12
+    months = entries.length
   }
 
-  const cagr =
-    invested > 0
-      ? (Math.pow(Math.max(value, 1) / invested, 1 / years) - 1) * 100
-      : 0
+  let cagr: number | null = null
+  if (invested > 0 && Number.isFinite(months) && months >= MIN_CAGR_MONTHS) {
+    const years = months / 12
+    const raw = (Math.pow(Math.max(value, 1) / invested, 1 / years) - 1) * 100
+    cagr = Number.isFinite(raw) ? raw : null
+  }
   return { value, invested, gain, gainPct, cagr }
 }
 

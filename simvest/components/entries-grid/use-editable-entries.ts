@@ -4,10 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useDataActions } from "@/components/providers/data-provider"
 import type { EntryDTO, PortfolioDTO } from "@/lib/types"
 import {
+  hasCellErrors,
   isDirty,
+  newDraftMonths,
   validate,
   type CellKey,
   type DraftRow,
+  type MoneyCellKey,
 } from "@/components/entries-grid/draft-row"
 import {
   addDraft as addDraftR,
@@ -15,6 +18,7 @@ import {
   getOrCreateDraft,
   initialState,
   removeDraft as removeDraftR,
+  setCellError as setCellErrorR,
   setError as setErrorR,
   toggleDelete as toggleDeleteR,
   updateCell as updateCellR,
@@ -42,12 +46,45 @@ export function useEditableEntries(portfolio: PortfolioDTO) {
     return m
   }, [portfolio.entries])
 
+  // D8: a row's error describes the row as it was when Save was pressed. Once
+  // the user edits, removes or restores rows, re-check every row that still
+  // shows an error (so a fixed duplicate month clears itself) and drop the
+  // stale footer status ("Some rows have errors…").
+  const revalidate = useCallback(
+    (next: EditableEntriesState): EditableEntriesState => {
+      let out = next
+      const siblings = newDraftMonths(next.drafts.values())
+      for (const d of next.drafts.values()) {
+        if (d.error === null) continue
+        const err = validate(d, { existingByMonth, newDraftMonths: siblings })
+        if (err !== d.error) out = setErrorR(out, d.key, err)
+      }
+      return out
+    },
+    [existingByMonth]
+  )
+
+  const mutate = useCallback(
+    (fn: (curr: EditableEntriesState) => EditableEntriesState) => {
+      setState((curr) => revalidate(fn(curr)))
+      setSaveStatus(null)
+    },
+    [revalidate]
+  )
+
   const dirtyDrafts = useMemo(
     () => Array.from(state.drafts.values()).filter(isDirty),
     [state.drafts]
   )
 
   const dirtyCount = dirtyDrafts.length
+  const errorCount = useMemo(
+    () =>
+      Array.from(state.drafts.values()).filter(
+        (d) => d.error !== null || hasCellErrors(d)
+      ).length,
+    [state.drafts]
+  )
 
   const getDraft = useCallback(
     (entry: EntryDTO): DraftRow => getOrCreateDraft(stateRef.current, entry),
@@ -85,6 +122,7 @@ export function useEditableEntries(portfolio: PortfolioDTO) {
       }
       const { state: next, key } = addDraftR(stateRef.current, base, resolved)
       setState(next)
+      setSaveStatus(null)
       return key
     },
     [portfolio.targetMonthlyContribution]
@@ -100,24 +138,41 @@ export function useEditableEntries(portfolio: PortfolioDTO) {
           ? number | null
           : string
     ) => {
-      setState((curr) => updateCellR(curr, entryOrKey, cell, value))
+      mutate((curr) => updateCellR(curr, entryOrKey, cell, value))
     },
-    []
+    [mutate]
   )
 
-  const toggleDelete = useCallback((entry: EntryDTO) => {
-    setState((curr) => toggleDeleteR(curr, entry))
-  }, [])
+  const setCellError = useCallback(
+    (
+      entryOrKey: EntryDTO | string,
+      cell: MoneyCellKey,
+      error: string | null
+    ) => {
+      mutate((curr) => setCellErrorR(curr, entryOrKey, cell, error))
+    },
+    [mutate]
+  )
 
-  const removeDraft = useCallback((key: string) => {
-    setState((curr) => removeDraftR(curr, key))
-  }, [])
+  const toggleDelete = useCallback(
+    (entry: EntryDTO) => {
+      mutate((curr) => toggleDeleteR(curr, entry))
+    },
+    [mutate]
+  )
+
+  const removeDraft = useCallback(
+    (key: string) => {
+      mutate((curr) => removeDraftR(curr, key))
+    },
+    [mutate]
+  )
 
   const updateDraftDate = useCallback(
     (key: string, date: { year: number; month: number; day: number }) => {
-      setState((curr) => updateDraftDateR(curr, key, date))
+      mutate((curr) => updateDraftDateR(curr, key, date))
     },
-    []
+    [mutate]
   )
 
   const discardAll = useCallback(() => {
@@ -142,8 +197,9 @@ export function useEditableEntries(portfolio: PortfolioDTO) {
     // inline error before we hit the network.
     let pre: EditableEntriesState = stateRef.current
     let hasPreError = false
+    const siblings = newDraftMonths(stateRef.current.drafts.values())
     for (const d of drafts) {
-      const err = validate(d, { existingByMonth })
+      const err = validate(d, { existingByMonth, newDraftMonths: siblings })
       if (err !== null) {
         pre = setErrorR(pre, d.key, err)
         hasPreError = true
@@ -153,7 +209,9 @@ export function useEditableEntries(portfolio: PortfolioDTO) {
     }
     if (hasPreError) {
       setState(pre)
-      setSaveStatus("Some rows have errors. Fix them and try again.")
+      // The footer derives its message from the rows that still carry an
+      // error, so it can't outlive them (D8).
+      setSaveStatus(null)
       return
     }
 
@@ -215,6 +273,8 @@ export function useEditableEntries(portfolio: PortfolioDTO) {
     saveStatus,
     pendingFocusKey,
     dirtyCount,
+    dirtyDrafts,
+    errorCount,
     existingByMonth,
     // Read helpers
     getDraft,
@@ -223,6 +283,7 @@ export function useEditableEntries(portfolio: PortfolioDTO) {
     exitEditMode,
     addDraft,
     updateCell,
+    setCellError,
     toggleDelete,
     removeDraft,
     updateDraftDate,

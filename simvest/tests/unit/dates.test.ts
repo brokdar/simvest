@@ -5,7 +5,12 @@ import {
   isValidEntryDayPref,
   toISODate,
   fromISODate,
-  formatEntryDate,
+  fmtDate,
+  fmtMonth,
+  fmtMonthKey,
+  fmtMonthLong,
+  fmtYearShort,
+  MONTH_SHORT,
   addCalendarMonths,
   entryTimestamp,
 } from "@/lib/dates"
@@ -193,10 +198,108 @@ describe("entryTimestamp", () => {
   })
 })
 
-describe("formatEntryDate", () => {
-  it("renders a human-readable en-GB short date", () => {
-    expect(formatEntryDate(2025, 4, 30)).toBe("30 Apr 2025")
-    expect(formatEntryDate(2024, 2, 29)).toBe("29 Feb 2024")
-    expect(formatEntryDate(2025, 12, 1)).toBe("1 Dec 2025")
+// ---------------------------------------------------------------------------
+// App-wide date formats (P1 · C3 / F3). Exactly two visible formats:
+//   fmtMonth → "Apr ’26"   fmtDate → "30 Apr 2026"
+// The apostrophe is U+2019; month names never come from Intl (en-GB's
+// toLocaleDateString renders September as "Sept", which was finding F3).
+// ---------------------------------------------------------------------------
+
+const RSQUO = "\u2019"
+
+describe("fmtMonth", () => {
+  it("UNIT-DATES-FMT-001 — month + curly-apostrophe two-digit year", () => {
+    expect(fmtMonth(2026, 4)).toBe(`Apr ${RSQUO}26`)
+    expect(fmtMonth(2026, 4)).toBe("Apr ’26")
+  })
+
+  it("UNIT-DATES-FMT-002 — uses U+2019, not an ASCII apostrophe", () => {
+    const s = fmtMonth(2025, 9)
+    expect(s).toContain(RSQUO)
+    expect(s).not.toContain("'")
+  })
+
+  it("UNIT-DATES-FMT-003 — September is Sep (never Sept), every month three letters", () => {
+    expect(fmtMonth(2025, 9)).toBe("Sep ’25")
+    for (let m = 1; m <= 12; m++) {
+      const [mon] = fmtMonth(2025, m).split(" ")
+      expect(mon).toMatch(/^[A-Z][a-z]{2}$/)
+    }
+  })
+
+  it("UNIT-DATES-FMT-004 — century boundaries keep two digits", () => {
+    expect(fmtMonth(2000, 1)).toBe("Jan ’00")
+    expect(fmtMonth(2100, 12)).toBe("Dec ’00")
+  })
+
+  it("UNIT-DATES-FMT-005 — fmtYearShort matches fmtMonth's year part", () => {
+    expect(fmtYearShort(2032)).toBe("’32")
+    expect(fmtMonth(2032, 5).endsWith(fmtYearShort(2032))).toBe(true)
+  })
+
+  it("UNIT-DATES-FMT-006 — fmtMonthKey parses YYYY-MM and leaves junk alone", () => {
+    expect(fmtMonthKey("2026-04")).toBe("Apr ’26")
+    expect(fmtMonthKey("2026-04-30")).toBe("Apr ’26")
+    expect(fmtMonthKey("not a date")).toBe("not a date")
+    expect(fmtMonthKey("2026-13")).toBe("2026-13")
+  })
+})
+
+describe("fmtDate", () => {
+  it("UNIT-DATES-FMT-010 — ISO string → day, three-letter month, full year", () => {
+    expect(fmtDate("2026-04-30")).toBe("30 Apr 2026")
+  })
+
+  it("UNIT-DATES-FMT-011 — (year, month, day) overload matches the ISO form", () => {
+    expect(fmtDate(2025, 4, 30)).toBe("30 Apr 2025")
+    expect(fmtDate(2024, 2, 29)).toBe("29 Feb 2024")
+    expect(fmtDate(2025, 12, 1)).toBe("1 Dec 2025")
+    expect(fmtDate(2025, 4, 30)).toBe(fmtDate("2025-04-30"))
+  })
+
+  it("UNIT-DATES-FMT-012 — 30 Sep 2025, never 30 Sept 2025", () => {
+    expect(fmtDate(2025, 9, 30)).toBe("30 Sep 2025")
+    for (let m = 1; m <= 12; m++) {
+      expect(fmtDate(2025, m, 1)).not.toMatch(/Sept/)
+      expect(fmtDate(2025, m, 1)).toMatch(/^1 [A-Z][a-z]{2} 2025$/)
+    }
+  })
+
+  it("UNIT-DATES-FMT-013 — the old Intl en-GB path is what produced 'Sept'", () => {
+    // Documents why fmtDate doesn't use toLocaleDateString: on current ICU,
+    // en-GB short month for September is "Sept". If this runtime's ICU ever
+    // stops doing that, the assertion below is skipped rather than failing.
+    const intl = new Date(2025, 8, 30).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    })
+    if (intl.includes("Sept")) expect(fmtDate(2025, 9, 30)).not.toBe(intl)
+  })
+})
+
+describe("fmtMonthLong", () => {
+  it("UNIT-DATES-FMT-020 — spelled-out month for accessible names", () => {
+    expect(fmtMonthLong(2026, 4)).toBe("April 2026")
+    expect(fmtMonthLong(2025, 9)).toBe("September 2025")
+  })
+})
+
+describe("MONTH_SHORT", () => {
+  it("UNIT-DATES-FMT-030 — twelve three-letter English abbreviations", () => {
+    expect(MONTH_SHORT).toEqual([
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ])
   })
 })

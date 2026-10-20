@@ -22,6 +22,17 @@ export type IncomeEventFormValue = {
   amount: number
   tax: number
   note: string
+  /**
+   * Typed amounts that couldn't be read (D1). Editors must refuse to save
+   * while any is set — a rejected "12.50" must not quietly save as 0.
+   * Form-only; stripped by `withPersistedTaxSign`.
+   */
+  moneyErrors?: { amount?: string; tax?: string }
+}
+
+/** True when the form holds an amount the user typed that couldn't be read. */
+export function hasMoneyErrors(form: IncomeEventFormValue): boolean {
+  return Boolean(form.moneyErrors?.amount || form.moneyErrors?.tax)
 }
 
 /**
@@ -35,7 +46,9 @@ export type IncomeEventFormValue = {
 export function withPersistedTaxSign(
   form: IncomeEventFormValue
 ): IncomeEventFormValue {
-  return { ...form, tax: -Math.abs(form.tax) }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { moneyErrors, ...rest } = form
+  return { ...rest, tax: -Math.abs(form.tax) }
 }
 
 type Props = {
@@ -108,7 +121,13 @@ export function IncomeEventForm({
         </FieldLabel>
         <MoneyInput
           value={form.amount === 0 ? null : form.amount}
-          onChange={(v) => setForm({ ...form, amount: v ?? 0 })}
+          onChange={(v, err) =>
+            setForm({
+              ...form,
+              amount: v ?? 0,
+              moneyErrors: { ...form.moneyErrors, amount: err ?? undefined },
+            })
+          }
           locale={locale}
           min={0}
           ariaLabel={kind === "dividend" ? "Gross amount" : "Amount"}
@@ -121,7 +140,13 @@ export function IncomeEventForm({
           <FieldLabel>Tax withheld (EUR)</FieldLabel>
           <MoneyInput
             value={form.tax === 0 ? null : form.tax}
-            onChange={(v) => setForm({ ...form, tax: v ?? 0 })}
+            onChange={(v, err) =>
+              setForm({
+                ...form,
+                tax: v ?? 0,
+                moneyErrors: { ...form.moneyErrors, tax: err ?? undefined },
+              })
+            }
             locale={locale}
             min={0}
             ariaLabel="Tax withheld"

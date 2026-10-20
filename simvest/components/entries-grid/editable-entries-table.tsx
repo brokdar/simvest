@@ -19,10 +19,14 @@ import {
 } from "@/components/ui/tooltip"
 import { EditableRow } from "@/components/entries-grid/editable-row"
 import { SaveFooter } from "@/components/entries-grid/save-footer"
-import { nextMonthAfter } from "@/components/entries-grid/draft-row"
+import {
+  describeChange,
+  nextMonthAfter,
+} from "@/components/entries-grid/draft-row"
 import type { UseEditableEntries } from "@/components/entries-grid/use-editable-entries"
 import type { EntryDTO, PortfolioDTO, SettingsDTO } from "@/lib/types"
-import { formatEntryDate } from "@/lib/dates"
+import { fmtDate } from "@/lib/dates"
+import { fmtCount } from "@/lib/format"
 
 type Props = {
   portfolio: PortfolioDTO
@@ -45,6 +49,8 @@ export function EditableEntriesTable({
     saveStatus,
     pendingFocusKey,
     dirtyCount,
+    dirtyDrafts,
+    errorCount,
     toggleEdit,
     exitEditMode,
     addDraft,
@@ -95,6 +101,13 @@ export function EditableEntriesTable({
     if (pendingDelete) toggleDelete(pendingDelete)
     setPendingDelete(null)
   }, [pendingDelete, toggleDelete])
+
+  // D7: name what Discard throws away — month plus old → new values.
+  const pendingChanges = useMemo(
+    () => dirtyDrafts.map(describeChange),
+    [dirtyDrafts]
+  )
+  const MAX_LISTED = 5
 
   // Reverse-chronological for read mode; same order in edit mode so users
   // see drafts at the top and history below.
@@ -270,6 +283,9 @@ export function EditableEntriesTable({
                   onUpdateCell={(cell, value) =>
                     updateCell(draft.key, cell, value)
                   }
+                  onCellError={(cell, err) =>
+                    controller.setCellError(draft.key, cell, err)
+                  }
                   onUpdateDate={(next) => {
                     controller.updateDraftDate(draft.key, next)
                   }}
@@ -295,6 +311,9 @@ export function EditableEntriesTable({
                   defaultEntryDay={settings.defaultEntryDay}
                   isFocusPending={pendingFocusKey === `entry-${e.id}`}
                   onUpdateCell={(cell, value) => updateCell(e, cell, value)}
+                  onCellError={(cell, err) =>
+                    controller.setCellError(e, cell, err)
+                  }
                   onUpdateDate={() => {
                     /* read-only on existing rows */
                   }}
@@ -313,6 +332,7 @@ export function EditableEntriesTable({
       {editMode && (
         <SaveFooter
           dirtyCount={dirtyCount}
+          errorCount={errorCount}
           isSaving={isSaving}
           saveStatus={saveStatus}
           onSave={saveAll}
@@ -334,7 +354,7 @@ export function EditableEntriesTable({
               {pendingDelete ? (
                 <>
                   This will mark the{" "}
-                  {formatEntryDate(
+                  {fmtDate(
                     pendingDelete.year,
                     pendingDelete.month,
                     pendingDelete.day
@@ -361,13 +381,36 @@ export function EditableEntriesTable({
       </AlertDialog>
 
       <AlertDialog open={cancelConfirmOpen} onOpenChange={setCancelConfirmOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent data-testid="entries-grid-discard-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Discard {dirtyCount} {dirtyCount === 1 ? "change" : "changes"}?
+              {pendingChanges.length === 1
+                ? `Discard your change to ${pendingChanges[0].month}?`
+                : `Discard ${fmtCount(pendingChanges.length, "change", "changes")}?`}
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              Your pending edits will be lost. Saved entries are not affected.
+            <AlertDialogDescription asChild>
+              <div>
+                <ul
+                  className="discard-list"
+                  data-testid="entries-grid-discard-list"
+                >
+                  {pendingChanges.slice(0, MAX_LISTED).map((c, i) => (
+                    <li key={i}>
+                      <strong>{c.month}</strong>
+                      <span>{c.detail}</span>
+                    </li>
+                  ))}
+                  {pendingChanges.length > MAX_LISTED && (
+                    <li className="muted">
+                      …and {pendingChanges.length - MAX_LISTED} more
+                    </li>
+                  )}
+                </ul>
+                <p style={{ marginTop: 10 }}>
+                  Your pending edits will be lost. Saved entries are not
+                  affected.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

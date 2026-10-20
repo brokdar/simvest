@@ -133,7 +133,7 @@ export function HoldingEditor({
             {!isinValid && (
               <div
                 className="small"
-                style={{ color: "var(--neg)", marginTop: 4 }}
+                style={{ color: "var(--critical)", marginTop: 4 }}
               >
                 Must match ISO 6166 (e.g. US0378331005)
               </div>
@@ -161,7 +161,7 @@ export function HoldingEditor({
         {submitError && (
           <div
             className="small"
-            style={{ color: "var(--neg)", marginTop: 8 }}
+            style={{ color: "var(--critical)", marginTop: 8 }}
             data-testid="holding-editor-error"
           >
             {submitError}

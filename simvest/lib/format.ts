@@ -89,21 +89,78 @@ export const fmtEUR = (
   locale: string = activeLocale
 ): string => {
   const { compact = false, sign = false } = opts
-  // Money is shown with cents by default. Compact mode (axis ticks, brief
-  // labels) drops cents because "€1.5M,00" is absurd.
-  const decimals = opts.decimals ?? (compact ? 0 : 2)
+  if (compact) return fmtCompactEUR(v, { sign }, locale)
+  // Money is shown with cents by default.
+  const decimals = opts.decimals ?? 2
+  if (v === null || v === undefined || Number.isNaN(v)) return "—"
+  const prefix = sign && v > 0 ? "+" : ""
+  return `${prefix}€${getNumberFormatter(locale, decimals).format(v)}`
+}
+
+/**
+ * The single abbreviation rule for a *standalone* money figure (KPI subline,
+ * pill, legend): below €10.000 the full amount without cents, from €10.000
+ * whole thousands with "k", from €1.000.000 one-decimal millions with "M".
+ *
+ * Never use this per tick on a chart axis — two ticks either side of the
+ * €10k threshold would come out as "€8.000" and "€12k" on the same axis.
+ * Axes use `fmtAxisEUR`, which picks one unit for the whole axis.
+ */
+export const fmtCompactEUR = (
+  v: number | null | undefined,
+  opts: { sign?: boolean } = {},
+  locale: string = activeLocale
+): string => {
   if (v === null || v === undefined || Number.isNaN(v)) return "—"
   const abs = Math.abs(v)
   let str: string
-  if (compact && abs >= 1_000_000) {
+  if (abs >= 1_000_000) {
     str = getCompactMillionFormatter(locale).format(v / 1_000_000) + "M"
-  } else if (compact && abs >= 10_000) {
+  } else if (abs >= 10_000) {
     str = getCompactThousandFormatter(locale).format(Math.round(v / 1000)) + "k"
   } else {
-    str = getNumberFormatter(locale, decimals).format(v)
+    str = getNumberFormatter(locale, 0).format(v)
   }
-  const prefix = sign && v > 0 ? "+" : ""
+  const prefix = opts.sign && v > 0 ? "+" : ""
   return `${prefix}€${str}`
+}
+
+/**
+ * Build the tick formatter for one money axis. The unit is chosen once from
+ * the largest tick, using the same thresholds as `fmtCompactEUR`, and then
+ * applied to *every* tick — so an axis is all-full (`€2.000 … €8.000`),
+ * all-thousands (`€4k … €16k`) or all-millions (`€0,5M … €2,0M`), never mixed.
+ * Decimals are the fewest that render every tick exactly: full euros use 0
+ * or 2 (cents), thousands 0 or 1, millions 1 or 2 (at least one, matching
+ * `fmtCompactEUR`). Zero is always plain `€0`.
+ */
+export function fmtAxisEUR(
+  ticks: readonly number[],
+  opts: { sign?: boolean } = {},
+  locale: string = activeLocale
+): (v: number) => string {
+  const finite = ticks.filter((t) => Number.isFinite(t))
+  const maxAbs = finite.reduce((m, t) => Math.max(m, Math.abs(t)), 0)
+  const [divisor, suffix, decimalSteps] =
+    maxAbs >= 1_000_000
+      ? [1_000_000, "M", [1, 2]]
+      : maxAbs >= 10_000
+        ? [1000, "k", [0, 1]]
+        : // Full euros: whole amounts, or cents — never a lone "€2,5".
+          [1, "", [0, 2]]
+  const exactAt = (d: number) =>
+    finite.every((t) => {
+      const scaled = (t / divisor) * 10 ** d
+      return Math.abs(scaled - Math.round(scaled)) <= 1e-6
+    })
+  const decimals = decimalSteps.find(exactAt) ?? decimalSteps.at(-1)!
+  const nf = getNumberFormatter(locale, decimals)
+  return (v: number) => {
+    if (!Number.isFinite(v)) return "—"
+    if (v === 0) return "€0"
+    const prefix = opts.sign && v > 0 ? "+" : ""
+    return `${prefix}€${nf.format(v / divisor)}${suffix}`
+  }
 }
 
 export const fmtPct = (
@@ -118,6 +175,23 @@ export const fmtPct = (
   return `${prefix}${s}%`
 }
 
+/**
+ * A percentage that can't blow out its container: anything beyond ±`cap`
+ * renders as "> 999%" / "< −999%". For rates like CAGR where a short or
+ * odd history can produce absurd magnitudes (N6).
+ */
+export const fmtPctCapped = (
+  v: number | null | undefined,
+  decimals = 1,
+  cap = 999,
+  locale: string = activeLocale
+): string => {
+  if (v === null || v === undefined || Number.isNaN(v)) return "—"
+  if (v > cap) return `> ${fmtPct(cap, 0, false, locale)}`
+  if (v < -cap) return `< ${fmtPct(-cap, 0, false, locale)}`
+  return fmtPct(v, decimals, false, locale)
+}
+
 export const fmtNum = (
   v: number | null | undefined,
   decimals = 0,
@@ -125,4 +199,44 @@ export const fmtNum = (
 ): string => {
   if (v === null || v === undefined || Number.isNaN(v)) return "—"
   return getNumberFormatter(locale, decimals).format(v)
+}
+
+/**
+ * Pick the singular or plural noun for a count: `plural(1, "entry",
+ * "entries")` → "entry". Returns the noun only; use `fmtCount` when the
+ * number should be rendered too.
+ */
+export function plural(n: number, singular: string, pluralForm: string) {
+  return n === 1 ? singular : pluralForm
+}
+
+/** `fmtCount(1, "record", "records")` → "1 record"; 1264 → "1.264 records". */
+export function fmtCount(
+  n: number,
+  singular: string,
+  pluralForm: string,
+  locale: string = activeLocale
+): string {
+  return `${fmtNum(n, 0, locale)} ${plural(n, singular, pluralForm)}`
+}
+
+/**
+ * Snap a slider value onto its step grid and strip binary floating-point
+ * noise, so `4.900000095367432` comes out as `4.9`. Apply it to what a range
+ * input emits *and* to what is displayed/stored. `origin` is the grid's
+ * anchor (the slider's `min`).
+ */
+export function snapToStep(v: number, step: number, origin = 0): number {
+  if (!Number.isFinite(v) || !(step > 0)) return v
+  const snapped = Math.round((v - origin) / step) * step + origin
+  const decimals = Math.max(decimalPlaces(step), decimalPlaces(origin))
+  return Number(snapped.toFixed(decimals))
+}
+
+function decimalPlaces(n: number): number {
+  if (!Number.isFinite(n) || Number.isInteger(n)) return 0
+  const s = String(n)
+  const e = s.match(/e-(\d+)$/)
+  if (e) return parseInt(e[1], 10)
+  return s.split(".")[1]?.length ?? 0
 }

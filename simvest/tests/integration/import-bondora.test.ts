@@ -201,3 +201,79 @@ describe("importEngine — bondora", () => {
     expect(rows[0].month).toBe(1)
   })
 })
+
+// D3 — the real case: May is stored as €15.728,37, the statement says
+// €15.740,93. That month must default to Replace and read as a correction.
+describe("importEngine — month status (D3)", () => {
+  const MAY_JUN = [
+    "5/1/2026;Go & Grow returns;2,50;;15640,93",
+    "5/15/2026;SEPA payment;100,00;;15740,93",
+    "6/15/2026;SEPA payment;100,00;;15843,44",
+    "7/15/2026;SEPA payment;100,00;;15950,00",
+  ]
+
+  it("INT-BONDORA-D3-001 — differing stored value → correction; matching → unchanged; missing → new", () => {
+    db.insert(entries)
+      .values([
+        {
+          portfolioId: pid,
+          year: 2026,
+          month: 5,
+          day: 31,
+          invested: 100,
+          value: 15728.37,
+          note: "",
+        },
+        {
+          portfolioId: pid,
+          year: 2026,
+          month: 6,
+          day: 30,
+          invested: 100,
+          value: 15843.44,
+          note: "",
+        },
+      ])
+      .run()
+    const res = engine.previewImport({
+      broker: "bondora",
+      portfolioId: pid,
+      csv: csv(...MAY_JUN),
+    })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    const by = (m: number) => res.preview.months.find((x) => x.month === m)
+    expect(by(5)).toMatchObject({
+      status: "correction",
+      currentValue: 15728.37,
+      newValue: 15740.93,
+    })
+    expect(by(6)).toMatchObject({ status: "unchanged" })
+    expect(by(7)).toMatchObject({ status: "new" })
+  })
+
+  it("INT-BONDORA-D3-002 — currentInvested keeps cents (was Math.round)", () => {
+    db.insert(entries)
+      .values({
+        portfolioId: pid,
+        year: 2026,
+        month: 5,
+        day: 31,
+        invested: 100.4,
+        value: 15740.93,
+        note: "",
+      })
+      .run()
+    const res = engine.previewImport({
+      broker: "bondora",
+      portfolioId: pid,
+      csv: csv(MAY_JUN[0], MAY_JUN[1]),
+    })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.preview.months[0]).toMatchObject({
+      currentInvested: 100.4,
+      status: "correction",
+    })
+  })
+})

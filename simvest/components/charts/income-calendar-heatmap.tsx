@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { filterEventsByMonth, incomeByMonth } from "@/lib/calc"
 import { fmtEUR } from "@/lib/format"
-import { labelFor, type DividendBasis, type IncomeEventDTO } from "@/lib/types"
+import { fmtMonthLong, MONTH_SHORT } from "@/lib/dates"
+import type { DividendBasis, IncomeEventDTO } from "@/lib/types"
 import { MonthDetailTooltip } from "./month-detail-tooltip"
 
 type Props = {
@@ -12,21 +13,6 @@ type Props = {
   selectedMonth: string | null
   onMonthSelect: (monthKey: string | null) => void
 }
-
-const MONTH_HEADERS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-]
 
 const POPOVER_WIDTH = 240
 
@@ -141,13 +127,13 @@ export function IncomeCalendarHeatmap({
               display: "grid",
               gridTemplateColumns: "44px repeat(12, 1fr) 80px",
               gap: 6,
-              fontSize: 11,
+              fontSize: "var(--fs-2xs)",
               color: "var(--neutral-400)",
               marginBottom: 6,
             }}
           >
             <div />
-            {MONTH_HEADERS.map((m) => (
+            {MONTH_SHORT.map((m) => (
               <div key={m} style={{ textAlign: "center" }}>
                 {m}
               </div>
@@ -167,7 +153,9 @@ export function IncomeCalendarHeatmap({
                   alignItems: "center",
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 600 }}>{y}</div>
+                <div style={{ fontSize: "var(--fs-xs)", fontWeight: 600 }}>
+                  {y}
+                </div>
                 {grid[y].map((v, idx) => {
                   const month = idx + 1
                   const key = `${y}-${String(month).padStart(2, "0")}`
@@ -178,7 +166,10 @@ export function IncomeCalendarHeatmap({
                     bucket === 0
                       ? "var(--neutral-50)"
                       : `color-mix(in srgb, var(--primary) ${bucket * 18}%, var(--surface))`
-                  const fg = bucket >= 4 ? "#fff" : "var(--neutral-700)"
+                  const fg =
+                    bucket >= 4
+                      ? "var(--primary-foreground)"
+                      : "var(--neutral-600)"
                   return (
                     <button
                       key={key}
@@ -186,8 +177,8 @@ export function IncomeCalendarHeatmap({
                       data-testid={`income-heatmap-cell-${key}`}
                       aria-label={
                         v === 0
-                          ? `No payouts in ${labelFor(y, month)}`
-                          : `${labelFor(y, month)}: ${fmtEUR(v)}`
+                          ? `No payouts in ${fmtMonthLong(y, month)}`
+                          : `${fmtMonthLong(y, month)}: ${fmtEUR(v)}`
                       }
                       // Only a real mouse hover is transient; touch taps drive
                       // the popover through the selected month (below) so a tap
@@ -209,7 +200,7 @@ export function IncomeCalendarHeatmap({
                         height: 30,
                         borderRadius: 4,
                         cursor: "pointer",
-                        fontSize: 11,
+                        fontSize: "var(--fs-2xs)",
                         fontWeight: 600,
                         padding: 0,
                         textAlign: "center",
@@ -225,7 +216,7 @@ export function IncomeCalendarHeatmap({
                   data-testid={`income-heatmap-year-total-${y}`}
                   style={{
                     textAlign: "right",
-                    fontSize: 12,
+                    fontSize: "var(--fs-xs)",
                     fontWeight: 600,
                     fontVariantNumeric: "tabular-nums",
                   }}
