@@ -52,9 +52,23 @@ export type GoalDTO = {
   targetYear: number
   swr: number | null
   yieldAssumed: number | null
+  /**
+   * Expected annual return % for this goal's projection. Null = use the
+   * scope's own historical return (or the 7% assumption without history).
+   */
+  returnAssumed: number | null
 }
 
 export type DividendBasis = "net" | "gross"
+
+/**
+ * C9: what net / gross mean, in words — the toggle and every "(net)" label
+ * say "after tax" / "before tax" so nobody has to know the jargon.
+ */
+export const BASIS_LABEL: Record<DividendBasis, string> = {
+  net: "after tax",
+  gross: "before tax",
+}
 
 export const DIVIDEND_BASES: DividendBasis[] = ["net", "gross"]
 
@@ -178,18 +192,42 @@ export type IncomeSliceDTO = {
 }
 
 export type IncomeCadence =
+  | "daily"
+  | "weekly"
   | "monthly"
   | "quarterly"
   | "semi-annual"
   | "annual"
   | "irregular"
+  | "single"
 
+/**
+ * C10: "one data point" and "pays on no fixed schedule" are different
+ * things, so they get different words — the old "Irregular" covered both.
+ */
 export const CADENCE_LABEL: Record<IncomeCadence, string> = {
+  daily: "Daily",
+  weekly: "Weekly",
   monthly: "Monthly",
   quarterly: "Quarterly",
-  "semi-annual": "Semi-annual",
-  annual: "Annual",
-  irregular: "Irregular",
+  "semi-annual": "Twice a year",
+  annual: "Yearly",
+  irregular: "No fixed schedule",
+  single: "Just one so far",
+}
+
+/** One sentence per cadence, for the chip's tooltip. */
+export const CADENCE_HINT: Record<IncomeCadence, string> = {
+  daily: "Pays out (almost) every day — typical for interest.",
+  weekly: "Pays out about once a week.",
+  monthly: "Pays out about once a month.",
+  quarterly: "Pays out about every three months.",
+  "semi-annual": "Pays out about every six months.",
+  annual: "Pays out about once a year.",
+  irregular:
+    "Payouts so far don’t follow a regular rhythm — the gaps between them vary a lot.",
+  single:
+    "Only one payout recorded so far — the rhythm shows once there’s a second.",
 }
 
 export const INCOME_HOLDING_PARAM = "holding"
@@ -201,4 +239,19 @@ export const INCOME_HOLDING_PARAM = "holding"
  */
 export function labelFor(year: number, month: number) {
   return fmtMonth(year, month)
+}
+
+/** What the About & data card shows a self-hoster (C12). */
+export type AboutInfo = {
+  version: string
+  dbPath: string
+  /** Main file plus its write-ahead log, in bytes; null for :memory:. */
+  dbBytes: number | null
+  counts: {
+    portfolios: number
+    entries: number
+    holdings: number
+    incomeEvents: number
+    goals: number
+  }
 }

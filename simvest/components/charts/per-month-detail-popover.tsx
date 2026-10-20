@@ -12,6 +12,11 @@ type Props = {
   /** Already-narrowed to (year, month). The popover trusts the prop. */
   events: IncomeEventDTO[]
   testId?: string
+  /**
+   * For a month that isn't data — not recorded yet, before the first payout,
+   * still to come — say so instead of "€0,00 · 0 payouts" (N5).
+   */
+  emptyText?: string
 }
 
 export function PerMonthDetailPopover({
@@ -20,6 +25,7 @@ export function PerMonthDetailPopover({
   basis,
   events,
   testId,
+  emptyText,
 }: Props) {
   const rows = useMemo(
     () => aggregateIncomeByHoldingMonth(events, year, month, basis),
@@ -62,14 +68,20 @@ export function PerMonthDetailPopover({
         <div style={{ fontWeight: 700, fontSize: "var(--fs-sm)" }}>
           {labelFor(year, month)}
         </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontWeight: 700 }}>{fmtEUR(total)}</div>
-          <div className="muted" style={{ fontSize: "var(--fs-2xs)" }}>
-            {count} {count === 1 ? "payout" : "payouts"}
+        {emptyText === undefined && (
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontWeight: 700 }}>{fmtEUR(total)}</div>
+            <div className="muted" style={{ fontSize: "var(--fs-2xs)" }}>
+              {count} {count === 1 ? "payout" : "payouts"}
+            </div>
           </div>
-        </div>
+        )}
       </div>
-      {rows.length === 0 ? (
+      {emptyText !== undefined ? (
+        <div className="muted small" data-testid="month-detail-empty">
+          {emptyText}
+        </div>
+      ) : rows.length === 0 ? (
         <div className="muted small">No payouts</div>
       ) : (
         <ul

@@ -369,10 +369,19 @@ h4 {
 
 /* ---- App shell ---- */
 .app {
+  --rail-w: 248px;
   display: grid;
-  grid-template-columns: 248px 1fr;
+  grid-template-columns: var(--rail-w) 1fr;
   min-height: 100vh;
   min-height: 100dvh;
+  /* The sidebar is viewport-high and sticky; paint its column behind the whole
+     page so full-page captures and tall pages don't show a cut-off rail. */
+  background: linear-gradient(
+    to right,
+    var(--surface) calc(var(--rail-w) - 1px),
+    var(--border) calc(var(--rail-w) - 1px) var(--rail-w),
+    transparent var(--rail-w)
+  );
 }
 .sidebar {
   background: var(--surface);
@@ -695,6 +704,35 @@ textarea,
   color: var(--primary);
   border-color: var(--primary-200);
 }
+.chip.warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+  border-color: var(--warn-border);
+}
+button.chip {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* Income: the active `?holding=` filter, stated out loud with a way out. */
+.income-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+  border: 1px solid var(--primary-200);
+  border-radius: var(--r-md);
+  background: var(--primary-50);
+}
+@media (pointer: coarse) {
+  .income-filter-clear {
+    min-height: 44px;
+    padding: 0 14px;
+  }
+}
 
 .card {
   background: var(--surface);
@@ -717,6 +755,8 @@ textarea,
   gap: 6px;
   position: relative;
   overflow: hidden;
+  /* Lets .value scale down with the card instead of spilling out of it. */
+  container-type: inline-size;
 }
 .kpi .label {
   font-size: var(--fs-2xs);
@@ -728,7 +768,8 @@ textarea,
 .kpi .value {
   font-family: var(--font-head);
   font-weight: 700;
-  font-size: var(--fs-6xl);
+  font-size: min(var(--fs-6xl), 12.5cqi);
+  white-space: nowrap;
   letter-spacing: -0.02em;
   color: var(--neutral-800);
 }
@@ -871,6 +912,67 @@ textarea,
   stroke-width: 2;
 }
 
+/* Keep focused / scrolled-to content clear of the sticky topbar and, while
+   the entries grid is being edited, of the sticky Save-all bar (M1) — so the
+   browser never parks a row's delete button underneath either of them. */
+html {
+  scroll-padding-top: calc(72px + env(safe-area-inset-top));
+}
+html:has(.entries-save-footer) {
+  scroll-padding-bottom: 100px;
+}
+
+/* A dialog never outgrows the screen: with 44px touch fields a long form
+   (the dividend editor's inline new-holding fields) can run taller than a
+   phone, so it scrolls inside itself instead of hanging off the top. */
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"] {
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+}
+
+/* Per-Holding name: a bare text button (padded on touch by .tap-pad). */
+.ph-name-btn {
+  padding: 0;
+}
+
+/* Calendar heatmap month cell; 44px tall on touch (coarse-pointer block). */
+.heatmap-cell {
+  height: 30px;
+}
+
+/* Horizontal scroller with an edge fade on the side that still has content
+   (M2) — components/ui/scroll-fade.tsx toggles the data attributes. */
+.scroll-fade {
+  --fade-bg: var(--surface);
+  position: relative;
+  min-width: 0;
+}
+.scroll-fade::before,
+.scroll-fade::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 32px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.scroll-fade::before {
+  left: 0;
+  background: linear-gradient(to right, var(--fade-bg), transparent);
+}
+.scroll-fade::after {
+  right: 0;
+  background: linear-gradient(to left, var(--fade-bg), transparent);
+}
+.scroll-fade[data-fade-start]::before,
+.scroll-fade[data-fade-end]::after {
+  opacity: 1;
+}
+
 .input-bare {
   height: 36px;
   padding: 0 12px;
@@ -889,12 +991,19 @@ textarea,
 
 /*
  * Money field echo (D5): "= €1.234,56" — what the field will store, shown
- * while typing. On its own line under the field, or — `data-in-field`, for
- * the dense entries grid when the cell is wide enough — inside the field's
- * right edge so the row never shifts. It never covers other content.
+ * while typing. It never takes layout space, so focusing or blurring a field
+ * never moves anything: a chip on the field's bottom-right edge, or —
+ * `data-in-field`, for the dense entries grid when the cell is wide enough —
+ * inside the field's right edge.
  */
 .money-echo {
-  align-self: flex-start;
+  position: absolute;
+  right: 8px;
+  /* Straddles the bottom border, poking out only 4px — less than the gap any
+     form leaves under a field, so it never covers the next row. */
+  bottom: -4px;
+  z-index: 3;
+  pointer-events: none;
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
@@ -911,12 +1020,15 @@ textarea,
 .money-echo-amount {
   font-weight: 600;
 }
+.money-echo[data-side="left"] {
+  right: auto;
+  left: 8px;
+}
 .money-echo[data-in-field] {
-  position: absolute;
   right: 6px;
   top: 50%;
+  bottom: auto;
   transform: translateY(-50%);
-  pointer-events: none;
 }
 /* Wraps inside the field's width instead of widening a table column. */
 .money-error {
@@ -1062,6 +1174,13 @@ input[type="range"].slider::-moz-range-thumb {
   color: var(--neutral-800);
   padding: 12px;
   border-bottom: 1px solid var(--border);
+}
+/* Long tables keep their column labels under the sticky topbar. */
+.entries-table th {
+  position: sticky;
+  top: calc(64px + env(safe-area-inset-top));
+  z-index: 2;
+  background: var(--surface);
 }
 .table tr:hover td {
   background: var(--secondary-50);
@@ -1210,6 +1329,17 @@ input[type="range"].slider::-moz-range-thumb {
   gap: 16px;
   grid-template-columns: 2fr 1fr;
 }
+/* Chart + recent activity share the wide column so it is as tall as the side
+   column; the activity card absorbs any slack instead of a blank gap. */
+.overview-main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.overview-activity {
+  flex: 1;
+}
 
 .sim-grid {
   display: grid;
@@ -1243,6 +1373,10 @@ input[type="range"].slider::-moz-range-thumb {
 }
 .neg {
   color: var(--critical);
+}
+/* Needs attention, nothing is wrong (a goal that's behind, a stale account). */
+.warn {
+  color: var(--warn);
 }
 
 .legend {
@@ -1409,6 +1543,17 @@ input[type="range"].slider::-moz-range-thumb {
   .overview-grid {
     grid-template-columns: 1fr;
   }
+  /* Single column: flatten the wide-column wrapper but keep the original
+     order (chart, side cards, recent activity last). */
+  .overview-main {
+    display: contents;
+  }
+  .overview-side {
+    order: 1;
+  }
+  .overview-activity {
+    order: 2;
+  }
   .grid-4 {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -1424,7 +1569,8 @@ input[type="range"].slider::-moz-range-thumb {
 }
 @media (max-width: 980px) {
   .app {
-    grid-template-columns: 64px 1fr;
+    --rail-w: 64px;
+    grid-template-columns: var(--rail-w) 1fr;
   }
   .sidebar {
     padding: 12px 8px;
@@ -1479,6 +1625,7 @@ input[type="range"].slider::-moz-range-thumb {
   }
   .topbar-right .input-bare {
     width: 180px !important;
+    text-overflow: ellipsis;
   }
 }
 @media (max-width: 640px) {
@@ -1490,6 +1637,7 @@ input[type="range"].slider::-moz-range-thumb {
      the breadcrumb is hidden because the page <h1> is the single title. */
   .app {
     grid-template-columns: 1fr;
+    background: none;
   }
   .sidebar {
     display: none;
@@ -1959,8 +2107,15 @@ input[type="range"].slider::-moz-range-thumb {
     -webkit-overflow-scrolling: touch;
     touch-action: pan-x;
   }
+  /* 44px columns (M7) — 44 + 12×44 + 80 + 13×6 gaps. The track scrolls
+     behind a ScrollFade edge fade (M2). */
   .heatmap-track {
-    min-width: 560px;
+    min-width: 730px;
+  }
+  /* The sort header is visually hidden (above); its row would still report
+     its sort buttons spilling out of the 1px box, so clip it too. */
+  .per-holding-table thead tr {
+    overflow: hidden;
   }
 
   /* De-dupe the record affordances: the topbar + (action-new-dividend) already
@@ -2167,6 +2322,7 @@ input[type="range"].slider::-moz-range-thumb {
   }
   .seg button {
     min-height: 44px;
+    min-width: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2212,6 +2368,31 @@ input[type="range"].slider::-moz-range-thumb {
   input[type="range"].slider::-moz-range-thumb {
     width: 26px;
     height: 26px;
+  }
+  /* Text fields (MoneyInput + the plain number fields) and ShadCN selects. */
+  .input-bare,
+  [data-slot="select-trigger"],
+  [data-slot="select-item"] {
+    min-height: 44px;
+  }
+  .heatmap-cell {
+    height: 44px;
+  }
+  /* A checkbox row: the label is the hit area for its small native box. */
+  .check-label {
+    min-height: 44px;
+  }
+  .donut-legend-btn {
+    min-height: 44px;
+  }
+  /* Pads a compact standalone link/button out to a >=44px hit box without
+     moving anything: the padding grows the box, the equal negative margin
+     hands the space back (inline boxes ignore vertical margins, and their
+     vertical padding never changes the line height). */
+  .tap-pad {
+    min-width: 44px;
+    padding: 14px 6px;
+    margin: -14px -6px;
   }
   /* Settings: default-day segmented control + its custom-day number input. */
   .settings-segment-btn {
@@ -2422,4 +2603,657 @@ input[type="range"].slider::-moz-range-thumb {
   .import-months td:first-child {
     padding-left: 10px;
   }
+}
+
+/* ---- Notifications (topbar bell) ---- */
+.notif-trigger {
+  position: relative;
+}
+/* Pinned to the button's top-right corner, riding up over its top edge so it
+   clears the 16px bell glyph (which starts 10px down), and kept within the
+   button's width so neither the button nor the topbar overflows sideways. */
+.notif-badge {
+  position: absolute;
+  top: -8px;
+  right: 0;
+  min-width: 16px;
+  max-width: 100%;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--surface);
+  font-size: var(--fs-3xs);
+  font-weight: 700;
+  line-height: 12px;
+  text-align: center;
+  border: 2px solid var(--surface);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+.notif-panel {
+  width: min(340px, calc(100vw - 24px));
+  max-height: min(460px, calc(100dvh - 96px));
+  overflow-y: auto;
+  padding: 6px;
+  gap: 6px;
+}
+.notif-heading {
+  padding: 8px 10px 4px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--neutral-500);
+}
+.notif-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--neutral-400);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.notif-item:hover,
+.notif-item:focus-visible {
+  background: var(--secondary-50);
+}
+.notif-item .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.notif-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.notif-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--neutral-800);
+}
+.notif-sub {
+  font-size: var(--fs-xs);
+  color: var(--neutral-500);
+}
+.notif-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  font-size: var(--fs-sm);
+  color: var(--neutral-800);
+}
+
+/* Planning: the goal's verdict, from the same `goalVerdict` the Overview uses. */
+.planning-verdict {
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--warn-border);
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+.planning-verdict.on-track {
+  border-color: var(--good-border);
+  background: var(--good-bg);
+  color: var(--good);
+}
+
+/* Planning trajectory legend */
+.solver-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 8px;
+  font-size: var(--fs-xs);
+  color: var(--neutral-600);
+}
+.solver-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Holdings: a portfolio with nothing in it yet still gets its group. */
+.holdings-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 16px 18px;
+}
+@media (pointer: coarse) {
+  .holdings-empty .btn {
+    min-height: 44px;
+  }
+}
+
+/* Save / discard confirmations (D6) — components/providers/toast.tsx.
+   Bottom-centre, never intercepts clicks, sits above dialogs. */
+.toast-region {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  pointer-events: none;
+}
+.toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--neutral-800);
+  box-shadow: var(--sh-lg);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1.35;
+  animation: toast-in 160ms ease-out;
+}
+.toast-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--good);
+}
+.toast-info .toast-dot {
+  background: var(--info);
+}
+.toast-critical {
+  border-color: var(--critical-border);
+}
+.toast-critical .toast-dot {
+  background: var(--critical);
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
+
+/* Stale-account nudge on the combined view (T1): informational, with each
+   account a link into Monthly Entries. */
+.data-nudge {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--info-border);
+  background: var(--info-bg);
+  color: var(--neutral-600);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.data-nudge > svg {
+  color: var(--info);
+}
+.data-nudge strong {
+  color: var(--neutral-800);
+}
+.data-nudge-link {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.data-nudge-since {
+  color: var(--neutral-500);
+  white-space: nowrap;
+}
+
+/* Settings → About & data (C12) */
+.about-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 16px;
+  margin: 14px 0;
+  font-size: var(--fs-sm);
+}
+.about-grid dt {
+  font-weight: 600;
+  color: var(--neutral-600);
+}
+.about-grid dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--neutral-800);
+}
+.about-path {
+  display: block;
+  font-size: var(--fs-xs);
+  white-space: normal;
+  word-break: break-all;
+}
+.about-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+@media (max-width: 640px) {
+  .about-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .about-grid dd {
+    margin-bottom: 8px;
+  }
+}
+
+/* Monthly catch-up (W2): every account, one value each, one Save. */
+.catchup {
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+.catchup-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.catchup-month {
+  width: 150px;
+}
+.catchup-rows {
+  display: flex;
+  flex-direction: column;
+}
+.catchup-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 200px 150px;
+  gap: 8px 14px;
+  align-items: start;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.catchup-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  align-self: center;
+}
+.catchup-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.catchup-name {
+  font-weight: 600;
+  font-size: var(--fs-md);
+  color: var(--neutral-800);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.catchup-last {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.catchup-last .pos {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.catchup-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px 16px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.catchup-foot > .small {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .catchup {
+    padding: 14px;
+  }
+  .catchup-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr);
+  }
+  .catchup-account {
+    grid-column: 1 / -1;
+  }
+  /* Save leads, the status line follows: the status grows from one line to
+     two once a value commits on blur, and above the button that pushed Save
+     18px out from under the tap that caused the blur. */
+  .catchup-foot .btn {
+    order: -1;
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+}
+
+/* Entries: "Jump to month" (M8) beside the mode hint. */
+.entries-grid-lead {
+  display: flex;
+  align-items: center;
+  gap: 8px 14px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.entries-jump {
+  width: 170px;
+}
+.entries-table tr[data-flash="true"] td {
+  background: var(--primary-50);
+  transition: background 0.3s;
+}
+
+/* Holdings order toggle + Top earners (W3). */
+.holdings-order {
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.earner-account {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.earner-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+@media (max-width: 640px) {
+  /* Rank sits at the start of the card's header line, beside the name. */
+  .earners-table td.td-earner-rank {
+    order: 1;
+    flex: 0 0 auto;
+    padding-left: 0 !important;
+    min-width: 18px;
+  }
+  .earners-table td.td-holding-name {
+    order: 1;
+    flex: 1 1 calc(100% - 230px);
+  }
+}
+.holding-payouts-link {
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 3px;
+}
+.holding-payouts-link:hover {
+  text-decoration-color: currentColor;
+}
+
+/* Income → Coming up (W5): the forward view. */
+.coming-up {
+  margin-bottom: 16px;
+}
+.coming-up-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px 24px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.coming-up-head > div:first-child {
+  flex: 1 1 280px;
+}
+.coming-up-due {
+  text-align: right;
+}
+.coming-up-due-label {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--neutral-500);
+}
+.coming-up-due-value {
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  color: var(--neutral-800);
+}
+.coming-up-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.coming-up-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.4fr) 110px;
+  gap: 4px 14px;
+  align-items: center;
+  padding: 9px 0;
+  border-top: 1px solid var(--border);
+}
+.coming-up-name {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  color: var(--neutral-800);
+}
+.coming-up-name > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.coming-up-name .chip {
+  flex-shrink: 0;
+}
+.coming-up-amount {
+  text-align: right;
+  white-space: nowrap;
+}
+.coming-up-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 640px) {
+  .coming-up-due {
+    text-align: left;
+  }
+  .coming-up-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .coming-up-name {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Overview KPI month-over-month line (W8). Separate from .delta, which each
+   card keeps for its long-run reference. */
+/* Plain inline flow, not flex: as a flex row the sentence after the arrow
+   is one unbreakable item, so a narrow card wrapped it below a lone "↑". */
+.kpi .kpi-mom {
+  display: block;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.kpi .kpi-mom .kpi-mom-arrow {
+  margin-right: 4px;
+}
+.kpi.accent .kpi-mom,
+.kpi.accent .kpi-mom.pos,
+.kpi.accent .kpi-mom.neg {
+  color: var(--hero-fg);
+}
+
+/* Goal progress strip links (W6). */
+.goal-item-name {
+  font-weight: 600;
+  font-size: var(--fs-md);
+  color: var(--neutral-800);
+  text-decoration: none;
+  min-width: 0;
+}
+.goal-item-name:hover {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.goal-item-account,
+.goal-item-fix {
+  color: var(--primary);
+  font-weight: 600;
+}
+.goal-item-fix {
+  display: inline-block;
+  margin-top: 2px;
+}
+
+/* P7: the one sentence a key screen opens with (lib/narrative.ts). */
+.view-headline {
+  margin: 8px 0 0;
+  max-width: 72ch;
+  font-size: var(--fs-xl);
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--neutral-800);
+  text-wrap: pretty;
+}
+
+/* P7 / T4: recent milestones — calm, dismissible, one line each. */
+.milestone-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.milestone {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+}
+.milestone + .milestone {
+  border-top: 1px solid var(--border);
+}
+.milestone-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--good);
+}
+.milestone-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+.milestone-text:hover .milestone-title {
+  text-decoration: underline;
+}
+.milestone-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--neutral-800);
+}
+.milestone-detail {
+  font-size: var(--fs-xs);
+  color: var(--neutral-500);
+}
+.milestone-dismiss {
+  flex-shrink: 0;
+  color: var(--neutral-500);
+}
+@media (pointer: coarse) {
+  .milestone-dismiss {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+.notif-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.notif-row .notif-item {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.notif-dismiss {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  color: var(--neutral-500);
+}
+.notif-item .milestone-icon {
+  margin-top: 0;
+}
+
+/* A button that reads as an inline link inside a sentence. */
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.link-button:hover {
+  text-decoration: underline;
+}
+@media (pointer: coarse) {
+  .link-button {
+    min-height: 44px;
+  }
+}
+.catchup-gap {
+  margin-top: 4px;
 }

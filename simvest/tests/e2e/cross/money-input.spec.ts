@@ -180,7 +180,8 @@ const intersects = (a: Box, b: Box) =>
   b.y < a.y + a.height - 0.5
 
 // Desktop widths keep the echo inside the (wide) grid field; phone widths
-// put it on its own line under the field. Either way it covers nothing.
+// pin it to the field's bottom edge. Either way it takes no layout space (the
+// row never moves) and covers nothing.
 const WIDTHS: Record<string, Array<[number, number]>> = {
   "chromium-desktop": [
     [1440, 900],
@@ -222,19 +223,23 @@ test("E2E-X-MONEY-D5-001 — the echo appears while typing, covers nothing, and 
     }
     const inField =
       e.y >= input.y - 0.5 && e.y + e.height <= input.y + input.height + 0.5
+    // No row shift at any width: the echo is out of flow.
+    const during = (await row.boundingBox())!
+    expect(during.height, `${w}px: row height`).toBeCloseTo(before.height, 0)
+    expect(during.y, `${w}px: row position`).toBeCloseTo(before.y, 0)
     if (desktop) {
       expect(inField, `${w}px: echo sits inside the field`).toBe(true)
-      // No row shift, and the typed digits have room left of the chip.
-      const during = (await row.boundingBox())!
-      expect(during.height).toBeCloseTo(before.height, 0)
+      // The typed digits have room left of the chip.
       const padRight = await cell.evaluate((el) =>
         parseFloat(getComputedStyle(el).paddingRight)
       )
       expect(padRight).toBeGreaterThanOrEqual(e.width + 6)
     } else {
-      expect(e.y, `${w}px: echo sits below the field`).toBeGreaterThanOrEqual(
-        input.y + input.height
-      )
+      const bottom = input.y + input.height
+      expect(
+        e.y < bottom && e.y + e.height > bottom,
+        `${w}px: echo sits on the field's bottom edge`
+      ).toBe(true)
     }
   }
 

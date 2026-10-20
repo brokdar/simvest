@@ -7,6 +7,7 @@ import {
   fmtNum,
   fmtPct,
   fmtPctCapped,
+  fmtSliderValue,
   plural,
   setActiveLocale,
   snapToStep,
@@ -83,11 +84,25 @@ describe("fmtEUR", () => {
   })
 
   it("UNIT-FMT-013 — negative value has no + prefix (with cents)", () => {
-    expect(fmtEUR(-1500, { sign: true })).toBe("€-1.500,00")
+    expect(fmtEUR(-1500, { sign: true })).toBe("-€1.500,00")
   })
 
   it("UNIT-FMT-014 — negative compact uses k suffix", () => {
-    expect(fmtEUR(-15000, { compact: true })).toBe("€-15k")
+    expect(fmtEUR(-15000, { compact: true })).toBe("-€15k")
+  })
+
+  it("UNIT-FMT-014b — the minus sits before the €, never between € and digits (Worst month)", () => {
+    expect(fmtEUR(-17242.71)).toBe("-€17.242,71")
+    expect(fmtEUR(-17242.71, { sign: true })).toBe("-€17.242,71")
+    expect(fmtEUR(-17242.71, {}, "en-US")).toBe("-€17,242.71")
+    expect(fmtEUR(-2_500_000, { compact: true })).toBe("-€2,5M")
+    expect(fmtEUR(-850, { compact: true })).toBe("-€850")
+    expect(fmtEUR(-17242.71)).not.toMatch(/€-/)
+  })
+
+  it("UNIT-FMT-014c — a negative that rounds to zero carries no sign", () => {
+    expect(fmtEUR(-0.004)).toBe("€0,00")
+    expect(fmtEUR(-0.4, { compact: true })).toBe("€0")
   })
 
   it("UNIT-FMT-015 — zero defaults to cents", () => {
@@ -276,7 +291,7 @@ describe("fmtAxisEUR — an axis is all-abbreviated or all-full (F2)", () => {
 
   it("UNIT-FMT-056 — negative ticks follow fmtEUR's sign placement", () => {
     const fmt = fmtAxisEUR([-20000, 0, 20000], { sign: true })
-    expect(fmt(-20000)).toBe("€-20k")
+    expect(fmt(-20000)).toBe("-€20k")
     expect(fmt(20000)).toBe("+€20k")
   })
 
@@ -333,5 +348,19 @@ describe("fmtPctCapped (N6)", () => {
   })
   it("UNIT-FMT-CAP-003 — null renders a dash", () => {
     expect(fmtPctCapped(null)).toBe("—")
+  })
+})
+
+describe("fmtSliderValue — slider readouts by unit", () => {
+  it("UNIT-FMT-SLIDER-001 — years are whole and pluralised, never '20,0 years'", () => {
+    expect(fmtSliderValue(20, "years", "de-DE")).toBe("20 years")
+    expect(fmtSliderValue(1, "years", "de-DE")).toBe("1 year")
+  })
+  it("UNIT-FMT-SLIDER-002 — money goes through fmtEUR, never '€1.250,0'", () => {
+    expect(fmtSliderValue(1250, "money", "de-DE")).toBe("€1.250")
+    expect(fmtSliderValue(1250, "money", "en-US")).toBe("€1,250")
+  })
+  it("UNIT-FMT-SLIDER-003 — percent keeps one decimal", () => {
+    expect(fmtSliderValue(2.4, "percent", "de-DE")).toBe("2,4%")
   })
 })

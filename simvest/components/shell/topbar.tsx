@@ -2,17 +2,17 @@
 
 import { usePathname } from "next/navigation"
 import type { ReactNode } from "react"
-import { Icon } from "@/components/icon"
 import { MobileNav } from "./mobile-nav"
+import { Notifications } from "./notifications"
 import { TopbarSearch } from "./topbar-search"
 
 const CRUMBS: Record<string, string> = {
   "/": "Overview",
-  "/chart": "Forecast",
   "/entries": "Monthly entries",
   "/holdings": "Holdings",
   "/income": "Income",
-  "/planning": "Planning",
+  "/projection": "Projection",
+  "/goals": "Goals",
   "/settings": "Settings",
 }
 
@@ -24,7 +24,7 @@ export function Topbar({
   portfolioSelector?: ReactNode
 }) {
   const pathname = usePathname()
-  const crumb = CRUMBS[pathname] ?? "Overview"
+  const crumb = CRUMBS[pathname] ?? "Page not found"
   return (
     <header className="topbar" data-testid="topbar">
       <div className="topbar-left">
@@ -40,13 +40,7 @@ export function Topbar({
       </div>
       <div className="topbar-right">
         <TopbarSearch />
-        <button
-          type="button"
-          className="btn btn-icon btn-secondary"
-          aria-label="Notifications"
-        >
-          <Icon name="bell" size={16} />
-        </button>
+        <Notifications />
         {action}
       </div>
     </header>

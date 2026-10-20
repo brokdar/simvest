@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useEditorForm } from "@/components/use-editor-form"
 import {
   Dialog,
@@ -18,6 +18,7 @@ import { MoneyInput } from "@/components/money-input"
 import { useResolvedLocale } from "@/components/use-resolved-locale"
 import type { GoalDTO, GoalKind, GoalScope } from "@/lib/types"
 import { GOAL_IDENTITY_COLORS, swatch } from "@/lib/palette"
+import { convertGoalTarget, defaultGoalTarget } from "@/lib/goal-evaluator"
 
 const GOAL_COLORS = GOAL_IDENTITY_COLORS.map((c) => c.hex)
 
@@ -31,6 +32,7 @@ type Form = {
   targetYear: number
   swr: number | null
   yieldAssumed: number | null
+  returnAssumed: number | null
 }
 
 type Props = {
@@ -69,6 +71,40 @@ export function GoalEditor({
     () => buildInitial(goal, { defaultKind, defaultScope, defaultPortfolioId })
   )
 
+  // What happened to the typed amount on the last kind switch (N17), keyed by
+  // the kind it was shown for so it disappears once the user moves on.
+  const [kindNote, setKindNote] = useState<{
+    kind: GoalKind
+    text: string
+  } | null>(null)
+  const switchKind = (to: GoalKind) => {
+    if (to === form.kind) return
+    const per = (k: GoalKind) =>
+      k === "dividend_monthly" ? "/mo" : k === "portfolio_value" ? "" : "/yr"
+    const conv = convertGoalTarget(form.target, form.kind, to)
+    setKindNote(
+      conv.how === "converted"
+        ? {
+            kind: to,
+            text: `Converted ${fmtEUR(form.target)}${per(form.kind)} to ${fmtEUR(conv.target)}${per(to)} — same money, new period.`,
+          }
+        : conv.how === "reset"
+          ? {
+              kind: to,
+              text: `A ${to === "portfolio_value" ? "portfolio value" : "yearly or monthly income"} is a different kind of number, so the amount was reset to ${fmtEUR(conv.target, { decimals: 0 })}.`,
+            }
+          : null
+    )
+    setForm((f) => ({
+      ...f,
+      kind: to,
+      target: conv.target,
+      // Clear kind-irrelevant fields so they don't leak.
+      swr: to === "annual_income" ? f.swr : null,
+      yieldAssumed: to.startsWith("dividend_") ? f.yieldAssumed : null,
+    }))
+  }
+
   // Evaluate the in-flight form as a draft goal. Reuses the same evaluator
   // backing the planning view and goal tiles, so the editor's preview cannot
   // drift from the values shown elsewhere.
@@ -104,11 +140,11 @@ export function GoalEditor({
       case "portfolio_value":
         return `Nominal — €${fmtAmount(form.target)} on screen by ${form.targetYear}.`
       case "annual_income":
-        return `In today's money — equivalent to €${fmtAmount(evaluation.inflatedTargetValue)}/yr in ${form.targetYear} at ${fmtPct(settings.inflation)} inflation. Requires a ${targetPortfolio} portfolio at ${fmtPct(effectiveSwr)} SWR.`
+        return `In today's money — equivalent to €${fmtAmount(evaluation.inflatedTargetValue)}/yr in ${form.targetYear} at ${fmtPct(settings.inflation)} inflation. Requires a ${targetPortfolio} portfolio if you take out ${fmtPct(effectiveSwr)} of it a year (your safe withdrawal rate).`
       case "dividend_annual":
-        return `Nominal — requires a ${targetPortfolio} portfolio at ${fmtPct(effectiveYield)} yield.`
+        return `Nominal — requires a ${targetPortfolio} portfolio paying ${fmtPct(effectiveYield)} a year in dividends (its yield).`
       case "dividend_monthly":
-        return `Nominal — requires a ${targetPortfolio} portfolio at ${fmtPct(effectiveYield)} yield (€${fmtAmount(form.target * 12)}/yr).`
+        return `Nominal — requires a ${targetPortfolio} portfolio paying ${fmtPct(effectiveYield)} a year in dividends (€${fmtAmount(form.target * 12)}/yr).`
     }
   }, [form, settings.inflation, evaluation, effectiveSwr, effectiveYield])
 
@@ -121,7 +157,13 @@ export function GoalEditor({
     (form.scope === "combined" || form.portfolioId != null)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) setKindNote(null)
+        onOpenChange(o)
+      }}
+    >
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle data-testid="goal-editor-title">
@@ -149,17 +191,7 @@ export function GoalEditor({
                     role="radio"
                     aria-checked={active}
                     key={opt.value}
-                    onClick={() =>
-                      setForm((f) => ({
-                        ...f,
-                        kind: opt.value,
-                        // Clear kind-irrelevant fields so they don't leak.
-                        swr: opt.value === "annual_income" ? f.swr : null,
-                        yieldAssumed: opt.value.startsWith("dividend_")
-                          ? f.yieldAssumed
-                          : null,
-                      }))
-                    }
+                    onClick={() => switchKind(opt.value)}
                     style={{
                       padding: "10px 12px",
                       borderRadius: 8,
@@ -246,6 +278,8 @@ export function GoalEditor({
                 value={form.name}
                 placeholder={valueFieldMeta.namePlaceholder}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
+                aria-label="Goal name"
+                data-testid="goal-editor-name"
               />
             </div>
             <div>
@@ -258,6 +292,16 @@ export function GoalEditor({
                 ariaLabel={`${valueFieldMeta.label} in euros`}
                 testId="goal-editor-target"
               />
+              {kindNote && kindNote.kind === form.kind && (
+                <div
+                  className="small"
+                  role="status"
+                  style={{ marginTop: 4, color: "var(--info)" }}
+                  data-testid="goal-editor-kind-note"
+                >
+                  {kindNote.text}
+                </div>
+              )}
               {valueFieldMeta.cadence && (
                 <div
                   className="muted small"
@@ -314,12 +358,12 @@ export function GoalEditor({
                 )}
               </FieldLabel>
               <SliderRow
-                label="SWR"
+                label="Taken out per year"
                 value={effectiveSwr}
                 min={2.5}
                 max={6}
                 step={0.1}
-                suffix="%"
+                unit="percent"
                 onChange={(v) => setForm({ ...form, swr: round1(v) })}
                 testId="goal-editor-swr"
               />
@@ -346,19 +390,19 @@ export function GoalEditor({
                   style={{ marginLeft: 6, fontWeight: 400 }}
                 >
                   {form.yieldAssumed != null
-                    ? "(your override)"
+                    ? "(your pick for this goal)"
                     : derivedYield.source === "derived"
-                      ? `(trailing 12m: ${fmtPct(derivedYield.value, 2)})`
-                      : `(default ${fmtPct(derivedYield.value)} — no payout history)`}
+                      ? `(your last 12 months: ${fmtPct(derivedYield.value, 2)})`
+                      : `(typical ${fmtPct(derivedYield.value)} — no payouts recorded yet)`}
                 </span>
               </FieldLabel>
               <SliderRow
-                label="Yield"
+                label="Dividends per year, as % of value"
                 value={effectiveYield}
                 min={0.5}
                 max={8}
                 step={0.1}
-                suffix="%"
+                unit="percent"
                 onChange={(v) => setForm({ ...form, yieldAssumed: round2(v) })}
                 testId="goal-editor-yield"
               />
@@ -369,7 +413,7 @@ export function GoalEditor({
                   onClick={() => setForm({ ...form, yieldAssumed: null })}
                   style={{ fontSize: "var(--fs-2xs)", marginTop: 4 }}
                 >
-                  Reset to trailing
+                  Use my last 12 months
                 </button>
               )}
             </div>
@@ -412,6 +456,7 @@ export function GoalEditor({
             disabled={!valid}
             onClick={async () => {
               await onSave(form)
+              setKindNote(null)
               onOpenChange(false)
             }}
             data-testid="goal-editor-save"
@@ -478,6 +523,7 @@ function buildInitial(
       targetYear: goal.targetYear,
       swr: goal.swr,
       yieldAssumed: goal.yieldAssumed,
+      returnAssumed: goal.returnAssumed,
     }
   }
   const kind = defaults.defaultKind ?? "annual_income"
@@ -487,23 +533,11 @@ function buildInitial(
     kind,
     scope: defaults.defaultScope ?? "combined",
     portfolioId: defaults.defaultPortfolioId ?? null,
-    target: defaultTargetFor(kind),
+    target: defaultGoalTarget(kind),
     targetYear: new Date().getFullYear() + 15,
     swr: kind === "annual_income" ? null : null, // null = use settings default
     yieldAssumed: null,
-  }
-}
-
-function defaultTargetFor(kind: GoalKind): number {
-  switch (kind) {
-    case "portfolio_value":
-      return 1_000_000
-    case "annual_income":
-      return 30_000
-    case "dividend_annual":
-      return 12_000
-    case "dividend_monthly":
-      return 1_000
+    returnAssumed: null,
   }
 }
 

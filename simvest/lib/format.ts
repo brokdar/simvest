@@ -93,8 +93,20 @@ export const fmtEUR = (
   // Money is shown with cents by default.
   const decimals = opts.decimals ?? 2
   if (v === null || v === undefined || Number.isNaN(v)) return "—"
-  const prefix = sign && v > 0 ? "+" : ""
-  return `${prefix}€${getNumberFormatter(locale, decimals).format(v)}`
+  const body = getNumberFormatter(locale, decimals).format(Math.abs(v))
+  return `${signFor(v, body, sign)}€${body}`
+}
+
+/**
+ * The sign that leads a money figure: the minus goes *before* the currency
+ * symbol ("-€17.242,71"), where Intl's currency style puts it, never between
+ * the symbol and the digits ("€-17.242,71"). `body` is the already formatted
+ * magnitude, so a value that rounds to zero ("0,00") never gets a sign.
+ */
+function signFor(v: number, body: string, plusForPositive: boolean): string {
+  if (!/[1-9]/.test(body)) return ""
+  if (v < 0) return "-"
+  return plusForPositive && v > 0 ? "+" : ""
 }
 
 /**
@@ -115,14 +127,14 @@ export const fmtCompactEUR = (
   const abs = Math.abs(v)
   let str: string
   if (abs >= 1_000_000) {
-    str = getCompactMillionFormatter(locale).format(v / 1_000_000) + "M"
+    str = getCompactMillionFormatter(locale).format(abs / 1_000_000) + "M"
   } else if (abs >= 10_000) {
-    str = getCompactThousandFormatter(locale).format(Math.round(v / 1000)) + "k"
+    str =
+      getCompactThousandFormatter(locale).format(Math.round(abs / 1000)) + "k"
   } else {
-    str = getNumberFormatter(locale, 0).format(v)
+    str = getNumberFormatter(locale, 0).format(abs)
   }
-  const prefix = opts.sign && v > 0 ? "+" : ""
-  return `${prefix}€${str}`
+  return `${signFor(v, str, opts.sign ?? false)}€${str}`
 }
 
 /**
@@ -158,8 +170,8 @@ export function fmtAxisEUR(
   return (v: number) => {
     if (!Number.isFinite(v)) return "—"
     if (v === 0) return "€0"
-    const prefix = opts.sign && v > 0 ? "+" : ""
-    return `${prefix}€${nf.format(v / divisor)}${suffix}`
+    const body = nf.format(Math.abs(v) / divisor)
+    return `${signFor(v, body, opts.sign ?? false)}€${body}${suffix}`
   }
 }
 
@@ -218,6 +230,30 @@ export function fmtCount(
   locale: string = activeLocale
 ): string {
   return `${fmtNum(n, 0, locale)} ${plural(n, singular, pluralForm)}`
+}
+
+export type SliderUnit = "percent" | "years" | "money"
+
+/**
+ * A slider's readout, formatted for what it measures: "2,4%" (one decimal),
+ * "20 years" (whole, pluralised), "€1.250" (money, no cents — sliders move
+ * in whole steps). Never "20,0 years" or "€1.250,0".
+ */
+export function fmtSliderValue(
+  v: number,
+  unit: SliderUnit,
+  locale: string = activeLocale
+): string {
+  switch (unit) {
+    case "percent":
+      return fmtPct(v, 1, false, locale)
+    case "years": {
+      const n = Math.round(v)
+      return `${fmtNum(n, 0, locale)} ${plural(n, "year", "years")}`
+    }
+    case "money":
+      return fmtEUR(v, { decimals: 0 }, locale)
+  }
 }
 
 /**

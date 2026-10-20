@@ -336,7 +336,7 @@ export function GrowthChart({
         rows: [
           { k: "Value", v: fmtEUR(e2.value), c: "var(--primary)" },
           {
-            k: "Invested",
+            k: "Total invested",
             v: fmtEUR(histCumInvested[i]),
             c: "var(--secondary-400)",
           },
@@ -377,7 +377,7 @@ export function GrowthChart({
         { k: "Optimistic", v: fmtEUR(opt), c: "var(--tertiary)" },
         { k: "Base", v: fmtEUR(base), c: "var(--primary)" },
         { k: "Conservative", v: fmtEUR(cons), c: "var(--secondary-400)" },
-        { k: "Invested", v: fmtEUR(inv), c: "var(--neutral-400)" },
+        { k: "Total invested", v: fmtEUR(inv), c: "var(--neutral-400)" },
       ],
     }
   }
@@ -433,15 +433,22 @@ export function GrowthChart({
     width: number
   }[] = []
   const minGoalGap = 22
+  // Keep every pill fully inside the plot: top-down to separate near-equal
+  // targets, then a clamp + bottom-up pass so a low target (e.g. €692k on a
+  // €5M scale) doesn't sit on the x-axis labels.
+  const pillTop = pad.t + 12
+  const pillBottom = pad.t + ih - 8
   let lastGoalY = -Infinity
   for (const { g, lineY } of sortedGoals) {
-    let labelY = lineY - 6
+    let labelY = Math.max(pillTop, lineY - 6)
     if (labelY - lastGoalY < minGoalGap) labelY = lastGoalY + minGoalGap
     lastGoalY = labelY
     const text = narrow
       ? fmtEUR(g.value, { compact: true })
       : `${g.name} · ${fmtEUR(g.value, { compact: true })}`
-    const width = narrow ? 58 : 92
+    // Size the badge to its text (semibold 2xs glyphs average ~7px) so long
+    // goal names never spill past the rect or the plot edge.
+    const width = Math.min(iw, Math.ceil(text.length * 7) + 14)
     goalPills.push({
       id: g.id,
       color: swatch(g.color),
@@ -450,6 +457,11 @@ export function GrowthChart({
       text,
       width,
     })
+  }
+  let limit = pillBottom
+  for (let i = goalPills.length - 1; i >= 0; i--) {
+    goalPills[i].labelY = Math.min(goalPills[i].labelY, limit)
+    limit = goalPills[i].labelY - minGoalGap
   }
 
   const dividerX = x(Math.max(0, histCount - 1))
@@ -637,37 +649,42 @@ export function GrowthChart({
           strokeDasharray="5 4"
         />
 
-        {/* History/projection divider */}
-        <line
-          x1={dividerX}
-          x2={dividerX}
-          y1={pad.t}
-          y2={pad.t + ih}
-          stroke="var(--neutral-300)"
-          strokeDasharray="2 3"
-        />
-        <g transform={`translate(${dividerX + 6}, ${pad.t + 14})`}>
-          <rect
-            x="0"
-            y="-10"
-            rx="4"
-            width="54"
-            height="18"
-            fill="var(--neutral-800)"
-          />
-          <text
-            x="27"
-            y="3"
-            textAnchor="middle"
-            fontSize="var(--fs-2xs)"
-            fontWeight="700"
-            fill="var(--surface)"
-            fontFamily="var(--font-body)"
-            letterSpacing="0.04em"
-          >
-            NOW
-          </text>
-        </g>
+        {/* History/projection divider — only when there is a projection
+            to divide from (L8's "Your history" view has none). */}
+        {projCount > 0 && (
+          <>
+            <line
+              x1={dividerX}
+              x2={dividerX}
+              y1={pad.t}
+              y2={pad.t + ih}
+              stroke="var(--neutral-300)"
+              strokeDasharray="2 3"
+            />
+            <g transform={`translate(${dividerX + 6}, ${pad.t + 14})`}>
+              <rect
+                x="0"
+                y="-10"
+                rx="4"
+                width="54"
+                height="18"
+                fill="var(--neutral-800)"
+              />
+              <text
+                x="27"
+                y="3"
+                textAnchor="middle"
+                fontSize="var(--fs-2xs)"
+                fontWeight="700"
+                fill="var(--surface)"
+                fontFamily="var(--font-body)"
+                letterSpacing="0.04em"
+              >
+                NOW
+              </text>
+            </g>
+          </>
+        )}
 
         {hover && (
           <>

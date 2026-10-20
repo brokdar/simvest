@@ -2,10 +2,17 @@
 
 import { useMemo } from "react"
 import { Sparkline } from "@/components/sparkline"
-import { bucketEventsForSparkline, eventAmount, inferCadence } from "@/lib/calc"
-import { fmtEUR, fmtPct } from "@/lib/format"
-import { fmtDate, fromISODate } from "@/lib/dates"
+import { eventAmount, inferCadence } from "@/lib/calc"
 import {
+  bucketByMonthEnding,
+  dateMonthIdx,
+  fromMonthIdx,
+  recordedSpan,
+} from "@/lib/income-window"
+import { fmtEUR, fmtPct } from "@/lib/format"
+import { fmtDate, fmtMonth, fromISODate } from "@/lib/dates"
+import {
+  CADENCE_HINT,
   CADENCE_LABEL,
   type DividendBasis,
   type IncomeCadence,
@@ -20,6 +27,8 @@ type Props = {
   sort: { key: IncomeSortKey; dir: IncomeSortDir }
   onSortChange: (next: { key: IncomeSortKey; dir: IncomeSortDir }) => void
   highlightedHoldingId: number | "interest" | null
+  /** The persistent `?holding=` filter — drives each name button's aria-pressed. */
+  selectedHoldingId: number | "interest" | null
   onRowHover: (id: number | "interest" | null) => void
   onRowSelect: (id: number | "interest") => void
   /** SSR-anchored "now" — see DataProvider.today. */
@@ -38,11 +47,14 @@ type Row = {
 }
 
 const CADENCE_RANK: Record<IncomeCadence, number> = {
-  monthly: 0,
-  quarterly: 1,
-  "semi-annual": 2,
-  annual: 3,
-  irregular: 4,
+  daily: 0,
+  weekly: 1,
+  monthly: 2,
+  quarterly: 3,
+  "semi-annual": 4,
+  annual: 5,
+  irregular: 6,
+  single: 7,
 }
 
 export function PerHoldingTable({
@@ -52,10 +64,17 @@ export function PerHoldingTable({
   sort,
   onSortChange,
   highlightedHoldingId,
+  selectedHoldingId,
   onRowHover,
   onRowSelect,
   asOf,
 }: Props) {
+  // Trend windows end with the last recorded month in view, not today, so
+  // months that haven't been imported yet don't draw as a drop to zero.
+  const trendEnd = useMemo(
+    () => recordedSpan(events)?.last ?? dateMonthIdx(asOf),
+    [events, asOf]
+  )
   const rows = useMemo<Row[]>(() => {
     const grouped = new Map<string, IncomeEventDTO[]>()
     for (const e of events) {
@@ -84,12 +103,22 @@ export function PerHoldingTable({
         count: list.length,
         cadence: inferCadence(list),
         pct: totalScoped > 0 ? (received / totalScoped) * 100 : 0,
-        spark: bucketEventsForSparkline(list, 24, basis, asOf),
+        spark: bucketByMonthEnding(list, trendEnd, 24, basis),
       })
     }
     out.sort((a, b) => compareRows(a, b, sort.key, sort.dir))
     return out
-  }, [events, basis, totalScoped, sort, asOf])
+  }, [events, basis, totalScoped, sort, trendEnd])
+  // One scale for the whole column (N12): a row's peak is drawn against the
+  // biggest month of any row, so a 10× smaller source looks 10× smaller.
+  const sparkDomain = useMemo(
+    () => ({ min: 0, max: Math.max(1, ...rows.flatMap((r) => r.spark)) }),
+    [rows]
+  )
+  const trendLabel = (() => {
+    const { year, month } = fromMonthIdx(trendEnd)
+    return `24 mo to ${fmtMonth(year, month)}`
+  })()
 
   if (rows.length === 0) {
     return (
@@ -147,7 +176,13 @@ export function PerHoldingTable({
               onSort={onSortChange}
               numeric
             />
-            <th style={{ width: 140 }}>24 mo trend</th>
+            <th
+              style={{ width: 140 }}
+              title="Monthly payouts, every row on the same scale"
+              data-testid="income-trend-header"
+            >
+              {trendLabel}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -172,14 +207,14 @@ export function PerHoldingTable({
                   <button
                     type="button"
                     onClick={() => onRowSelect(r.id)}
-                    className="focus-ring"
+                    className="ph-name-btn tap-pad focus-ring"
                     aria-label={`Filter income by ${r.name}`}
+                    aria-pressed={selectedHoldingId === r.id}
                     translate="no"
                     title={r.name}
                     style={{
                       background: "transparent",
                       border: "none",
-                      padding: 0,
                       font: "inherit",
                       color: "inherit",
                       cursor: "pointer",
@@ -205,7 +240,13 @@ export function PerHoldingTable({
                   {r.count}
                 </td>
                 <td className="td-ph-cadence" data-label="Cadence">
-                  <span className="chip">{CADENCE_LABEL[r.cadence]}</span>
+                  <span
+                    className="chip"
+                    title={CADENCE_HINT[r.cadence]}
+                    data-testid={`income-cadence-${r.id}`}
+                  >
+                    {CADENCE_LABEL[r.cadence]}
+                  </span>
                 </td>
                 <td
                   className="num mono td-ph-share"
@@ -241,7 +282,7 @@ export function PerHoldingTable({
                   </span>
                 </td>
                 <td className="td-ph-spark">
-                  <Sparkline data={r.spark} />
+                  <Sparkline data={r.spark} domain={sparkDomain} />
                 </td>
               </tr>
             )

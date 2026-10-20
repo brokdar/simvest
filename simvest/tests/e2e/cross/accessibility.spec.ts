@@ -113,8 +113,8 @@ test.describe("Accessibility — cross-cutting", () => {
   test("E2E-X-A11Y-004 — Escape closes the goal editor dialog", async ({
     page,
   }) => {
-    await page.goto("/planning")
-    await expect(page.locator("h1")).toContainText("Planning")
+    await page.goto("/goals")
+    await expect(page.locator("h1")).toContainText("Goals")
 
     // Open goal editor
     await page.getByTestId("action-new-goal").click()
@@ -240,8 +240,8 @@ test.describe("Accessibility — cross-cutting", () => {
   test("E2E-X-A11Y-008 — planning kind radiogroup has correct ARIA attributes and updates on switch", async ({
     page,
   }) => {
-    await page.goto("/planning")
-    await expect(page.locator("h1")).toContainText("Planning")
+    await page.goto("/goals")
+    await expect(page.locator("h1")).toContainText("Goals")
 
     // Open the New goal editor to see the kind radiogroup
     await page.getByTestId("action-new-goal").click()
@@ -315,7 +315,7 @@ test.describe("Accessibility — cross-cutting", () => {
     // column. MoneyInput appends the currency name ("…in euros") to its label
     // for screen reader clarity, so match the column name as a prefix.
     await expect(
-      firstRow.locator('input[aria-label^="Invested"]')
+      firstRow.locator('input[aria-label^="Added this month"]')
     ).toBeVisible()
     await expect(
       firstRow.locator('input[aria-label^="Portfolio value"]')

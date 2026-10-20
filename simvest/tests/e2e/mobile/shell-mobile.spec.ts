@@ -129,11 +129,21 @@ test.describe("Shell — mobile", () => {
     page,
   }) => {
     await page.goto("/")
-    const notifBtn = page.locator('button[aria-label="Notifications"]')
+    const notifBtn = page.getByTestId("notifications-trigger")
     await expect(notifBtn).toBeVisible()
+    await expect(notifBtn).toHaveAttribute("aria-label", /^Notifications/)
     const box = await notifBtn.boundingBox()
     expect(box?.width).toBeGreaterThanOrEqual(36)
     expect(box?.height).toBeGreaterThanOrEqual(36)
+
+    // P3: the bell opens a real panel, kept inside the phone viewport.
+    await notifBtn.tap()
+    const panel = page.getByTestId("notifications-panel")
+    await expect(panel).toBeVisible()
+    const pb = await panel.boundingBox()
+    const vw = page.viewportSize()!.width
+    expect(pb!.x).toBeGreaterThanOrEqual(0)
+    expect(pb!.x + pb!.width).toBeLessThanOrEqual(vw)
   })
 
   // E2E-M-SHELL-009 — The page <h1> is the single visible title; the topbar

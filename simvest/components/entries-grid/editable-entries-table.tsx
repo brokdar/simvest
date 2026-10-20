@@ -1,5 +1,6 @@
 "use client"
 
+import { useToast } from "@/components/providers/toast"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   AlertDialog,
@@ -25,6 +26,7 @@ import {
 } from "@/components/entries-grid/draft-row"
 import type { UseEditableEntries } from "@/components/entries-grid/use-editable-entries"
 import type { EntryDTO, PortfolioDTO, SettingsDTO } from "@/lib/types"
+import { MonthYearPicker } from "@/components/month-year-picker"
 import { fmtDate } from "@/lib/dates"
 import { fmtCount } from "@/lib/format"
 
@@ -92,10 +94,16 @@ export function EditableEntriesTable({
     }
   }, [dirtyCount, exitEditMode])
 
+  const { toast } = useToast()
   const confirmCancel = useCallback(() => {
     setCancelConfirmOpen(false)
     exitEditMode()
-  }, [exitEditMode])
+    // D6: discarding must not look like saving — say what was thrown away.
+    toast(
+      `Discarded ${fmtCount(dirtyCount, "change", "changes")} — nothing was saved`,
+      "info"
+    )
+  }, [exitEditMode, toast, dirtyCount])
 
   const confirmDelete = useCallback(() => {
     if (pendingDelete) toggleDelete(pendingDelete)
@@ -115,6 +123,25 @@ export function EditableEntriesTable({
     () => [...portfolio.entries].reverse(),
     [portfolio.entries]
   )
+
+  // M8: jump straight to a month instead of scrolling through years of rows.
+  // Only months that have a row are pickable, so a jump always lands.
+  const entryMonths = useMemo(
+    () => new Set(portfolio.entries.map((e) => `${e.year}-${e.month}`)),
+    [portfolio.entries]
+  )
+  const firstEntry = portfolio.entries[0]
+  const lastEntry = portfolio.entries.at(-1)
+  const jumpTo = useCallback((v: { year: number; month: number } | null) => {
+    if (!v) return
+    const row = document.querySelector<HTMLElement>(
+      `[data-testid="entries-table"] tr[data-month="${v.year}-${v.month}"]`
+    )
+    if (!row) return
+    row.scrollIntoView({ block: "center" })
+    row.dataset.flash = "true"
+    window.setTimeout(() => delete row.dataset.flash, 1800)
+  }, [])
 
   // Keyboard shortcuts: only fire when the user isn't typing into a field.
   //   E         — toggle edit mode (only when not already in it)
@@ -184,10 +211,28 @@ export function EditableEntriesTable({
           flexWrap: "wrap",
         }}
       >
-        <div className="muted small" data-testid="entries-grid-mode-hint">
-          {editMode
-            ? "Editing — make changes, then Save all"
-            : "Read-only — click Edit table to make changes"}
+        <div className="entries-grid-lead">
+          <div className="muted small" data-testid="entries-grid-mode-hint">
+            {isCombined
+              ? "All accounts added up, month by month — pick an account in the header to edit its rows"
+              : editMode
+                ? "Editing — make changes, then Save all"
+                : "Read-only — click Edit table to make changes"}
+          </div>
+          {firstEntry && lastEntry && portfolio.entries.length > 12 && (
+            <div className="entries-jump">
+              <MonthYearPicker
+                value={null}
+                onChange={jumpTo}
+                placeholder="Jump to month"
+                ariaLabel="Jump to month"
+                testId="entries-jump"
+                maxDate={{ year: lastEntry.year, month: lastEntry.month }}
+                minYear={firstEntry.year}
+                isMonthEnabled={(y, m) => entryMonths.has(`${y}-${m}`)}
+              />
+            </div>
+          )}
         </div>
         <div
           className="entries-grid-actions"
@@ -254,7 +299,9 @@ export function EditableEntriesTable({
 
       <div
         className="card"
-        style={{ padding: 0, overflow: "hidden" }}
+        // clip (not hidden): rounds the corners without becoming a scroll
+        // container, which would pin the sticky header to the card.
+        style={{ padding: 0, overflow: "clip" }}
         data-testid="entries-table"
         data-edit-mode={editMode ? "true" : "false"}
       >
@@ -262,9 +309,14 @@ export function EditableEntriesTable({
           <thead>
             <tr>
               <th className="th-date">Date</th>
-              <th className="num">Invested</th>
+              <th className="num">Added this month</th>
               <th className="num">Portfolio value</th>
-              <th className="num">M/M Δ</th>
+              <th
+                className="num"
+                title="Change in value since the previous recorded month, minus what you added"
+              >
+                M/M Δ
+              </th>
               <th>Note</th>
               <th style={{ width: 80 }} aria-label="Actions" scope="col"></th>
             </tr>
@@ -276,7 +328,7 @@ export function EditableEntriesTable({
                   key={draft.key}
                   entry={null}
                   draft={draft}
-                  prev={null}
+                  history={null}
                   editMode={true}
                   defaultEntryDay={settings.defaultEntryDay}
                   isFocusPending={pendingFocusKey === draft.key}
@@ -298,15 +350,16 @@ export function EditableEntriesTable({
               ))}
             {reversedEntries.map((e, idx) => {
               const originalIdx = portfolio.entries.length - 1 - idx
-              const prev =
-                originalIdx > 0 ? portfolio.entries[originalIdx - 1] : null
               const draft = drafts.get(`entry-${e.id}`) ?? null
+              // Combined rows are synthetic (shared id) — key them by month.
+              const rowKey =
+                e.id > 0 ? `entry-${e.id}` : `month-${e.year}-${e.month}`
               return (
                 <EditableRow
-                  key={`entry-${e.id}`}
+                  key={rowKey}
                   entry={e}
                   draft={draft}
-                  prev={prev}
+                  history={{ entries: portfolio.entries, index: originalIdx }}
                   editMode={editMode}
                   defaultEntryDay={settings.defaultEntryDay}
                   isFocusPending={pendingFocusKey === `entry-${e.id}`}

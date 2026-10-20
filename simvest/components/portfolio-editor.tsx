@@ -40,6 +40,9 @@ type Props = {
   onOpenChange: (open: boolean) => void
   mode?: Mode
   onSave: (form: PortfolioEditorPayload) => Promise<void>
+  /** Pre-filled monthly contribution for a new portfolio (Settings →
+   * "Starting contribution for new portfolios"). */
+  defaultMonthlyContribution?: number
 }
 
 type FormState = {
@@ -91,6 +94,7 @@ export function PortfolioEditor({
   onOpenChange,
   mode = { kind: "create" },
   onSave,
+  defaultMonthlyContribution,
 }: Props) {
   const { locale } = useResolvedLocale()
   // No id on the payload — use the portfolio name as the editor key. Renames
@@ -98,7 +102,13 @@ export function PortfolioEditor({
   // open against a different record".
   const editKey = mode.kind === "edit" ? `edit-${mode.initial.name}` : "create"
   const [form, setForm] = useEditorForm<FormState>(open, editKey, () =>
-    mode.kind === "edit" ? fromInitial(mode.initial) : EMPTY_FORM
+    mode.kind === "edit"
+      ? fromInitial(mode.initial)
+      : {
+          ...EMPTY_FORM,
+          targetMonthlyContribution:
+            defaultMonthlyContribution ?? EMPTY_FORM.targetMonthlyContribution,
+        }
   )
   const [errors, setErrors] = useState<ErrorMap>({})
   const [submitting, setSubmitting] = useState(false)
@@ -282,6 +292,13 @@ export function PortfolioEditor({
                   ariaLabel="Monthly contribution"
                   testId="monthly-contribution-input"
                 />
+                <div
+                  className="muted small"
+                  style={{ fontSize: "var(--fs-2xs)", marginTop: 4 }}
+                >
+                  What you plan to add each month. The Projection and your goals
+                  count on it; €0 is fine if you’ve stopped.
+                </div>
                 {errors.monthlyContribution && (
                   <FieldError>{errors.monthlyContribution}</FieldError>
                 )}
@@ -340,8 +357,8 @@ export function PortfolioEditor({
                       }
                     />
                     <ModeRadio
-                      label="Carrying over a prior balance"
-                      hint="Anchors gain & CAGR to your real cost basis."
+                      label="I already had money in here"
+                      hint="Tell us what you’d paid in before your first entry. It counts as invested, so your gain and yearly growth (CAGR) aren’t inflated by money that was already there."
                       selected={form.startingMode === "carryover"}
                       onSelect={() =>
                         setForm({ ...form, startingMode: "carryover" })
@@ -359,7 +376,7 @@ export function PortfolioEditor({
                         }}
                       >
                         <div>
-                          <FieldLabel>Value</FieldLabel>
+                          <FieldLabel>Already paid in</FieldLabel>
                           <MoneyInput
                             value={form.startingValue}
                             onChange={(v, err) => {
@@ -373,15 +390,22 @@ export function PortfolioEditor({
                             min={0}
                             allowEmpty
                             placeholder="0,00"
-                            ariaLabel="Starting portfolio value"
+                            ariaLabel="Amount already paid in before tracking"
                             testId="starting-value-input"
                           />
+                          <div
+                            className="muted small"
+                            style={{ fontSize: "var(--fs-2xs)", marginTop: 4 }}
+                            data-testid="starting-value-hint"
+                          >
+                            Your own money in, not what it was worth.
+                          </div>
                           {errors.startingValue && (
                             <FieldError>{errors.startingValue}</FieldError>
                           )}
                         </div>
                         <div>
-                          <FieldLabel>Anchored to</FieldLabel>
+                          <FieldLabel>As of</FieldLabel>
                           <MonthYearPicker
                             value={form.startingDate}
                             onChange={(d) => {

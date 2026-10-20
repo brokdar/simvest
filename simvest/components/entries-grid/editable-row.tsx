@@ -12,12 +12,18 @@ import {
   type DraftRow,
 } from "@/components/entries-grid/draft-row"
 import { fmtDate, fmtMonthLong } from "@/lib/dates"
+import { valueChange } from "@/lib/calc"
 import type { EntryDTO } from "@/lib/types"
 
 type Props = {
   entry: EntryDTO | null
   draft: DraftRow | null
-  prev: EntryDTO | null
+  /**
+   * The portfolio's saved entries and this row's index in them, so the M/M Δ
+   * can compare with the closest earlier *valued* row over the real gap
+   * (N13). Null for draft rows, which have no history position yet.
+   */
+  history: { entries: EntryDTO[]; index: number } | null
   editMode: boolean
   defaultEntryDay: string
   isFocusPending: boolean
@@ -43,7 +49,7 @@ type Props = {
 export function EditableRow({
   entry,
   draft,
-  prev,
+  history,
   editMode,
   defaultEntryDay,
   isFocusPending,
@@ -93,14 +99,13 @@ export function EditableRow({
   const isExisting = display.original !== null
   const isToDelete = display.toDelete
 
-  const delta =
-    prev &&
-    display.value !== null &&
-    prev.value !== null &&
-    isExisting &&
-    !isToDelete
-      ? display.value - prev.value - display.invested
-      : 0
+  const change =
+    history && isExisting && !isToDelete
+      ? valueChange(history.entries, history.index, {
+          value: display.value,
+          invested: display.invested,
+        })
+      : null
 
   // A rejected amount means the row's numbers are unresolved: don't derive
   // anything (M/M Δ) from the last good value as if it still stood.
@@ -117,13 +122,16 @@ export function EditableRow({
 
   if (!editMode) {
     return (
-      <tr data-testid={`entry-row-${testIdSuffix}`}>
+      <tr
+        data-testid={`entry-row-${testIdSuffix}`}
+        data-month={`${display.year}-${display.month}`}
+      >
         <td className="td-date">
           <div style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
             {fmtDate(display.year, display.month, display.day)}
           </div>
         </td>
-        <td className="num td-invested" data-label="Invested">
+        <td className="num td-invested" data-label="Added this month">
           <Money
             value={display.invested}
             sign
@@ -138,11 +146,7 @@ export function EditableRow({
           <Money value={display.value} />
         </td>
         <td className="num td-delta" data-label="M/M Δ">
-          {display.value == null || prev?.value == null ? (
-            <span className="muted mono">—</span>
-          ) : (
-            <Money value={delta} sign tone="auto" />
-          )}
+          <DeltaCell change={change} />
         </td>
         <td
           className="td-note"
@@ -153,7 +157,8 @@ export function EditableRow({
             fontStyle: display.note ? "normal" : "italic",
           }}
         >
-          {display.note || <span className="muted">—</span>}
+          {/* L9: an empty note is just empty — 200 em-dashes said nothing. */}
+          {display.note}
         </td>
         <td className="td-actions"></td>
       </tr>
@@ -165,6 +170,7 @@ export function EditableRow({
     <Fragment>
       <tr
         data-testid={`entry-row-${testIdSuffix}`}
+        data-month={`${display.year}-${display.month}`}
         data-dirty={isToDelete || display.touched.size > 0 ? "true" : undefined}
         data-draft={!isExisting ? "true" : undefined}
         style={{ opacity: rowOpacity, textDecoration: rowDecoration }}
@@ -180,12 +186,12 @@ export function EditableRow({
             testId={`cell-date-${testIdSuffix}`}
           />
         </td>
-        <td className="num td-invested" data-label="Invested">
+        <td className="num td-invested" data-label="Added this month">
           <CellMoney
             value={display.invested}
             onChange={(v) => onUpdateCell("invested", v ?? 0)}
             onError={(err) => onCellError("invested", err)}
-            ariaLabel="Invested"
+            ariaLabel="Added this month"
             dirty={display.touched.has("invested")}
             allowEmpty={true}
             min={undefined}
@@ -209,17 +215,15 @@ export function EditableRow({
           data-label="M/M Δ"
           data-testid={`cell-delta-${testIdSuffix}`}
         >
-          {unresolved || display.value == null || prev?.value == null ? (
+          {unresolved ? (
             <span
               className="muted mono"
-              title={
-                unresolved ? "Fix the amount to see the change" : undefined
-              }
+              title="Fix the amount to see the change"
             >
               —
             </span>
           ) : (
-            <Money value={delta} sign tone="auto" />
+            <DeltaCell change={change} />
           )}
         </td>
         <td className="td-note" data-label="Note">
@@ -288,5 +292,33 @@ export function EditableRow({
         </tr>
       )}
     </Fragment>
+  )
+}
+
+/**
+ * Value change net of contributions. When the closest earlier valued row is
+ * more than one month back, the figure covers that whole gap — say so rather
+ * than passing a multi-month change off as one month (N13).
+ */
+function DeltaCell({ change }: { change: ReturnType<typeof valueChange> }) {
+  if (!change) return <span className="muted mono">—</span>
+  if (change.gapMonths === 1) {
+    return <Money value={change.delta} sign tone="auto" />
+  }
+  return (
+    <span
+      title={`Change over ${change.gapMonths} months — no value was recorded in between`}
+      data-testid="delta-gap"
+      style={{
+        display: "inline-flex",
+        flexDirection: "column",
+        alignItems: "flex-end",
+      }}
+    >
+      <Money value={change.delta} sign tone="auto" />
+      <span className="muted" style={{ fontSize: "var(--fs-2xs)" }}>
+        over {change.gapMonths} mo
+      </span>
+    </span>
   )
 }

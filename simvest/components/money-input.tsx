@@ -223,8 +223,18 @@ export function MoneyInput({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <div ref={fieldRef} style={{ position: "relative" }}>
-        {echoText && echoInField && (
-          <EchoChip id={echoId} text={echoText} inField testId={testId} />
+        {/* The echo is absolutely positioned (inside the field, or on its
+            bottom edge), so it showing on focus and going on blur never
+            moves anything — e.g. never shifts Save out from under a tap. */}
+        {echoText && (
+          <EchoChip
+            id={echoId}
+            text={echoText}
+            inField={echoInField}
+            // Opposite the typed digits, so it never sits on them.
+            side={align === "right" ? "left" : "right"}
+            testId={testId}
+          />
         )}
         <span
           aria-hidden
@@ -285,9 +295,6 @@ export function MoneyInput({
           }}
         />
       </div>
-      {echoText && !echoInField && (
-        <EchoChip id={echoId} text={echoText} testId={testId} />
-      )}
       {error && (
         <div
           id={errorId}
@@ -325,11 +332,13 @@ function EchoChip({
   id,
   text,
   inField = false,
+  side,
   testId,
 }: {
   id: string
   text: string
   inField?: boolean
+  side: "left" | "right"
   testId?: string
 }) {
   return (
@@ -337,6 +346,7 @@ function EchoChip({
       id={id}
       className="money-echo"
       data-in-field={inField || undefined}
+      data-side={side}
       data-testid={testId ? `echo-${testId}` : undefined}
       // Polite, not assertive: the echo updates on every keystroke.
       aria-live="polite"

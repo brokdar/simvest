@@ -23,6 +23,7 @@ export function SaveFooter({
 }: Props) {
   return (
     <div
+      className="entries-save-footer"
       data-testid="entries-grid-save-footer"
       style={{
         position: "sticky",

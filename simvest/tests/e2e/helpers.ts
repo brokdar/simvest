@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test"
+import { expect, type Locator, type Page } from "@playwright/test"
 
 /**
  * Navigate via the primary nav in a viewport-agnostic way.
@@ -68,4 +68,40 @@ export async function preselectPortfolio(page: Page, id: number) {
       /* ignore */
     }
   }, value)
+}
+
+/**
+ * Move a range input to `value` and wait until React has picked it up.
+ *
+ * Range inputs ignore `fill()` on WebKit, and a programmatic `.value =`
+ * bypasses React's value tracker, so this drives the slider with the
+ * keyboard. It first waits for hydration (React attaches its props to the
+ * element), then re-presses until the value reaches the target: under
+ * parallel load the browser occasionally drops a press. Returns the value.
+ */
+export async function setRange(locator: Locator, value: number) {
+  await expect(locator).toBeEnabled()
+  await expect
+    .poll(() =>
+      locator.evaluate((el) =>
+        Object.keys(el).some((k) => k.startsWith("__reactProps"))
+      )
+    )
+    .toBe(true)
+  const step = Number((await locator.getAttribute("step")) || "1")
+  const read = async () => Number(await locator.inputValue())
+  const reached = (v: number) => Math.abs(v - value) < step / 2
+  await locator.focus()
+  await expect
+    .poll(
+      async () => {
+        const current = await read()
+        if (reached(current)) return true
+        await locator.press(current < value ? "ArrowRight" : "ArrowLeft")
+        return reached(await read())
+      },
+      { timeout: 15_000, intervals: [0, 20, 50, 100] }
+    )
+    .toBe(true)
+  return read()
 }

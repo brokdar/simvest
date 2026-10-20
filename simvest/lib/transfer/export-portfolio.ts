@@ -137,6 +137,7 @@ export async function exportPortfolio(
       target: round2(g.target),
       swr: g.swr,
       yieldAssumed: g.yieldAssumed,
+      returnAssumed: g.returnAssumed,
       createdAt: g.createdAt,
     })),
     ...(combinedGoalsExcluded > 0 ? { meta: { combinedGoalsExcluded } } : {}),

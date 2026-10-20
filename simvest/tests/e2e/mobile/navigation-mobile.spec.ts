@@ -20,7 +20,7 @@ test.describe("Navigation — mobile", () => {
   test("E2E-M-NAV-001 — tapping Overview navigates to / and shows active state", async ({
     page,
   }) => {
-    await page.goto("/chart")
+    await page.goto("/projection")
     await page.evaluate(() => localStorage.clear())
 
     const drawer = await openDrawer(page)
@@ -33,27 +33,29 @@ test.describe("Navigation — mobile", () => {
     // unambiguous.
     const sidebar = page.getByTestId("sidebar")
     await expect(sidebar.getByTestId("nav-overview")).toHaveClass(/active/)
-    await expect(sidebar.getByTestId("nav-chart")).not.toHaveClass(/active/)
+    await expect(sidebar.getByTestId("nav-projection")).not.toHaveClass(
+      /active/
+    )
     // The page <h1> is the single visible title now (the breadcrumb is hidden).
     await expect(page.locator("h1.title")).toContainText("Overview")
   })
 
-  // E2E-M-NAV-002 — Tapping the Forecast item navigates to /chart
-  test("E2E-M-NAV-002 — tapping Forecast navigates to /chart", async ({
+  // E2E-M-NAV-002 — Tapping the Projection item navigates to /projection
+  test("E2E-M-NAV-002 — tapping Projection navigates to /projection", async ({
     page,
   }) => {
     await page.goto("/")
     await page.evaluate(() => localStorage.clear())
 
     const drawer = await openDrawer(page)
-    await drawer.getByTestId("nav-chart").tap()
-    await page.waitForURL("**/chart")
+    await drawer.getByTestId("nav-projection").tap()
+    await page.waitForURL("**/projection")
 
-    expect(page.url()).toContain("/chart")
+    expect(page.url()).toContain("/projection")
     await expect(
-      page.getByTestId("sidebar").getByTestId("nav-chart")
+      page.getByTestId("sidebar").getByTestId("nav-projection")
     ).toHaveClass(/active/)
-    await expect(page.locator("h1.title")).toContainText("Forecast")
+    await expect(page.locator("h1.title")).toContainText("Projection")
   })
 
   // E2E-M-NAV-003 — Tapping the Monthly Entries item navigates to /entries
@@ -74,12 +76,10 @@ test.describe("Navigation — mobile", () => {
     await expect(page.locator("h1.title")).toContainText("Monthly entries")
   })
 
-  // E2E-M-NAV-004 — /simulation legacy redirects to /planning
-  test("E2E-M-NAV-004 — /simulation redirects to /planning", async ({
-    page,
-  }) => {
-    // The Simulation and Goals tabs were merged into a single Planning route
-    // (next.config.mjs has 301 redirects for /simulation and /goals → /planning).
+  // E2E-M-NAV-004 — /simulation legacy redirects to /goals
+  test("E2E-M-NAV-004 — /simulation redirects to /goals", async ({ page }) => {
+    // The Simulation tab was merged into the goal planner, now /goals
+    // (next.config.mjs 301s /simulation and the old /planning → /goals).
     await page.addInitScript(() => {
       try {
         window.localStorage.clear()
@@ -89,31 +89,31 @@ test.describe("Navigation — mobile", () => {
     })
 
     await page.goto("/simulation")
-    await page.waitForURL("**/planning")
+    await page.waitForURL("**/goals")
 
-    expect(page.url()).toContain("/planning")
+    expect(page.url()).toContain("/goals")
     await expect(
-      page.getByTestId("sidebar").getByTestId("nav-planning")
+      page.getByTestId("sidebar").getByTestId("nav-goals")
     ).toHaveClass(/active/)
-    await expect(page.locator("h1.title")).toContainText("Planning")
+    await expect(page.locator("h1.title")).toContainText("Goals")
   })
 
-  // E2E-M-NAV-005 — Tapping the Planning item navigates to /planning
-  test("E2E-M-NAV-005 — tapping Planning navigates to /planning", async ({
+  // E2E-M-NAV-005 — Tapping the Goals item navigates to /goals
+  test("E2E-M-NAV-005 — tapping Goals navigates to /goals", async ({
     page,
   }) => {
     await page.goto("/")
     await page.evaluate(() => localStorage.clear())
 
     const drawer = await openDrawer(page)
-    await drawer.getByTestId("nav-planning").tap()
-    await page.waitForURL("**/planning")
+    await drawer.getByTestId("nav-goals").tap()
+    await page.waitForURL("**/goals")
 
-    expect(page.url()).toContain("/planning")
+    expect(page.url()).toContain("/goals")
     await expect(
-      page.getByTestId("sidebar").getByTestId("nav-planning")
+      page.getByTestId("sidebar").getByTestId("nav-goals")
     ).toHaveClass(/active/)
-    await expect(page.locator("h1.title")).toContainText("Planning")
+    await expect(page.locator("h1.title")).toContainText("Goals")
   })
 
   // E2E-M-NAV-006 — Tapping the Settings item navigates to /settings
@@ -138,10 +138,10 @@ test.describe("Navigation — mobile", () => {
   test("E2E-M-NAV-007 — active state has accent background on mobile", async ({
     page,
   }) => {
-    await page.goto("/chart")
+    await page.goto("/projection")
 
     const drawer = await openDrawer(page)
-    const activeItem = drawer.getByTestId("nav-chart")
+    const activeItem = drawer.getByTestId("nav-projection")
     await expect(activeItem).toHaveClass(/active/)
 
     const activeBg = await activeItem.evaluate(
@@ -171,8 +171,8 @@ test.describe("Navigation — mobile", () => {
       "nav-holdings",
       "nav-entries",
       "nav-income",
-      "nav-chart",
-      "nav-planning",
+      "nav-projection",
+      "nav-goals",
       "nav-settings",
     ]
 
@@ -250,15 +250,15 @@ test.describe("Navigation — mobile", () => {
     expect(newName).not.toBe(initialName)
   })
 
-  // E2E-M-NAV-011 — Deep-link to /simulation redirects + activates nav-planning
-  test("E2E-M-NAV-011 — deep-link to /simulation redirects and activates nav-planning", async ({
+  // E2E-M-NAV-011 — Deep-link to /simulation redirects + activates nav-goals
+  test("E2E-M-NAV-011 — deep-link to /simulation redirects and activates nav-goals", async ({
     page,
   }) => {
     await page.goto("/simulation")
-    await page.waitForURL("**/planning")
+    await page.waitForURL("**/goals")
 
     await expect(
-      page.getByTestId("sidebar").getByTestId("nav-planning")
+      page.getByTestId("sidebar").getByTestId("nav-goals")
     ).toHaveClass(/active/)
   })
 
@@ -269,11 +269,11 @@ test.describe("Navigation — mobile", () => {
     await page.goto("/")
 
     const routes: Array<[string, string, string]> = [
-      ["nav-chart", "**/chart", "Forecast"],
+      ["nav-projection", "**/projection", "Projection"],
       ["nav-entries", "**/entries", "Monthly entries"],
       ["nav-holdings", "**/holdings", "Holdings"],
       ["nav-income", "**/income", "Income"],
-      ["nav-planning", "**/planning", "Planning"],
+      ["nav-goals", "**/goals", "Goals"],
       ["nav-settings", "**/settings", "Settings"],
       ["nav-overview", "**/", "Overview"],
     ]

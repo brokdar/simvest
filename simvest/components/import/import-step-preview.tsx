@@ -143,7 +143,7 @@ export function ImportStepPreview({
                 <thead>
                   <tr>
                     <th>Month</th>
-                    <th className="num">Invested</th>
+                    <th className="num">Added this month</th>
                     <th className="num">Value</th>
                     <th className="import-action-col">Action</th>
                   </tr>
