@@ -20,11 +20,11 @@ priority = 0
 id = "eslint"
 name = "ESLint"
 language = "system"
-entry = "cd simvest && bun run eslint --max-warnings=0 ."
+entry = "cd simvest && bun run lint --max-warnings=0 ."
 shell = "bash"
 pass_filenames = false
 files = { glob = "simvest/**/*.{ts,tsx}" }
-priority = 10
+priority = 0
 
 [[repos.hooks]]
 id = "typecheck"
@@ -34,7 +34,7 @@ entry = "cd simvest && bun run typecheck"
 shell = "bash"
 pass_filenames = false
 files = { glob = "simvest/**/*.{ts,tsx}" }
-priority = 20
+priority = 0
 
 [[repos.hooks]]
 id = "test"
@@ -44,4 +44,4 @@ entry = "cd simvest && bun run test"
 shell = "bash"
 pass_filenames = false
 files = { glob = "simvest/**/*.{ts,tsx}" }
-priority = 30
+priority = 0

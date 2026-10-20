@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process"
+import { createHash } from "node:crypto"
 import path from "node:path"
 import fs from "node:fs"
 import { fileURLToPath } from "node:url"
@@ -30,9 +31,22 @@ export default async function globalSetup() {
   if (fs.existsSync(e2eDir)) fs.rmSync(e2eDir, { recursive: true, force: true })
   fs.mkdirSync(e2eDir, { recursive: true })
 
-  // Skip the build if a fresh standalone already exists (set
-  // E2E_SKIP_BUILD=1 for warm dev iteration; CI / first runs build clean).
+  // E2E_SKIP_BUILD=1 reuses whatever standalone exists, unconditionally.
   if (process.env.E2E_SKIP_BUILD === "1" && fs.existsSync(standalone)) return
+
+  // Otherwise skip only if the build inputs are unchanged since the last
+  // build — editing specs alone never rebuilds. E2E_FORCE_BUILD=1 rebuilds.
+  const stampFile = path.resolve(dotNext, "build-inputs.sha256")
+  const inputsHash = hashBuildInputs()
+  if (
+    process.env.E2E_FORCE_BUILD !== "1" &&
+    fs.existsSync(standalone) &&
+    fs.existsSync(stampFile) &&
+    fs.readFileSync(stampFile, "utf8") === inputsHash
+  ) {
+    console.error("[e2e] build inputs unchanged — reusing " + E2E_DIST_DIR)
+    return
+  }
 
   // Otherwise wipe + build.
   if (fs.existsSync(dotNext))
@@ -41,6 +55,7 @@ export default async function globalSetup() {
   runOrThrow("bun", ["run", "next", "build"], {
     NEXT_DIST_DIR: E2E_DIST_DIR,
     NEXT_TSCONFIG_PATH: "tsconfig.e2e.json",
+    NEXT_SKIP_TYPECHECK: "1",
   })
 
   // The standalone output doesn't include static assets or public/ — copy
@@ -60,6 +75,56 @@ export default async function globalSetup() {
       `Expected ${standalone} after next build, but it does not exist`
     )
   }
+
+  // Written last, so a failed or interrupted build never looks reusable.
+  fs.writeFileSync(stampFile, inputsHash)
+}
+
+// Everything `next build` reads. Tests are deliberately not inputs.
+const BUILD_INPUT_DIRS = [
+  "app",
+  "components",
+  "hooks",
+  "lib",
+  "public",
+  "drizzle",
+]
+const BUILD_INPUT_FILES = [
+  "package.json",
+  "bun.lock",
+  "next.config.mjs",
+  "tsconfig.json",
+  "postcss.config.mjs",
+  "components.json",
+]
+
+function hashBuildInputs(): string {
+  const files = [...BUILD_INPUT_FILES]
+  for (const name of fs.readdirSync(PROJECT_ROOT)) {
+    if (name.startsWith(".env")) files.push(name)
+  }
+  for (const dir of BUILD_INPUT_DIRS) {
+    const abs = path.resolve(PROJECT_ROOT, dir)
+    if (!fs.existsSync(abs)) continue
+    for (const entry of fs.readdirSync(abs, {
+      recursive: true,
+      withFileTypes: true,
+    })) {
+      if (entry.isFile())
+        files.push(
+          path.relative(PROJECT_ROOT, path.join(entry.parentPath, entry.name))
+        )
+    }
+  }
+  const hash = createHash("sha256")
+  for (const rel of files.sort()) {
+    const abs = path.resolve(PROJECT_ROOT, rel)
+    if (!fs.existsSync(abs)) continue
+    hash.update(rel + "\0")
+    hash.update(fs.readFileSync(abs))
+    hash.update("\0")
+  }
+  return hash.digest("hex")
 }
 
 function runOrThrow(
