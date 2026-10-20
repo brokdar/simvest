@@ -34,7 +34,7 @@ process.stdin.on('end', () => {
 
       if (tsconfigDir) {
         try {
-          execFileSync('npx', ['tsc', '--noEmit', '--pretty', 'false'], {
+          execFileSync('bun', ['run', 'tsc', '--noEmit', '--pretty', 'false'], {
             cwd: tsconfigDir,
             timeout: 30000,
             stdio: ['ignore', 'pipe', 'pipe'],

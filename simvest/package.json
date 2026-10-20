@@ -52,5 +52,8 @@
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
-  }
+  },
+  "trustedDependencies": [
+    "better-sqlite3"
+  ]
 }

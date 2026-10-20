@@ -20,8 +20,8 @@ All commands below run from this directory (`simvest/`).
 ## Getting started
 
 ```bash
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 Open **http://localhost:3000**. The app starts empty — there is no demo seed — so add a portfolio and your first monthly entry to begin.
@@ -32,24 +32,24 @@ Open **http://localhost:3000**. The app starts empty — there is no demo seed �
 ## Commands
 
 ```bash
-npm run dev          # next dev --turbopack
-npm run build        # next build (produces .next/standalone for Docker)
-npm run start        # next start (after build)
+bun run dev          # next dev --turbopack
+bun run build        # next build (produces .next/standalone for Docker)
+bun run start        # next start (after build)
 
-npm run typecheck    # tsc --noEmit
-npm run lint         # eslint
-npm run format       # prettier --write
+bun run typecheck    # tsc --noEmit
+bun run lint         # eslint
+bun run format       # prettier --write
 
-npm run test         # vitest run (unit + integration)
-npm run test:watch   # vitest (watch mode)
-npm run test:e2e     # playwright test
-npm run test:e2e:ui  # playwright test --ui
+bun run test         # vitest run (unit + integration)
+bun run test:watch   # vitest (watch mode)
+bun run test:e2e     # playwright test
+bun run test:e2e:ui  # playwright test --ui
 
-npm run import:excel # tsx scripts/import-excel.ts — one-shot ingest of an .xlsx workbook
+bun run import:excel # tsx scripts/import-excel.ts — one-shot ingest of an .xlsx workbook
 ```
 
 > [!IMPORTANT]
-> Prettier config: no semicolons, double quotes, `es5` trailing commas, with the Tailwind class-sorting plugin. Run `npm run format` before committing.
+> Prettier config: no semicolons, double quotes, `es5` trailing commas, with the Tailwind class-sorting plugin. Run `bun run format` before committing.
 
 ## Architecture
 
@@ -101,7 +101,7 @@ simvest/
 Schema lives in `lib/db/schema.ts`. To add a change:
 
 1. Edit `schema.ts`.
-2. Generate the migration: `npx drizzle-kit generate` (or hand-write the next-numbered `.sql` file and matching `drizzle/meta/_journal.json` entry).
+2. Generate the migration: `bun run drizzle-kit generate` (or hand-write the next-numbered `.sql` file and matching `drizzle/meta/_journal.json` entry).
 3. Update `tests/integration/db-migrations.test.ts` — it asserts the migration count and SHA-256-hashes each migration file.
 
 Migrations apply automatically on the next DB call.
@@ -112,12 +112,12 @@ Migrations apply automatically on the next DB call.
 - **End-to-end** (`tests/e2e/{cross,desktop,mobile}`) run under Playwright as separate projects covering responsive layouts.
 
 ```bash
-npm run test       # unit + integration
-npm run test:e2e   # end-to-end
+bun run test       # unit + integration
+bun run test:e2e   # end-to-end
 ```
 
 > [!TIP]
-> Stale `.next` after switching between `next build` and `next dev` can cause dev-mode 404s on nested dynamic POST routes. Fix with `rm -rf .next` and restart `npm run dev`.
+> Stale `.next` after switching between `next build` and `next dev` can cause dev-mode 404s on nested dynamic POST routes. Fix with `rm -rf .next` and restart `bun run dev`.
 
 ## Configuration
 

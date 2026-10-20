@@ -5,7 +5,7 @@ const { spawnSync } = require('child_process');
 const P = require('./_paths.js');
 
 const REPO = P.repoRoot() || P.PROJECT_ROOT; // git runs here; paths are repo-relative
-const APP_DIR = P.appDir(); // npm / prettier / tsc run here
+const APP_DIR = P.appDir(); // bun / prettier / tsc run here
 const MAX_STDIN = 1024 * 1024;
 const MAX_FILES = 20;
 
@@ -58,8 +58,8 @@ process.stdin.on('end', () => {
 
   // Run Prettier check
   const prettierResult = spawnSync(
-    'npx',
-    ['prettier', '--check', ...files],
+    'bun',
+    ['run', 'prettier', '--check', ...files],
     { encoding: 'utf8', cwd: APP_DIR, timeout: 30000 }
   );
   if (prettierResult.status !== 0) {
@@ -77,8 +77,8 @@ process.stdin.on('end', () => {
 
   // Run typecheck
   const tscResult = spawnSync(
-    'npx',
-    ['tsc', '--noEmit', '--pretty', 'false'],
+    'bun',
+    ['run', 'tsc', '--noEmit', '--pretty', 'false'],
     { encoding: 'utf8', cwd: APP_DIR, timeout: 60000 }
   );
   if (tscResult.status !== 0) {

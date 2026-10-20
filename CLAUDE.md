@@ -4,30 +4,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Simvest is a single-user, self-hosted portfolio manager and retirement simulator. Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind v4, ShadCN primitives, Drizzle ORM on `better-sqlite3`. There is no authentication — all routes are open and the app assumes one operator. The Next.js project lives in `/workspaces/simvest/simvest/` (this CLAUDE.md sits one level above, alongside `.devcontainer/`). Every command below runs from `/workspaces/simvest/simvest`.
+Simvest is a single-user, self-hosted portfolio manager and retirement simulator. Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind v4, ShadCN primitives, Drizzle ORM on `better-sqlite3`. There is no authentication — all routes are open and the app assumes one operator. The Next.js project lives in `simvest/` (this CLAUDE.md sits one level above, alongside `mise.toml`; toolchain via `mise install`). Every command below runs from `simvest/`.
 
 ## Commands
 
 ```bash
-npm run dev         # next dev --turbopack
-npm run build       # next build (produces .next/standalone for Docker)
-npm run start       # next start (after build)
-npm run typecheck   # tsc --noEmit
-npm run lint        # eslint
-npm run format      # prettier --write
+bun run dev         # next dev --turbopack
+bun run build       # next build (produces .next/standalone for Docker)
+bun run start       # next start (after build)
+bun run typecheck   # tsc --noEmit
+bun run lint        # eslint
+bun run format      # prettier --write
 
 docker compose up --build   # run from repo root; data persisted in `simvest-data` volume
 ```
 
 ```bash
-npm run test          # vitest run (unit + integration under tests/unit, tests/integration)
-npm run test:watch    # vitest (watch mode)
-npm run test:e2e      # playwright test (tests/e2e/{cross,desktop,mobile} — separate Playwright projects)
-npm run test:e2e:ui   # playwright test --ui
-npm run import:excel  # tsx scripts/import-excel.ts — one-shot ingest of Depotentwicklung.xlsx
+bun run test          # vitest run (unit + integration under tests/unit, tests/integration)
+bun run test:watch    # vitest (watch mode)
+bun run test:e2e      # playwright test (tests/e2e/{cross,desktop,mobile} — separate Playwright projects)
+bun run test:e2e:ui   # playwright test --ui
+bun run import:excel  # tsx scripts/import-excel.ts — one-shot ingest of Depotentwicklung.xlsx
 ```
 
-**No component-test layer.** Vitest runs in the `node` environment (no jsdom/@testing-library), so React components are not unit-tested. Put pure logic in `tests/unit` (vitest) and verify UI wiring/rendering through Playwright e2e (`tests/e2e/{desktop,mobile}`). For warm e2e iteration after one cold run, target a single spec: `E2E_SKIP_BUILD=1 npx playwright test <spec> --project=chromium-desktop -g "<test-id>"`.
+**No component-test layer.** Vitest runs in the `node` environment (no jsdom/@testing-library), so React components are not unit-tested. Put pure logic in `tests/unit` (vitest) and verify UI wiring/rendering through Playwright e2e (`tests/e2e/{desktop,mobile}`). For warm e2e iteration after one cold run, target a single spec: `E2E_SKIP_BUILD=1 bun run playwright test <spec> --project=chromium-desktop -g "<test-id>"`.
 
 Drizzle migrations run automatically on first DB call — `ensureSeeded()` in `lib/db/seed.ts` invokes `migrate(db, { migrationsFolder: "./drizzle" })`. Add new schema changes via `drizzle-kit generate` (or by hand-writing the next-numbered `.sql` file and a matching entry in `drizzle/meta/_journal.json`).
 
@@ -41,7 +41,7 @@ Drizzle migrations run automatically on first DB call — `ensureSeeded()` in `l
 
 **Calc layer.** `lib/calc.ts` is pure functions over DTOs — `aggregatePortfolios` (combined view with `id: 0`), `computeKPIs`, `historicalAnnualReturnWithSource`, `projectFuture`, `requiredMonthlyInvestment`, dividend aggregators, and the unified `evaluateGoal(goal, ctx)` evaluator that resolves any goal kind (`portfolio_value` / `annual_income` / `dividend_annual` / `dividend_monthly`) and scope (`combined` / `portfolio`) to a current/target/projected-year tuple. No I/O, no React. Views import these directly.
 
-**Import subsystem.** `lib/import/` parses broker exports into entries via a parser registry (`registry.ts`) — currently Trade Republic and Bondora (Go & Grow), plus a generic CSV path. The two-step flow is `POST /api/import/preview` (parse + dry-run) then `POST /api/import/commit`. Separately, `scripts/import-excel.ts` (`npm run import:excel`) is a one-shot CLI ingest of a `Depotentwicklung.xlsx`-style workbook.
+**Import subsystem.** `lib/import/` parses broker exports into entries via a parser registry (`registry.ts`) — currently Trade Republic and Bondora (Go & Grow), plus a generic CSV path. The two-step flow is `POST /api/import/preview` (parse + dry-run) then `POST /api/import/commit`. Separately, `scripts/import-excel.ts` (`bun run import:excel`) is a one-shot CLI ingest of a `Depotentwicklung.xlsx`-style workbook.
 
 **Shared helpers.** Before writing a local helper, check: `lib/types.ts` (`ISIN_RE`, `resolveDefaultPortfolio`, `COMBINED_PORTFOLIO_ID`, `labelFor` — DTO boundary, client-safe), `lib/calc.ts` (`round2` for cents, plus projection/goal evaluators), `lib/dates.ts` (`todayISO`, `toISODate`, `fromISODate`), `components/ui/field-label.tsx` (the 12px/600/neutral-600 editor label used by every editor), `components/money-input.tsx` (the **only** money input — locale-aware text field with no spinner; pair with `useResolvedLocale()` from `components/use-resolved-locale.ts`).
 
@@ -58,13 +58,13 @@ Drizzle migrations run automatically on first DB call — `ensureSeeded()` in `l
 ## Constraints worth knowing
 
 - **`better-sqlite3` is native.** It is listed in `next.config.mjs` → `serverExternalPackages` so Webpack doesn't try to bundle it. The production Dockerfile installs `python3 make g++` in the `deps` stage to compile its binding; don't remove those.
-- **Stale `.next` after switching between `next build` and `next dev`.** Dev mode (Turbopack) sometimes 404s on nested dynamic POST routes (e.g. `/api/portfolios/[id]/entries`) when `.next` carries state from a previous build. Fix: `rm -rf .next` and restart `npm run dev`. Production builds are unaffected.
-- **E2E + `E2E_SKIP_BUILD=1`.** When iterating on e2e tests after a manual `npm run build`, copy chunks manually: `cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/`. `global-setup.ts` does this on a real e2e run; skipping the build skips the copy. Symptom: pages render but interactive components never mount (chunks 404 silently).
+- **Stale `.next` after switching between `next build` and `next dev`.** Dev mode (Turbopack) sometimes 404s on nested dynamic POST routes (e.g. `/api/portfolios/[id]/entries`) when `.next` carries state from a previous build. Fix: `rm -rf .next` and restart `bun run dev`. Production builds are unaffected.
+- **E2E + `E2E_SKIP_BUILD=1`.** When iterating on e2e tests after a manual `bun run build`, copy chunks manually: `cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/`. `global-setup.ts` does this on a real e2e run; skipping the build skips the copy. Symptom: pages render but interactive components never mount (chunks 404 silently).
 - **`db.transaction(fn)` runs immediately.** Drizzle's better-sqlite3 transaction executes `fn` inside a SQLite transaction and returns its result — it does NOT return a callable. Don't write `const run = db.transaction(...); run()`. Use `try { db.transaction((tx) => { ... }) } catch { ... }` for rollback-on-throw.
 - **Counting inserts after `.onConflictDoNothing()`.** Chain `.returning({ id: tbl.id }).all()` and compare `.length` to the input batch size — that's how you tell real inserts from silently-dropped conflicts. Bare `.run()` after a conflict-noop gives no signal, so counters built on it lie.
 - **Adding a Drizzle migration.** Also update `tests/integration/db-migrations.test.ts` — it asserts the migration count and hashes each migration file's SHA-256. Capture the new hash by running `migrate()` against `:memory:` from a project-rooted script (better-sqlite3 needs project deps), then read `__drizzle_migrations`.
 - **Path alias.** `@/*` → repo root (`tsconfig.json`). Use it for all internal imports.
-- **Prettier:** no semis, double quotes, trailing-comma `es5`, Tailwind plugin sorts classes. Run `npm run format` before committing.
+- **Prettier:** no semis, double quotes, trailing-comma `es5`, Tailwind plugin sorts classes. Run `bun run format` before committing.
 
 ## Known gaps (intentional, not bugs)
 

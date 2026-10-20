@@ -132,7 +132,7 @@ For display, the existing `fmtEUR / fmtPct / fmtNum` exports from `@/lib/format`
 
 ## ShadCN components live in `components/ui/`
 
-Available: `button`, `dialog`, `input`, `label`, `popover`, `select`, `separator`, `slider`, `tabs`, `tooltip`. Add new ShadCN primitives with `npx shadcn add <component>` — do not hand-write them. Bespoke layout (sidebar, topbar, KPI cards) is hand-built and does not use ShadCN.
+Available: `button`, `dialog`, `input`, `label`, `popover`, `select`, `separator`, `slider`, `tabs`, `tooltip`. Add new ShadCN primitives with `bun run shadcn add <component>` — do not hand-write them. Bespoke layout (sidebar, topbar, KPI cards) is hand-built and does not use ShadCN.
 
 ## One view file per route
 
