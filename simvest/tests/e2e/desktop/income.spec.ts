@@ -98,8 +98,12 @@ test("E2E-D-INC-008 — Clicking a bar writes ?month=YYYY-MM to the URL", async 
   await page.goto("/income")
   await page.locator('[data-testid="income-monthly-chart"]').waitFor()
   const firstHit = page.locator('[data-testid^="income-bar-hit-"]').first()
-  await firstHit.click()
-  await expect.poll(() => page.url()).toMatch(/[?&]month=\d{4}-\d{2}/)
+  // The SSR'd bar is clickable before React hydrates it; a click that lands
+  // first is a no-op, so retry until the handler is attached (slow under load).
+  await expect(async () => {
+    await firstHit.click()
+    expect(page.url()).toMatch(/[?&]month=\d{4}-\d{2}/)
+  }).toPass({ timeout: 10_000 })
 })
 
 test("E2E-D-INC-020 — Hovering a per-holding row cross-highlights the monthly chart", async ({

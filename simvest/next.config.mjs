@@ -5,9 +5,12 @@ const nextConfig = {
   // never clobbers the `.next` a running dev server is serving from.
   distDir: process.env.NEXT_DIST_DIR || ".next",
   // …and type-checks with a tsconfig that ignores the dev server's generated
-  // `.next/dev/types`, which can be mid-rewrite while dev is running.
+  // `.next/dev/types`, which can be mid-rewrite while dev is running. e2e
+  // sets NEXT_SKIP_TYPECHECK=1: `bun run typecheck` (verify, pre-commit)
+  // already covers it, and skipping halves an e2e rebuild (9.2 → 5.0 s).
   typescript: {
     tsconfigPath: process.env.NEXT_TSCONFIG_PATH || "tsconfig.json",
+    ignoreBuildErrors: process.env.NEXT_SKIP_TYPECHECK === "1",
   },
   // better-sqlite3 is a native module; do not let Webpack bundle it.
   serverExternalPackages: ["better-sqlite3"],

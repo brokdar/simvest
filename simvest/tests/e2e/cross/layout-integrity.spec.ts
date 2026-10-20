@@ -158,13 +158,19 @@ test.describe("Layout integrity", () => {
   for (const route of ROUTES) {
     for (const vp of VIEWPORTS) {
       test.describe(`${route.name} @ ${vp.w}x${vp.h}`, () => {
-        let issues: LayoutIssues
+        // The four assertions read one audit of the same page, so run them
+        // in order on one worker and load + audit only once. "default" (not
+        // "serial") keeps a failing assertion from skipping its siblings; if
+        // a failure restarts the worker, `issues` is unset and re-collected.
+        test.describe.configure({ mode: "default" })
+        let issues: LayoutIssues | undefined
 
         test.beforeEach(async ({ page }, testInfo) => {
           test.skip(
             testInfo.project.name !== "chromium-desktop",
             "viewport is set per test; runs once under chromium-desktop"
           )
+          if (issues) return
           await page.setViewportSize({ width: vp.w, height: vp.h })
           await page.goto(route.path)
           await expect(page.locator("h1").first()).toBeVisible()
@@ -176,6 +182,7 @@ test.describe("Layout integrity", () => {
           test(`${assertion}`, () => {
             const key = `${route.name}|${vp.w}x${vp.h}|${assertion}`
             test.fixme(key in KNOWN_FAILURES, KNOWN_FAILURES[key])
+            if (!issues) throw new Error("layout audit did not run")
             switch (assertion) {
               case "hscroll":
                 expect(issues.hScroll, "document scrolls horizontally").toBe(
