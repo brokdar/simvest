@@ -229,7 +229,11 @@ export function buildGapBatch(
             ? (input.invested ?? 0)
             : r.portfolio.targetMonthlyContribution,
         value,
-        note: "",
+        // A value-less placeholder for the month may already carry a note.
+        note:
+          r.portfolio.entries.find(
+            (e) => e.year === r.month.year && e.month === r.month.month
+          )?.note ?? "",
       })
     }
   }

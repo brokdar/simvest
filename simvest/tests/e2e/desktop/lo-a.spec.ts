@@ -111,6 +111,13 @@ test("E2E-D-LO-R4-001 — a dismissed milestone stays gone in a fresh browser co
   await page.goto("/")
   const item = page.getByTestId(`milestone-${milestoneId}`)
   await expect(item).toBeVisible()
+  // The bell must list it before dismissal, or "gone from the bell" proves nothing.
+  await page.getByTestId("notifications-trigger").click()
+  await expect(
+    page.getByTestId(`notification-milestone-${milestoneId}`)
+  ).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(page.getByTestId("notifications-panel")).toHaveCount(0)
   await page.getByTestId(`dismiss-milestone-${milestoneId}`).click()
   await expect(item).toHaveCount(0)
   // The write is optimistic; wait until the server has it.

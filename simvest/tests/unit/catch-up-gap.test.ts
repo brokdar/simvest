@@ -109,4 +109,16 @@ describe("UNIT-LO-B-002 gap form batch", () => {
       expect.objectContaining({ month: 9, value: 130, invested: 250, day: 30 }),
     ])
   })
+
+  it("UNIT-LO-B-003 keeps the note of an existing value-less entry", () => {
+    const withNote = { ...entry(2026, 8, null), note: "bonus paid" }
+    const p = portfolio(1, [entry(2026, 6, 100), withNote])
+    const g = gapGroups([p], "2026-10-24", "last")
+    const batch = buildGapBatch(g, {
+      "1-2026-7": { value: 110 },
+      "1-2026-8": { value: 120 },
+      "1-2026-9": { value: 130 },
+    })
+    expect(batch?.map((b) => b.note)).toEqual(["", "bonus paid", ""])
+  })
 })
