@@ -35,9 +35,7 @@ test("E2E-D-LO-B-001 — a 3-month gap on 2 accounts is filled in one Save", asy
   await page.goto("/entries")
   await expect(page.getByTestId("catchup-gap")).toBeVisible()
 
-  let clicks = 0
   await page.getByTestId("catchup-gap-fill").click()
-  clicks++
   await expect(page.getByTestId("gapfill-panel")).toBeVisible()
   const save = page.getByTestId("gapfill-save")
   await expect(save).toBeDisabled()
@@ -52,23 +50,28 @@ test("E2E-D-LO-B-001 — a 3-month gap on 2 accounts is filled in one Save", asy
   await expect(save).toBeEnabled()
   await expect(save).toHaveText(/Save 6 months/)
   await save.click()
-  clicks++
   await expect(page.getByTestId("toast").last()).toContainText("Saved 6 months")
   await expect(page.getByTestId("gapfill-panel")).toHaveCount(0)
 
-  expect(clicks).toBe(2)
   expect(batches).toHaveLength(1)
   const all = (await (await page.request.get("/api/portfolios")).json()) as {
     id: number
-    entries: { year: number; month: number; value: number | null }[]
+    entries: {
+      year: number
+      month: number
+      value: number | null
+      invested: number
+    }[]
   }[]
   for (const id of ids) {
     const p = all.find((x) => x.id === id)!
     expect(p.entries).toHaveLength(4)
+    // "Added" is pre-filled from the account's contribution (A 200, B 0).
+    const expectedInvested = id === ids[0] ? 200 : 0
     for (const { year, month } of months) {
-      expect(
-        p.entries.find((e) => e.year === year && e.month === month)?.value
-      ).toBe(2000 + month)
+      const row = p.entries.find((e) => e.year === year && e.month === month)
+      expect(row?.value).toBe(2000 + month)
+      expect(row?.invested).toBe(expectedInvested)
     }
   }
 })

@@ -99,6 +99,8 @@ export function RecentPayoutsTable({
       <tr
         key={e.id}
         data-testid={`income-row-${e.id}`}
+        data-month={monthKey}
+        data-selected={highlight ? "true" : undefined}
         style={{
           background: highlight ? "var(--primary-50)" : undefined,
         }}
@@ -274,6 +276,8 @@ export function RecentPayoutsTable({
               <tr
                 key={`run-${it.key}`}
                 data-testid={`income-run-${it.key}`}
+                data-month={it.month}
+                data-selected={selectedMonth === it.month ? "true" : undefined}
                 style={{
                   background:
                     selectedMonth === it.month
