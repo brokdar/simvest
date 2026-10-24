@@ -77,6 +77,10 @@ export function validateTransferFile(
   if (tmc === null || tmc < 0) {
     return err("targetMonthlyContribution must be a non-negative number.")
   }
+  // Optional in older files: a missing flag means "set" when there is a
+  // contribution, otherwise "never set".
+  const contributionSet =
+    typeof p.contributionSet === "boolean" ? p.contributionSet : tmc > 0
   const sv = asFiniteNumber(p.startingValue)
   if (sv === null || sv < 0) {
     return err("startingValue must be a non-negative number.")
@@ -318,6 +322,7 @@ export function validateTransferFile(
       name,
       color,
       targetMonthlyContribution: tmc,
+      contributionSet,
       startingValue: sv,
       startingDate,
       createdAt: portfolioCreatedAt,

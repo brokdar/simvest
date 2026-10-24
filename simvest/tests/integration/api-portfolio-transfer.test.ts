@@ -49,6 +49,7 @@ function seedPortfolio(name = "Source Portfolio") {
       name,
       color: "#1E40AF",
       targetMonthlyContribution: 300,
+      contributionSet: true,
     })
     .returning()
     .get()
@@ -216,6 +217,7 @@ describe("POST /api/portfolios/import", () => {
         name: "Provenance Test",
         color: "#1E40AF",
         targetMonthlyContribution: 0,
+        contributionSet: true,
         startingValue: 0,
         startingDate: null,
         createdAt: 1700000000000,
@@ -310,6 +312,7 @@ describe("POST /api/portfolios/import", () => {
         name: "WithMeta",
         color: "#1E40AF",
         targetMonthlyContribution: 0,
+        contributionSet: true,
         startingValue: 0,
         startingDate: null,
         createdAt: 1700000000000,

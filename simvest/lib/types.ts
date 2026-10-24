@@ -19,6 +19,9 @@ export type PortfolioDTO = {
   name: string
   color: string
   targetMonthlyContribution: number
+  /** False until the user writes a contribution (even 0). Lets the UI tell
+   *  "never set" from a deliberate EUR 0. */
+  contributionSet: boolean
   startingValue: number
   startingDate: string | null
   entries: EntryDTO[]

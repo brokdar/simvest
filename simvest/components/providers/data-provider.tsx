@@ -48,6 +48,8 @@ type Initial = {
   settings: Settings
   holdings: HoldingDTO[]
   incomeEvents: IncomeEventDTO[]
+  /** Ids of dismissed milestones (the `milestone_dismissals` table). */
+  dismissedMilestones?: string[]
   /**
    * Selected portfolio id resolved on the server from the
    * `simvest.selectedPortfolio` cookie. Sent across the SSR boundary so the
@@ -96,6 +98,8 @@ type DataActions = {
     rows: mutations.BatchEntryInput[]
   ) => Promise<{ added: number; updated: number }>
   updateSettings: (patch: Partial<Settings>) => void
+  /** Hides a milestone for good; persisted server-side. */
+  dismissMilestone: (id: string) => void
   updatePortfolio: (id: number, patch: PortfolioPatch) => void
   addPortfolio: (input: {
     name: string
@@ -152,6 +156,7 @@ type DataContextValue = {
   settings: Settings
   holdings: HoldingDTO[]
   incomeEvents: IncomeEventDTO[]
+  dismissedMilestones: ReadonlySet<string>
   selectedPortfolio: number
   /**
    * Memoized aggregate across all portfolios. Pre-computed in the provider so
@@ -223,6 +228,13 @@ export function DataProvider({
   const [holdings, setHoldings] = useState<HoldingDTO[]>(initial.holdings)
   const [incomeEvents, setIncomeEvents] = useState<IncomeEventDTO[]>(
     initial.incomeEvents
+  )
+  const [dismissedList, setDismissedList] = useState<string[]>(
+    initial.dismissedMilestones ?? []
+  )
+  const dismissedMilestones = useMemo(
+    () => new Set(dismissedList),
+    [dismissedList]
   )
 
   const [selectedPortfolio, setSelectedPortfolioState] = useState<number>(
@@ -401,10 +413,75 @@ export function DataProvider({
     [deps, confirmSave]
   )
 
+  // Optimistic: the milestone disappears at once; the server write follows.
+  // A failed write only means it reappears after the next reload.
+  const addDismissed = useCallback((ids: string[]) => {
+    setDismissedList((prev) => [
+      ...prev,
+      ...ids.filter((id) => !prev.includes(id)),
+    ])
+  }, [])
+  const persistDismissals = useCallback(
+    (ids: string[]) =>
+      fetchAdapter
+        .request("POST", "/api/milestones", { body: { ids }, keepalive: true })
+        .then(() => true)
+        .catch(() => false),
+    [fetchAdapter]
+  )
+  const dismissMilestone = useCallback(
+    (id: string) => {
+      addDismissed([id])
+      void persistDismissals([id])
+    },
+    [addDismissed, persistDismissals]
+  )
+
+  // One-time carry-over of dismissals that used to live in localStorage; the
+  // key is only dropped once the server has them.
+  useEffect(() => {
+    const KEY = "simvest.milestones.dismissed"
+    let legacy: string[] = []
+    try {
+      const raw = window.localStorage.getItem(KEY)
+      if (raw === null) return
+      const v: unknown = JSON.parse(raw)
+      if (Array.isArray(v)) {
+        legacy = v.filter((x): x is string => typeof x === "string")
+      }
+    } catch {
+      return
+    }
+    const done = () => {
+      try {
+        window.localStorage.removeItem(KEY)
+      } catch {
+        // ignore
+      }
+    }
+    if (legacy.length === 0) return done()
+    void persistDismissals(legacy).then((saved) => {
+      if (!saved) return
+      addDismissed(legacy)
+      done()
+    })
+  }, [addDismissed, persistDismissals])
+
   const updatePortfolio = useCallback(
     (id: number, patch: PortfolioPatch) => {
       setPortfolios((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, ...patch } : p))
+        prev.map((p) =>
+          p.id === id
+            ? {
+                ...p,
+                ...patch,
+                // Writing a contribution (even 0) marks it as deliberately set.
+                ...(patch.targetMonthlyContribution !== undefined
+                  ? { contributionSet: true }
+                  : {}),
+              }
+            : p
+        )
       )
       const merged = {
         ...(pendingPortfolioPatches.current.get(id) ?? {}),
@@ -526,6 +603,14 @@ export function DataProvider({
     [portfolios]
   )
 
+  const contributionSetFor = useCallback(
+    (id: number) =>
+      id === COMBINED_PORTFOLIO_ID
+        ? portfolios.some((p) => p.contributionSet)
+        : (portfolios.find((p) => p.id === id)?.contributionSet ?? true),
+    [portfolios]
+  )
+
   const goalEvaluator = useMemo<GoalEvaluator>(
     () =>
       createGoalEvaluator({
@@ -533,8 +618,15 @@ export function DataProvider({
         incomeEvents,
         settings,
         monthlySaving: effectiveMonthlySaving,
+        contributionSet: contributionSetFor,
       }),
-    [portfolios, incomeEvents, settings, effectiveMonthlySaving]
+    [
+      portfolios,
+      incomeEvents,
+      settings,
+      effectiveMonthlySaving,
+      contributionSetFor,
+    ]
   )
 
   const goalEvals = useMemo<Record<number, GoalEvaluation>>(() => {
@@ -553,6 +645,7 @@ export function DataProvider({
       applyPastedEntries,
       logEntries,
       updateSettings,
+      dismissMilestone,
       updatePortfolio,
       addPortfolio,
       deletePortfolio,
@@ -580,6 +673,7 @@ export function DataProvider({
       applyPastedEntries,
       logEntries,
       updateSettings,
+      dismissMilestone,
       updatePortfolio,
       addPortfolio,
       deletePortfolio,
@@ -609,6 +703,7 @@ export function DataProvider({
       settings,
       holdings,
       incomeEvents,
+      dismissedMilestones,
       selectedPortfolio,
       combinedPortfolio,
       combinedCoverage,
@@ -626,6 +721,7 @@ export function DataProvider({
       settings,
       holdings,
       incomeEvents,
+      dismissedMilestones,
       selectedPortfolio,
       combinedPortfolio,
       combinedCoverage,

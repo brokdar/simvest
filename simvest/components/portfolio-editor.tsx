@@ -22,7 +22,8 @@ const PALETTE = IDENTITY_COLORS.map((c) => c.hex)
 export type PortfolioEditorPayload = {
   name: string
   color: string
-  targetMonthlyContribution: number
+  /** Omitted when the field was left empty: the contribution stays "not set". */
+  targetMonthlyContribution?: number
   startingValue: number
   startingDate: string | null
 }
@@ -31,7 +32,7 @@ type Mode =
   | { kind: "create" }
   | {
       kind: "edit"
-      initial: PortfolioEditorPayload
+      initial: PortfolioEditorPayload & { contributionSet: boolean }
       entryCount: number
     }
 
@@ -70,7 +71,9 @@ const EMPTY_FORM: FormState = {
   startingDate: null,
 }
 
-function fromInitial(initial: PortfolioEditorPayload): FormState {
+function fromInitial(
+  initial: PortfolioEditorPayload & { contributionSet: boolean }
+): FormState {
   const hasCarryover =
     initial.startingValue > 0 && initial.startingDate !== null
   const date = initial.startingDate
@@ -82,7 +85,9 @@ function fromInitial(initial: PortfolioEditorPayload): FormState {
   return {
     name: initial.name,
     color: initial.color,
-    targetMonthlyContribution: initial.targetMonthlyContribution,
+    targetMonthlyContribution: initial.contributionSet
+      ? (initial.targetMonthlyContribution ?? 0)
+      : null,
     startingMode: hasCarryover ? "carryover" : "fresh",
     startingValue: hasCarryover ? initial.startingValue : null,
     startingDate: hasCarryover ? date : null,
@@ -97,6 +102,10 @@ export function PortfolioEditor({
   defaultMonthlyContribution,
 }: Props) {
   const { locale } = useResolvedLocale()
+  // A contribution the user already set can't be blanked again; a portfolio
+  // whose contribution was never set may stay that way.
+  const contributionRequired =
+    mode.kind === "edit" && mode.initial.contributionSet
   // No id on the payload — use the portfolio name as the editor key. Renames
   // are infrequent enough that this is a safe identity for "is this a fresh
   // open against a different record".
@@ -111,6 +120,12 @@ export function PortfolioEditor({
         }
   )
   const [errors, setErrors] = useState<ErrorMap>({})
+  // Empty is fine on a contribution that isn't set yet; text the field itself
+  // rejected (e.g. a negative amount) reports null plus an error.
+  const contributionInvalid =
+    form.targetMonthlyContribution === null
+      ? contributionRequired || errors.monthlyContribution !== undefined
+      : form.targetMonthlyContribution < 0
   const [submitting, setSubmitting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [prevOpen, setPrevOpen] = useState(open)
@@ -138,10 +153,8 @@ export function PortfolioEditor({
     const name = form.name.trim()
     if (name === "") e.name = "Name is required."
 
-    if (
-      form.targetMonthlyContribution === null ||
-      form.targetMonthlyContribution < 0
-    ) {
+    // Empty is allowed on a portfolio whose contribution isn't set yet.
+    if (contributionInvalid) {
       e.monthlyContribution = "Enter a non-negative amount."
     }
 
@@ -178,7 +191,9 @@ export function PortfolioEditor({
       payload: {
         name,
         color: form.color,
-        targetMonthlyContribution: form.targetMonthlyContribution ?? 0,
+        ...(form.targetMonthlyContribution !== null
+          ? { targetMonthlyContribution: form.targetMonthlyContribution }
+          : {}),
         startingValue,
         startingDate: startingDateStr,
       },
@@ -227,11 +242,7 @@ export function PortfolioEditor({
 
   const formInvalid = (() => {
     if (form.name.trim() === "") return true
-    if (
-      form.targetMonthlyContribution === null ||
-      form.targetMonthlyContribution < 0
-    )
-      return true
+    if (contributionInvalid) return true
     if (form.startingMode === "carryover") {
       if (form.startingValue === null || form.startingValue <= 0) return true
       if (form.startingDate === null) return true
@@ -289,6 +300,8 @@ export function PortfolioEditor({
                   }}
                   locale={locale}
                   min={0}
+                  allowEmpty={!contributionRequired}
+                  placeholder="Not set yet"
                   ariaLabel="Monthly contribution"
                   testId="monthly-contribution-input"
                 />
@@ -297,7 +310,8 @@ export function PortfolioEditor({
                   style={{ fontSize: "var(--fs-2xs)", marginTop: 4 }}
                 >
                   What you plan to add each month. The Projection and your goals
-                  count on it; €0 is fine if you’ve stopped.
+                  count on it; enter 0 if you’ve stopped, or leave it empty to
+                  set it later.
                 </div>
                 {errors.monthlyContribution && (
                   <FieldError>{errors.monthlyContribution}</FieldError>
@@ -443,7 +457,9 @@ export function PortfolioEditor({
                 type="button"
                 className="btn btn-primary"
                 disabled={formInvalid || submitting}
-                title={formInvalid ? firstHint(form) : undefined}
+                title={
+                  formInvalid ? firstHint(form, contributionInvalid) : undefined
+                }
                 onClick={handleSubmit}
               >
                 <Icon name="check" size={15} />{" "}
@@ -457,13 +473,9 @@ export function PortfolioEditor({
   )
 }
 
-function firstHint(form: FormState): string {
+function firstHint(form: FormState, contributionInvalid: boolean): string {
   if (form.name.trim() === "") return "Enter a name."
-  if (
-    form.targetMonthlyContribution === null ||
-    form.targetMonthlyContribution < 0
-  )
-    return "Enter a valid monthly contribution."
+  if (contributionInvalid) return "Enter a valid monthly contribution."
   if (form.startingMode === "carryover") {
     if (form.startingValue === null || form.startingValue <= 0)
       return "Enter the prior balance amount."

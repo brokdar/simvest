@@ -40,6 +40,7 @@ function makePortfolio(
     name: `P${id}`,
     color: "#000",
     targetMonthlyContribution: 500,
+    contributionSet: true,
     startingValue: 0,
     startingDate: null,
     entries: entries.map((e, i) => ({
@@ -114,6 +115,7 @@ describe("createGoalEvaluator", () => {
         [{ year: 2024, month: 1, invested: 5000, value: 5500 }],
         {
           targetMonthlyContribution: 250,
+          contributionSet: true,
         }
       ),
     ]

@@ -23,9 +23,9 @@ import type {
 /**
  * Milestones (T4): moments in the user's own record worth a calm "nice".
  * Detected from data the app already has — nothing is stored except which
- * ones the user dismissed (localStorage, see `components/use-milestones.ts`).
- * Every detector dates its milestone to the month it happened, so only
- * recent ones are surfaced and old news doesn't hang around forever.
+ * ones the user dismissed (the `milestone_dismissals` table). Every detector
+ * dates its milestone to the month it happened; `activeMilestones` keeps one
+ * until it's dismissed or a newer one of the same family replaces it.
  */
 
 export type MilestoneFamily =
@@ -368,32 +368,34 @@ export function detectMilestones(input: MilestoneInput): Milestone[] {
   )
 }
 
-/** How far back a milestone still counts as news. */
-export const RECENT_MONTHS = 6
+/** The most milestones shown at once. */
+export const MAX_MILESTONES = 4
 
 /**
- * The milestones worth showing now: no more than `RECENT_MONTHS` months old
- * (so April still counts in October), not dismissed, newest per family,
- * newest first.
+ * The milestones worth showing now. A milestone stays until the user
+ * dismisses it or a newer one of the same family supersedes it — age alone
+ * never removes one. Supersession is decided before dismissals, so dismissing
+ * the newest of a family doesn't bring back an older one. Newest first, at
+ * most `MAX_MILESTONES`. Milestones dated after `now` are ignored.
  */
-export function recentMilestones(
+export function activeMilestones(
   all: Milestone[],
   now: { year: number; month: number },
   dismissed: ReadonlySet<string> = new Set(),
-  months = RECENT_MONTHS
+  max = MAX_MILESTONES
 ): Milestone[] {
   const nowIdx = monthIdx(now.year, now.month)
   const newest = new Map<MilestoneFamily, Milestone>()
   for (const m of all) {
-    const age = nowIdx - monthIdx(m.year, m.month)
-    if (age < 0 || age > months || dismissed.has(m.id)) continue
+    if (monthIdx(m.year, m.month) > nowIdx) continue
     const prev = newest.get(m.family)
     if (!prev || monthIdx(m.year, m.month) >= monthIdx(prev.year, prev.month))
       newest.set(m.family, m)
   }
-  return [...newest.values()].sort(
-    (a, b) => monthIdx(b.year, b.month) - monthIdx(a.year, a.month)
-  )
+  return [...newest.values()]
+    .filter((m) => !dismissed.has(m.id))
+    .sort((a, b) => monthIdx(b.year, b.month) - monthIdx(a.year, a.month))
+    .slice(0, max)
 }
 
 function capitalize(s: string): string {
