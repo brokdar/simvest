@@ -3257,3 +3257,19 @@ input[type="range"].slider::-moz-range-thumb {
 .catchup-gap {
   margin-top: 4px;
 }
+
+/* Fill the gap: one collapsible group per lagging account. */
+.gapfill-group {
+  border-top: 1px solid var(--border);
+}
+.gapfill-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  cursor: pointer;
+  min-width: 0;
+}
+.gapfill-group .catchup-row:first-child {
+  border-top: 0;
+}
