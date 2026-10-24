@@ -307,6 +307,7 @@ export function SettingsView({ about }: { about?: AboutInfo }) {
               name: editing.name,
               color: editing.color,
               targetMonthlyContribution: editing.targetMonthlyContribution,
+              contributionSet: editing.contributionSet,
               startingValue: editing.startingValue,
               startingDate: editing.startingDate,
             },
@@ -789,7 +790,12 @@ function PortfolioRow({
           {/* C13: €0 is a real choice, so it shows as "0,00" — never a blank
               field that looks unset — and the caption says what it means. */}
           <MoneyInput
-            value={portfolio.targetMonthlyContribution}
+            value={
+              portfolio.contributionSet
+                ? portfolio.targetMonthlyContribution
+                : null
+            }
+            placeholder="Not set yet"
             onChange={(v) => {
               if (v !== null && v >= 0) {
                 onChange({ targetMonthlyContribution: v })
@@ -806,9 +812,11 @@ function PortfolioRow({
             style={{ fontSize: "var(--fs-2xs)" }}
             data-testid={`settings-contribution-caption-${portfolio.id}`}
           >
-            {portfolio.targetMonthlyContribution > 0
-              ? "Monthly contribution · used by Projection and Goals"
-              : "Nothing going in each month — goals plan with €0 here"}
+            {!portfolio.contributionSet
+              ? "Not set yet — set a monthly contribution"
+              : portfolio.targetMonthlyContribution > 0
+                ? "Monthly contribution · used by Projection and Goals"
+                : "Nothing going in each month — goals plan with €0 here"}
           </div>
         </div>
         <div

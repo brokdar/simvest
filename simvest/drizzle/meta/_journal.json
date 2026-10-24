@@ -85,6 +85,13 @@
       "when": 1782000000000,
       "tag": "0011_goal_return_assumed",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1782500000000,
+      "tag": "0012_contribution_set_milestone_dismissals",
+      "breakpoints": true
     }
   ]
 }

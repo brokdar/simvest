@@ -228,6 +228,7 @@ function ev(over: Partial<GoalEvaluation> = {}): GoalEvaluation {
     returnScopeName: "Combined",
     returnEntryCount: 60,
     monthlySaving: 1800,
+    contributionSet: true,
     scopedKpiValue: 300_000,
     ...over,
   }
@@ -455,6 +456,7 @@ describe("catchUpGap", () => {
     name,
     color: "#000",
     targetMonthlyContribution: 100,
+    contributionSet: true,
     startingValue: 0,
     startingDate: null,
     entries,

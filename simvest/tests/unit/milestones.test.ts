@@ -4,7 +4,7 @@ import {
   goalQuarterMilestones,
   incomeTotalMilestones,
   marketBeatContributions,
-  recentMilestones,
+  activeMilestones,
   recordIncomeMonth,
   valueMilestones,
   type Milestone,
@@ -47,6 +47,7 @@ function makePortfolio(id: number, entries: EntryDTO[]): PortfolioDTO {
     name: `P${id}`,
     color: "#000",
     targetMonthlyContribution: 100,
+    contributionSet: true,
     startingValue: 0,
     startingDate: null,
     entries,
@@ -277,7 +278,7 @@ describe("goalQuarterMilestones", () => {
   })
 })
 
-describe("recentMilestones", () => {
+describe("activeMilestones", () => {
   const m = (
     id: string,
     family: Milestone["family"],
@@ -301,34 +302,55 @@ describe("recentMilestones", () => {
     m("record-income-month-2025-12", "record-income-month", 2025, 12),
   ]
 
-  it("UNIT-MILE-014 — only recent ones, newest per family, newest first", () => {
-    expect(ids(recentMilestones(all, { year: 2026, month: 10 }))).toEqual([
+  const now = { year: 2026, month: 10 }
+
+  it("UNIT-LO-MILE-001 — keeps the newest per family regardless of age, newest first", () => {
+    expect(ids(activeMilestones(all, now))).toEqual([
       "value-200000",
       "income-total-1000",
-    ])
-  })
-
-  it("UNIT-MILE-015 — six months back still counts; seven doesn't", () => {
-    expect(
-      ids(recentMilestones(all, { year: 2026, month: 10 }, new Set(), 6))
-    ).toContain("income-total-1000") // Apr → Oct = 6
-    expect(
-      ids(recentMilestones(all, { year: 2026, month: 11 }, new Set(), 6))
-    ).not.toContain("income-total-1000")
-  })
-
-  it("UNIT-MILE-016 — dismissed ones are gone; the family falls back to an older one only inside the window", () => {
-    const dismissed = new Set(["value-200000"])
-    expect(
-      ids(recentMilestones(all, { year: 2026, month: 10 }, dismissed))
-    ).toEqual(["income-total-1000"])
-    expect(
-      ids(recentMilestones(all, { year: 2026, month: 6 }, dismissed))
-    ).toEqual([
-      "income-total-1000",
-      "value-150000",
       "record-income-month-2025-12",
     ])
+  })
+
+  it("UNIT-LO-MILE-002 — an old milestone is still there years later", () => {
+    expect(ids(activeMilestones(all, { year: 2030, month: 1 }))).toContain(
+      "record-income-month-2025-12"
+    )
+  })
+
+  it("UNIT-LO-MILE-003 — dismissing the newest of a family does not resurrect an older one", () => {
+    const dismissed = new Set(["value-200000"])
+    expect(ids(activeMilestones(all, now, dismissed))).toEqual([
+      "income-total-1000",
+      "record-income-month-2025-12",
+    ])
+  })
+
+  it("UNIT-LO-MILE-004 — a newer milestone supersedes the old one of its family", () => {
+    const withNewer = [...all, m("value-250000", "value", 2026, 8)]
+    expect(ids(activeMilestones(withNewer, now))).toEqual([
+      "value-250000",
+      "income-total-1000",
+      "record-income-month-2025-12",
+    ])
+  })
+
+  it("UNIT-LO-MILE-005 — shows at most four", () => {
+    const many = [
+      m("a", "value", 2026, 1),
+      m("b", "income-total", 2026, 2),
+      m("c", "dividends-total", 2026, 3),
+      m("d", "record-income-month", 2026, 4),
+      m("e", "market-beat-contributions", 2026, 5),
+      m("f", "goal-1", 2026, 6),
+    ]
+    expect(ids(activeMilestones(many, now))).toEqual(["f", "e", "d", "c"])
+  })
+
+  it("UNIT-LO-MILE-006 — ignores milestones dated after today", () => {
+    expect(ids(activeMilestones([m("future", "value", 2027, 1)], now))).toEqual(
+      []
+    )
   })
 })
 

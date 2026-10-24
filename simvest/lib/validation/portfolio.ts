@@ -13,6 +13,7 @@ export type PortfolioCreate = {
   name: string
   color: string
   targetMonthlyContribution: number
+  contributionSet: boolean
   startingValue: number
   startingDate: string | null
 }
@@ -40,7 +41,8 @@ export function validatePortfolioCreate(
   const color = asString(body.color) || DEFAULT_IDENTITY_HEX
 
   const tmcRaw = asFiniteNumber(body.targetMonthlyContribution)
-  const targetMonthlyContribution = tmcRaw !== null && tmcRaw >= 0 ? tmcRaw : 0
+  const contributionSet = tmcRaw !== null && tmcRaw >= 0
+  const targetMonthlyContribution = contributionSet ? tmcRaw : 0
 
   const svRaw = asFiniteNumber(body.startingValue)
   const startingValue = svRaw !== null && svRaw >= 0 ? svRaw : 0
@@ -56,6 +58,7 @@ export function validatePortfolioCreate(
     name,
     color,
     targetMonthlyContribution,
+    contributionSet,
     startingValue,
     startingDate,
   })
@@ -82,6 +85,7 @@ export function validatePortfolioPatch(
       return err("targetMonthlyContribution must be a non-negative number")
     }
     patch.targetMonthlyContribution = n
+    patch.contributionSet = true
   }
   if (body.startingValue !== undefined) {
     const n = asFiniteNumber(body.startingValue)

@@ -14,6 +14,7 @@ function makeValid(
       name: "Hauptdepot",
       color: "#1E40AF",
       targetMonthlyContribution: 500,
+      contributionSet: true,
       startingValue: 0,
       startingDate: null,
       createdAt: 1700000000000,

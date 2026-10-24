@@ -315,6 +315,7 @@ describe("N3 — the expected return is named and overridable", () => {
     name: "Deutsche Bank",
     color: "#000000",
     targetMonthlyContribution: 0,
+    contributionSet: true,
     startingValue: 0,
     startingDate: null,
     entries: Array.from({ length: 12 }, (_, i) =>

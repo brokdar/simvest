@@ -60,6 +60,7 @@ export function restorePortfolio(
         name: resolvedName,
         color: file.portfolio.color,
         targetMonthlyContribution: file.portfolio.targetMonthlyContribution,
+        contributionSet: file.portfolio.contributionSet,
         startingValue: file.portfolio.startingValue,
         startingDate: file.portfolio.startingDate,
         createdAt: file.portfolio.createdAt,
