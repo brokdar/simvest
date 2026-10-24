@@ -374,7 +374,9 @@ export function EditableEntriesTable({
                   onRequestDelete={() => setPendingDelete(e)}
                   onRemoveDraft={() => {}}
                   onFocusConsumed={() => consumeFocus(`entry-${e.id}`)}
-                  testIdSuffix={String(e.id)}
+                  testIdSuffix={
+                    e.id === -1 ? `c-${e.year}-${e.month}` : String(e.id)
+                  }
                 />
               )
             })}
