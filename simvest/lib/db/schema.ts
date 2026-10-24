@@ -13,6 +13,11 @@ export const portfolios = sqliteTable("portfolios", {
   targetMonthlyContribution: real("target_monthly_contribution")
     .notNull()
     .default(0),
+  // False until the user writes a contribution (even 0), so "never set" is
+  // distinguishable from a deliberate EUR 0.
+  contributionSet: integer("contribution_set", { mode: "boolean" })
+    .notNull()
+    .default(false),
   startingValue: real("starting_value").notNull().default(0),
   startingDate: text("starting_date"),
   createdAt: integer("created_at")
@@ -113,6 +118,11 @@ export const dividendEvents = sqliteTable("dividend_events", {
   createdAt: integer("created_at")
     .notNull()
     .$defaultFn(() => Date.now()),
+})
+
+export const milestoneDismissals = sqliteTable("milestone_dismissals", {
+  id: text("id").primaryKey(),
+  dismissedAt: integer("dismissed_at").notNull(),
 })
 
 export type Portfolio = typeof portfolios.$inferSelect

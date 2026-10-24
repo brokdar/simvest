@@ -19,10 +19,10 @@ import { COMBINED_PORTFOLIO_ID } from "@/lib/types"
  * The bell: things worth a look, gathered from data the app already has —
  * accounts whose latest value is older than the rest (so combined totals are
  * carrying it forward) and goals that are behind at the current contribution.
- * Each item links to the place you'd act on it. Nothing here is persisted;
- * the list simply empties once the underlying data is up to date. Recent
- * milestones (T4) sit on top — good news first — and can be dismissed
- * (remembered in this browser only).
+ * Each item links to the place you’d act on it. Nothing here is persisted,
+ * the list simply empties once the underlying data is up to date. Active
+ * milestones (T4) sit on top — good news first — and can be dismissed for
+ * good (stored with your data, so it follows you across browsers).
  */
 export function Notifications() {
   const router = useRouter()

@@ -674,14 +674,18 @@ function Workspace({
       >
         {verdict.onTrack || !verdict.fix ? (
           <>
-            <strong>{verdict.label}</strong> · {verdict.reach} at your{" "}
-            {fmtEUR(evaluation.monthlySaving, { decimals: 0 })}/mo
+            <strong>{verdict.label}</strong> · {verdict.reach}
+            {evaluation.contributionSet
+              ? ` at your ${fmtEUR(evaluation.monthlySaving, { decimals: 0 })}/mo`
+              : " with no contribution set"}
           </>
         ) : (
           <>
             <strong>{verdict.fix}</strong>
-            {verdict.fixTotal ? ` — that’s ${verdict.fixTotal}` : ""}. At
-            today’s {fmtEUR(evaluation.monthlySaving, { decimals: 0 })}/mo it{" "}
+            {verdict.fixTotal ? ` — that’s ${verdict.fixTotal}` : ""}.{" "}
+            {evaluation.contributionSet
+              ? `At today’s ${fmtEUR(evaluation.monthlySaving, { decimals: 0 })}/mo it`
+              : "With no contribution set it"}{" "}
             {evaluation.projectedYear !== null
               ? verdict.reach
               : `isn’t reached in the next 40 years`}
@@ -789,6 +793,12 @@ function KpiTiles({
         sub={
           onTrack ? (
             <>✓ you put in {today}/mo today — enough to get there</>
+          ) : !evaluation.contributionSet ? (
+            <>
+              {gap >= 0.5 ? `${fmtEUR(gap, { decimals: 0 })}/mo more. ` : ""}
+              No monthly contribution is set for{" "}
+              {account ? account.name : "your accounts"} yet. {contributionLink}
+            </>
           ) : (
             <>
               {gap >= 0.5

@@ -1328,17 +1328,15 @@ input[type="range"].slider::-moz-range-thumb {
   display: grid;
   gap: 16px;
   grid-template-columns: 2fr 1fr;
+  align-items: start;
 }
-/* Chart + recent activity share the wide column so it is as tall as the side
-   column; the activity card absorbs any slack instead of a blank gap. */
+/* Chart + recent activity share the wide column; each card is sized to its
+   content rather than stretched to the side column's height. */
 .overview-main {
   display: flex;
   flex-direction: column;
   gap: 16px;
   min-width: 0;
-}
-.overview-activity {
-  flex: 1;
 }
 
 .sim-grid {
@@ -3256,4 +3254,20 @@ input[type="range"].slider::-moz-range-thumb {
 }
 .catchup-gap {
   margin-top: 4px;
+}
+
+/* Fill the gap: one collapsible group per lagging account. */
+.gapfill-group {
+  border-top: 1px solid var(--border);
+}
+.gapfill-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  cursor: pointer;
+  min-width: 0;
+}
+.gapfill-group .catchup-row:first-child {
+  border-top: 0;
 }

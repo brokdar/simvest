@@ -65,6 +65,7 @@ function makePortfolio(
     name: `P${id}`,
     color: "#000",
     targetMonthlyContribution: 0,
+    contributionSet: true,
     startingValue: 0,
     startingDate: null,
     entries: [],

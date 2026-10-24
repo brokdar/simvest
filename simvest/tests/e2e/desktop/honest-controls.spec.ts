@@ -79,7 +79,7 @@ test("E2E-D-TRUTH-002 — bell lists an account whose latest value is older than
   await page.getByTestId("notifications-trigger").click()
   const item = page.getByTestId(`notification-stale-${id}`)
   await expect(item).toContainText("TRUTH-002 Quiet Broker")
-  await expect(item).toContainText("Jun ’20")
+  await expect(item).toContainText("Jun ’20")
   await item.click()
   await expect(page).toHaveURL(/\/entries$/)
   await expect(

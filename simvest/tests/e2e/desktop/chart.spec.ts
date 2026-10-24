@@ -358,7 +358,9 @@ test("E2E-D-CHART-011 — Goal milestone rows are present in the Milestones card
     // Locale-agnostic: an earlier test on this worker may leave de-DE ("~7,8y").
     const hasReached = rowText?.match(/~[\d.,]+y/)
     const hasNotReached = rowText?.includes("not reached")
-    expect(hasReached || hasNotReached).toBeTruthy()
+    // Specs that log entries on the shared DB can push the value past a goal.
+    const isReached = /Reached$/.test(rowText ?? "")
+    expect(hasReached || hasNotReached || isReached).toBeTruthy()
   }
 })
 

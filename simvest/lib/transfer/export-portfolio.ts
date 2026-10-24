@@ -98,6 +98,7 @@ export async function exportPortfolio(
       name: p.name,
       color: p.color,
       targetMonthlyContribution: round2(p.targetMonthlyContribution),
+      contributionSet: p.contributionSet,
       startingValue: round2(p.startingValue),
       startingDate: p.startingDate,
       createdAt: p.createdAt,

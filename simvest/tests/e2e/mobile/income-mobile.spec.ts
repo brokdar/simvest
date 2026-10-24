@@ -260,4 +260,79 @@ test.describe("Income — mobile", () => {
     expect(box?.x ?? -1).toBeGreaterThanOrEqual(0)
     expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(vw + 1)
   })
+  // E2E-M-LO-C-001 — Touch users can drill into a month: the pinned tooltip
+  // carries a 44px action that selects the month (?month=), the payouts list
+  // says what it shows, and "Show all months" clears it.
+  const drillCases = [
+    {
+      id: "E2E-M-LO-C-001",
+      title: "tapping a bar",
+      chart: "income-monthly-chart",
+      trigger: '[data-testid^="income-bar-hit-"]',
+      detail: "income-monthly-detail",
+    },
+    {
+      id: "E2E-M-LO-C-002",
+      title: "tapping a heatmap cell",
+      chart: "income-heatmap",
+      trigger:
+        '[data-testid^="income-heatmap-cell-"]:not([aria-label^="No payouts"])',
+      detail: "income-heatmap-detail",
+    },
+  ]
+  for (const c of drillCases) {
+    test(`${c.id} — ${c.title} then the tooltip action shows that month's payouts, and clears`, async ({
+      page,
+    }) => {
+      await page.goto("/income")
+      await page.locator(`[data-testid="${c.chart}"]`).waitFor()
+
+      await page.locator(c.trigger).last().tap()
+      const tooltip = page.locator(`[data-testid="${c.detail}"]`)
+      const action = page.locator(`[data-testid="${c.detail}-show-month"]`)
+      await expect(action).toBeVisible()
+      expect((await action.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(
+        44
+      )
+      // The tooltip body must not swallow taps meant for the chart; only the
+      // action opts back in.
+      expect(
+        await tooltip.evaluate((el) => getComputedStyle(el).pointerEvents)
+      ).toBe("none")
+      expect(
+        await action.evaluate((el) => getComputedStyle(el).pointerEvents)
+      ).toBe("auto")
+
+      await action.tap()
+      await expect.poll(() => page.url()).toMatch(/month=\d{4}-\d{2}/)
+      const month = new URL(page.url()).searchParams.get("month")!
+      const header = page.locator('[data-testid="income-month-header"]')
+      await expect(header).toBeVisible()
+      await expect(header).toContainText("Showing")
+
+      // Rows of the selected month carry the highlight, no other month does.
+      await expect(
+        page.locator(
+          `[data-testid="income-recent-table"] tr[data-month="${month}"][data-selected="true"]`
+        )
+      ).not.toHaveCount(0)
+      await expect(
+        page.locator(
+          `[data-testid="income-recent-table"] tr[data-selected="true"]:not([data-month="${month}"])`
+        )
+      ).toHaveCount(0)
+      await expect(
+        page.locator(
+          `[data-testid="income-recent-table"] tr[data-month="${month}"]:not([data-selected="true"])`
+        )
+      ).toHaveCount(0)
+
+      await page.locator('[data-testid="income-month-clear"]').tap()
+      await expect(header).toBeHidden()
+      await expect.poll(() => page.url()).not.toMatch(/month=/)
+      await expect(
+        page.locator('[data-testid="income-recent-table"] [data-selected]')
+      ).toHaveCount(0)
+    })
+  }
 })

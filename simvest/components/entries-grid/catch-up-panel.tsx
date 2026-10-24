@@ -7,11 +7,13 @@ import { MoneyInput } from "@/components/money-input"
 import { MonthYearPicker } from "@/components/month-year-picker"
 import { useResolvedLocale } from "@/components/use-resolved-locale"
 import { Icon } from "@/components/icon"
+import { GapFillPanel } from "@/components/entries-grid/gap-fill-panel"
 import { FieldLabel } from "@/components/ui/field-label"
 import {
   buildCatchUpBatch,
   catchUpGap,
   catchUpRows,
+  gapGroups,
   monthOf,
   type CatchUpInput,
   type MonthRef,
@@ -60,6 +62,11 @@ export function CatchUpPanel({ focusSignal }: { focusSignal: number }) {
   // say how far back the gap goes and offer to start there.
   const gap = useMemo(() => catchUpGap(rows, current), [rows, current])
   const behindBy = new Map(gap?.accounts.map((a) => [a.id, a.months]) ?? [])
+  const groups = useMemo(
+    () => gapGroups(portfolios, today, settings.defaultEntryDay),
+    [portfolios, today, settings.defaultEntryDay]
+  )
+  const [fillingGap, setFillingGap] = useState(false)
   const errorCount = Object.keys(errors).length
   const waiting = rows.filter((r) => r.existing?.value == null).length
 
@@ -133,6 +140,9 @@ export function CatchUpPanel({ focusSignal }: { focusSignal: number }) {
   }
 
   if (portfolios.length === 0) return null
+  if (fillingGap && groups.length > 0) {
+    return <GapFillPanel groups={groups} onClose={() => setFillingGap(false)} />
+  }
 
   const monthName = fmtMonthLong(target.year, target.month)
   const saveLabel = saving
@@ -162,6 +172,19 @@ export function CatchUpPanel({ focusSignal }: { focusSignal: number }) {
           {gap && (
             <div className="muted small catchup-gap" data-testid="catchup-gap">
               {gap.text}{" "}
+              {groups.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setFillingGap(true)}
+                    data-testid="catchup-gap-fill"
+                  >
+                    Fill the gap
+                  </button>{" "}
+                  to log every missing month at once.{" "}
+                </>
+              )}
               {gap.firstMissing.year === target.year &&
               gap.firstMissing.month === target.month ? (
                 `Filling in ${fmtMonth(target.year, target.month)}, the first month missing — pick the next one above when you’re done.`
