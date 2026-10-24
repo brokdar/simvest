@@ -25,6 +25,7 @@ function portfolio(
     name: `P${id}`,
     color: "#000",
     targetMonthlyContribution,
+    contributionSet: true,
     startingValue: 0,
     startingDate: null,
     entries,
