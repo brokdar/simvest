@@ -423,7 +423,7 @@ test("E2E-D-OV-017 — Goal items disclose on-track verdict and projected reach 
   // projected reach year or "not within 40y" when never reached.
   const text = await status.textContent()
   expect(text).toMatch(
-    /^(On track · reaches \d{4}|€[\d.,]+\/mo more gets you there by \d{4} · at today’s pace, (it reaches \d{4}|not in the next 40 years)|Behind · .+)$/
+    /^(On track · reaches \d{4}|€[\d.,]+\/mo more gets you there by \d{4} · (at today’s pace|with no contribution set), (it reaches \d{4}|not in the next 40 years)|Behind · .+)$/
   )
   expect(text).not.toContain("40y")
 })

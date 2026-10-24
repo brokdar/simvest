@@ -34,6 +34,7 @@ export function seedFixture(sqlite: Database.Database) {
         DELETE FROM entries;
         DELETE FROM portfolios;
         DELETE FROM settings;
+        DELETE FROM milestone_dismissals;
         DELETE FROM sqlite_sequence WHERE name IN (
           'portfolios', 'entries', 'goals', 'holdings', 'dividend_events'
         );
@@ -54,7 +55,7 @@ function insertSeedRows(sqlite: Database.Database) {
     .run()
 
   const insertPortfolio = sqlite.prepare(
-    "INSERT INTO portfolios (name, color, target_monthly_contribution, starting_value, starting_date, created_at) VALUES (?, ?, ?, 0, NULL, ?)"
+    "INSERT INTO portfolios (name, color, target_monthly_contribution, contribution_set, starting_value, starting_date, created_at) VALUES (?, ?, ?, 1, 0, NULL, ?)"
   )
   const insertEntry = sqlite.prepare(
     "INSERT INTO entries (portfolio_id, year, month, day, invested, value, note) VALUES (?, ?, ?, 28, ?, ?, '')"

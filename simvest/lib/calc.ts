@@ -112,6 +112,7 @@ export function aggregatePortfoliosWithCoverage(
         name: "Combined",
         color: COMBINED_IDENTITY_HEX,
         targetMonthlyContribution: 0,
+        contributionSet: false,
         startingValue: 0,
         startingDate: null,
         entries: [],
@@ -238,6 +239,7 @@ export function aggregatePortfoliosWithCoverage(
       name: "Combined",
       color: COMBINED_IDENTITY_HEX,
       targetMonthlyContribution: combinedContribution,
+      contributionSet: list.some((p) => p.contributionSet),
       startingValue: combinedStartingValue,
       startingDate: combinedStartingDate,
       entries,
@@ -594,6 +596,8 @@ export type GoalEvaluation = {
   /** Monthly entries behind `historicalReturn`. */
   returnEntryCount: number
   monthlySaving: number
+  /** False when the scope's monthly contribution was never set (not a deliberate 0). */
+  contributionSet: boolean
   scopedKpiValue: number
   swrUsed?: number
   yieldUsed?: YieldEstimate
@@ -604,6 +608,8 @@ export type GoalEvaluationContext = {
   incomeEvents: IncomeEventDTO[]
   settings: SettingsDTO
   monthlySaving: number
+  /** Defaults to true; false means "no contribution set" rather than EUR 0. */
+  contributionSet?: boolean
   now?: Date
 }
 
@@ -761,6 +767,7 @@ export function evaluateGoal(
     returnScopeName: scoped.name,
     returnEntryCount: scoped.entries.length,
     monthlySaving: ctx.monthlySaving,
+    contributionSet: ctx.contributionSet ?? true,
     scopedKpiValue: K.value,
     swrUsed,
     yieldUsed,

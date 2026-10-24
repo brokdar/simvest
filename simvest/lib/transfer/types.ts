@@ -24,6 +24,8 @@ export type TransferPortfolioFile = {
     name: string
     color: string
     targetMonthlyContribution: number
+    /** Optional on import; see `validateTransferPortfolio`. */
+    contributionSet: boolean
     startingValue: number
     startingDate: string | null
     createdAt: number
