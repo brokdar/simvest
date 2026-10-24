@@ -260,4 +260,30 @@ test.describe("Income — mobile", () => {
     expect(box?.x ?? -1).toBeGreaterThanOrEqual(0)
     expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(vw + 1)
   })
+  // E2E-M-LO-C-001 — Touch users can drill into a month: the pinned tooltip
+  // carries a 44px action that selects the month (?month=), the payouts list
+  // says what it shows, and "Show all months" clears it.
+  test("E2E-M-LO-C-001 — tapping a bar then the tooltip action shows that month's payouts, and clears", async ({
+    page,
+  }) => {
+    await page.goto("/income")
+    await page.locator('[data-testid="income-monthly-chart"]').waitFor()
+
+    await page.locator('[data-testid^="income-bar-hit-"]').last().tap()
+    const action = page.locator(
+      '[data-testid="income-monthly-detail-show-month"]'
+    )
+    await expect(action).toBeVisible()
+    expect((await action.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44)
+
+    await action.tap()
+    await expect.poll(() => page.url()).toMatch(/month=\d{4}-\d{2}/)
+    const header = page.locator('[data-testid="income-month-header"]')
+    await expect(header).toBeVisible()
+    await expect(header).toContainText("Showing")
+
+    await page.locator('[data-testid="income-month-clear"]').tap()
+    await expect(header).toBeHidden()
+    await expect.poll(() => page.url()).not.toMatch(/month=/)
+  })
 })

@@ -200,7 +200,7 @@ describe("entryTimestamp", () => {
 
 // ---------------------------------------------------------------------------
 // App-wide date formats (P1 · C3 / F3). Exactly two visible formats:
-//   fmtMonth → "Apr ’26"   fmtDate → "30 Apr 2026"
+//   fmtMonth → "Apr ’26"   fmtDate → "30 Apr 2026"
 // The apostrophe is U+2019; month names never come from Intl (en-GB's
 // toLocaleDateString renders September as "Sept", which was finding F3).
 // ---------------------------------------------------------------------------
@@ -209,8 +209,8 @@ const RSQUO = "\u2019"
 
 describe("fmtMonth", () => {
   it("UNIT-DATES-FMT-001 — month + curly-apostrophe two-digit year", () => {
-    expect(fmtMonth(2026, 4)).toBe(`Apr ${RSQUO}26`)
-    expect(fmtMonth(2026, 4)).toBe("Apr ’26")
+    expect(fmtMonth(2026, 4)).toBe(`Apr\u00A0${RSQUO}26`)
+    expect(fmtMonth(2026, 4)).toBe("Apr ’26")
   })
 
   it("UNIT-DATES-FMT-002 — uses U+2019, not an ASCII apostrophe", () => {
@@ -220,16 +220,16 @@ describe("fmtMonth", () => {
   })
 
   it("UNIT-DATES-FMT-003 — September is Sep (never Sept), every month three letters", () => {
-    expect(fmtMonth(2025, 9)).toBe("Sep ’25")
+    expect(fmtMonth(2025, 9)).toBe("Sep ’25")
     for (let m = 1; m <= 12; m++) {
-      const [mon] = fmtMonth(2025, m).split(" ")
+      const [mon] = fmtMonth(2025, m).split("\u00A0")
       expect(mon).toMatch(/^[A-Z][a-z]{2}$/)
     }
   })
 
   it("UNIT-DATES-FMT-004 — century boundaries keep two digits", () => {
-    expect(fmtMonth(2000, 1)).toBe("Jan ’00")
-    expect(fmtMonth(2100, 12)).toBe("Dec ’00")
+    expect(fmtMonth(2000, 1)).toBe("Jan ’00")
+    expect(fmtMonth(2100, 12)).toBe("Dec ’00")
   })
 
   it("UNIT-DATES-FMT-005 — fmtYearShort matches fmtMonth's year part", () => {
@@ -238,8 +238,8 @@ describe("fmtMonth", () => {
   })
 
   it("UNIT-DATES-FMT-006 — fmtMonthKey parses YYYY-MM and leaves junk alone", () => {
-    expect(fmtMonthKey("2026-04")).toBe("Apr ’26")
-    expect(fmtMonthKey("2026-04-30")).toBe("Apr ’26")
+    expect(fmtMonthKey("2026-04")).toBe("Apr ’26")
+    expect(fmtMonthKey("2026-04-30")).toBe("Apr ’26")
     expect(fmtMonthKey("not a date")).toBe("not a date")
     expect(fmtMonthKey("2026-13")).toBe("2026-13")
   })
@@ -301,5 +301,13 @@ describe("MONTH_SHORT", () => {
       "Nov",
       "Dec",
     ])
+  })
+})
+
+describe("fmtMonth non-breaking space", () => {
+  it("UNIT-LO-C-001 joins month and year with U+00A0 so inline prose never wraps between them", () => {
+    expect(fmtMonth(2026, 4)).toBe("Apr ’26")
+    expect(fmtMonth(2026, 4)).not.toContain(" ")
+    expect(fmtMonthKey("2026-04")).toBe("Apr ’26")
   })
 })

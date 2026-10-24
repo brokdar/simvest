@@ -520,6 +520,7 @@ export function IncomeView() {
               events={filteredEvents}
               basis={basis}
               selectedMonth={params.month}
+              onClearMonth={() => setMonth(null)}
               portfolioName={portfolioName}
               onEdit={(e) => {
                 setShowDividendEditor(false)

@@ -22,6 +22,11 @@ type Props = {
   testId: string
   /** Replaces the €0 summary for a month that isn't data (N5). */
   emptyText?: string
+  /**
+   * Touch-only action: select this month (the same `?month=` selection a
+   * desktop click makes). Rendered as the tooltip's one tappable element.
+   */
+  onShowMonth?: () => void
 }
 
 /**
@@ -40,10 +45,12 @@ export function MonthDetailTooltip({
   events,
   testId,
   emptyText,
+  onShowMonth,
 }: Props) {
   return (
     <div
       data-testid={testId}
+      data-month-detail=""
       style={{
         position: "absolute",
         left,
@@ -67,6 +74,22 @@ export function MonthDetailTooltip({
         events={events}
         emptyText={emptyText}
       />
+      {onShowMonth && (
+        <button
+          type="button"
+          className="btn btn-secondary focus-ring"
+          data-testid={`${testId}-show-month`}
+          onClick={onShowMonth}
+          style={{
+            pointerEvents: "auto",
+            minHeight: 44,
+            width: "100%",
+            marginTop: 8,
+          }}
+        >
+          Show this month’s payouts
+        </button>
+      )}
     </div>
   )
 }

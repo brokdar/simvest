@@ -29,6 +29,8 @@ type Props = {
   events: IncomeEventDTO[]
   basis: DividendBasis
   selectedMonth: string | null
+  /** Clears the month selection (`?month=`). */
+  onClearMonth?: () => void
   /** Portfolio id → display name, for the folded interest rows. */
   portfolioName: (id: number) => string
   onEdit: (event: IncomeEventDTO) => void
@@ -39,6 +41,7 @@ export function RecentPayoutsTable({
   events,
   basis,
   selectedMonth,
+  onClearMonth,
   portfolioName,
   onEdit,
   onDelete,
@@ -212,6 +215,28 @@ export function RecentPayoutsTable({
         <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600 }}>
           Recent Payouts
         </div>
+        {selectedMonth && onClearMonth && (
+          <div
+            data-testid="income-month-header"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: "var(--fs-sm)",
+            }}
+          >
+            <span>Showing {fmtMonthKey(selectedMonth)}</span>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm focus-ring"
+              data-testid="income-month-clear"
+              onClick={onClearMonth}
+              style={{ minHeight: 44 }}
+            >
+              Show all months
+            </button>
+          </div>
+        )}
         {hasMore && (
           <button
             type="button"

@@ -306,10 +306,10 @@ test("E2E-D-P6-W8-001 — Overview KPIs carry last month's move and the plan", a
   await page.goto("/")
   const fmt = (n: number) => String(Math.round(Math.abs(n)))
   const valueMom = page.getByTestId("kpi-portfolio-value-mom")
-  await expect(valueMom).toContainText(/in Dec ’23/)
+  await expect(valueMom).toContainText(/in Dec ’23/)
   await expect(valueMom).toContainText(/[+−-]€/)
   const netMom = page.getByTestId("kpi-net-gain-mom")
-  await expect(netMom).toContainText("from the market in Dec ’23")
+  await expect(netMom).toContainText("from the market in Dec ’23")
   const digits = (s: string) => s.replace(/\D/g, "")
   expect(digits((await valueMom.textContent())!)).toContain(fmt(valueDelta))
   expect(digits((await netMom.textContent())!)).toContain(fmt(market))
@@ -336,7 +336,7 @@ test("E2E-D-P6-W8-001 — Overview KPIs carry last month's move and the plan", a
   await page.setViewportSize({ width: 1440, height: 900 })
   // Seed: €1.000 added every month against a €1.000 plan.
   await expect(page.getByTestId("kpi-total-invested-plan")).toContainText(
-    /added in Dec ’23 · on plan/
+    /added in Dec ’23 · on plan/
   )
   await expect(page.getByTestId("kpi-dividends-yoy")).toContainText(
     "vs the 12 months before"

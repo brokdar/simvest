@@ -152,7 +152,7 @@ describe("aggregatePortfolios", () => {
     expect(result.entries[0]).toMatchObject({
       year: 2024,
       month: 1,
-      label: "Jan ’24",
+      label: "Jan ’24",
     })
   })
 

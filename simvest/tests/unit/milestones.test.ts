@@ -95,7 +95,7 @@ describe("incomeTotalMilestones", () => {
       month: 9,
       title: "Your first €1.000 of dividends",
     })
-    expect(ms[1].detail).toContain("€1.100 since your first payout in Jan ’24")
+    expect(ms[1].detail).toContain("€1.100 since your first payout in Jan ’24")
   })
 
   it("UNIT-MILE-002 — 'all' counts interest too; net basis subtracts tax", () => {
@@ -128,7 +128,7 @@ describe("recordIncomeMonth", () => {
     const ms = recordIncomeMonth(events, "gross")
     expect(ids(ms)).toEqual(["record-income-month-2025-04"])
     expect(ms[0].detail).toBe(
-      "€120 in Apr ’25 — the previous best was €80 in Jun ’24."
+      "€120 in Apr ’25 — the previous best was €80 in Jun ’24."
     )
   })
 
@@ -190,7 +190,7 @@ describe("marketBeatContributions", () => {
       title: "For the first time, the market added more than you did",
     })
     expect(ms[0].detail).toBe(
-      "€3.000 from the market against €2.000 you put in, Jan ’26–Feb ’26."
+      "€3.000 from the market against €2.000 you put in, Jan ’26–Feb ’26."
     )
   })
 
@@ -237,7 +237,7 @@ describe("goalQuarterMilestones", () => {
       title: "Halfway to “Half a million”",
       href: "/goals?goal=9",
     })
-    expect(ms[1].detail).toBe("Passed 50% of the goal in Mar ’24.")
+    expect(ms[1].detail).toBe("Passed 50% of the goal in Mar ’24.")
   })
 
   it("UNIT-MILE-012 — monthly-dividend goal uses trailing-12 payouts ÷ 12", () => {

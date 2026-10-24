@@ -267,7 +267,7 @@ test.describe("Topbar search — holdings and years (P2)", () => {
     page,
   }) => {
     await page.goto("/")
-    // Seed entries run Jan 2019 → Dec 2023; labels are "Jan ’21" style.
+    // Seed entries run Jan 2019 → Dec 2023; labels are "Jan ’21" style.
     await page.getByTestId("search-input").fill("2021")
     const group = page.getByTestId("search-group-entries")
     await expect(group).toBeVisible()
