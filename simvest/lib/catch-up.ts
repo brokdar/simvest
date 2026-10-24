@@ -142,3 +142,96 @@ export function catchUpGap(
           )} and ${accounts.at(-1)!.name} are behind — up to ${accounts[0].months} months.`
   return { accounts, firstMissing, text }
 }
+
+/**
+ * The months an account is missing, oldest first: every month after its last
+ * valued entry up to `today`. The current month only counts once its entry
+ * day has come (a "last"-day month isn't due on the 24th), and future months
+ * never do. An account with no valued entry has nothing to catch up from.
+ */
+export function missingMonths(
+  portfolio: PortfolioDTO,
+  today: string,
+  entryDay: string
+): MonthRef[] {
+  const last = lastValuedEntry(portfolio.entries)
+  if (!last) return []
+  const now = monthOf(today)
+  const todayDay = Number(today.slice(8, 10))
+  const end = now.year * 12 + now.month - 1
+  const due =
+    todayDay >= resolveEntryDay(entryDay, now.year, now.month) ? end : end - 1
+  const out: MonthRef[] = []
+  for (let i = last.year * 12 + last.month; i <= due; i++) {
+    out.push({ year: Math.floor(i / 12), month: (i % 12) + 1 })
+  }
+  return out
+}
+
+export type GapRow = {
+  portfolio: PortfolioDTO
+  month: MonthRef
+  day: number
+  /** `portfolioId-year-month` — keys the typed inputs. */
+  key: string
+}
+
+/** One group per account that is two or more months behind. */
+export type GapGroup = { portfolio: PortfolioDTO; rows: GapRow[] }
+
+export function gapGroups(
+  portfolios: PortfolioDTO[],
+  today: string,
+  entryDay: string
+): GapGroup[] {
+  const groups: GapGroup[] = []
+  for (const p of portfolios) {
+    const months = missingMonths(p, today, entryDay)
+    if (months.length < 2) continue
+    groups.push({
+      portfolio: p,
+      rows: months.map((m) => ({
+        portfolio: p,
+        month: m,
+        day: resolveEntryDay(entryDay, m.year, m.month),
+        key: `${p.id}-${m.year}-${m.month}`,
+      })),
+    })
+  }
+  return groups.sort(
+    (a, b) =>
+      b.rows.length - a.rows.length ||
+      a.portfolio.name.localeCompare(b.portfolio.name)
+  )
+}
+
+/**
+ * Everything typed into the gap form as one batch. `null` while any month is
+ * still empty — a gap is filled completely or not at all.
+ */
+export function buildGapBatch(
+  groups: GapGroup[],
+  inputs: Record<string, CatchUpInput | undefined>
+): BatchEntryInput[] | null {
+  const out: BatchEntryInput[] = []
+  for (const g of groups) {
+    for (const r of g.rows) {
+      const input = inputs[r.key]
+      const value = input?.value
+      if (value === undefined || value === null) return null
+      out.push({
+        portfolioId: r.portfolio.id,
+        year: r.month.year,
+        month: r.month.month,
+        day: r.day,
+        invested:
+          input?.invested !== undefined
+            ? (input.invested ?? 0)
+            : r.portfolio.targetMonthlyContribution,
+        value,
+        note: "",
+      })
+    }
+  }
+  return out.length > 0 ? out : null
+}
