@@ -87,7 +87,7 @@ test("E2E-D-P7-001 — Overview, Goals and Income each open with one plain sente
   const overview = page.getByTestId("overview-headline")
   await expect(overview).toBeVisible()
   await expect(overview).toHaveText(/^(Up €|The market |Flat )/)
-  await expect(overview).toHaveText(/[A-Z][a-z]{2} ’\d\d/)
+  await expect(overview).toHaveText(/[A-Z][a-z]{2}\s’\d\d/)
   await expect(overview).not.toHaveText(/NaN|undefined|null/)
 
   await page.goto("/goals")

@@ -74,7 +74,7 @@ describe("overviewHeadline", () => {
   })
 
   it("UNIT-NARR-003 — ahead: names the rise, the market's part and a record month", () => {
-    // Dec ’25 → €26.500; Jan ’26 €30.000 with €1.000 added = +€2.500 market.
+    // Dec ’25 → €26.500; Jan ’26 €30.000 with €1.000 added = +€2.500 market.
     const entries = series(30_000)
     const text = overviewHeadline({
       moves: monthMoves(entries),
@@ -83,7 +83,7 @@ describe("overviewHeadline", () => {
       now: NOW,
     })
     expect(text).toBe(
-      "Up €3.500 in Jan ’26, €2.500 of it from the market — your best month on record."
+      "Up €3.500 in Jan ’26, €2.500 of it from the market — your best month on record."
     )
   })
 
@@ -101,7 +101,7 @@ describe("overviewHeadline", () => {
       gain: 5_000,
       now: NOW,
     })
-    expect(text).toContain("your best month since Jun ’25")
+    expect(text).toContain("your best month since Jun ’25")
   })
 
   it("UNIT-NARR-005 — behind / negative month: calm, and says where you stand", () => {
@@ -113,7 +113,7 @@ describe("overviewHeadline", () => {
       now: NOW,
     })
     expect(text).toBe(
-      "The market took €3.500 off in Jan ’26, partly offset by the €1.000 you added; you’re still €3.000 ahead of everything you’ve put in."
+      "The market took €3.500 off in Jan ’26, partly offset by the €1.000 you added; you’re still €3.000 ahead of everything you’ve put in."
     )
   })
 
@@ -137,7 +137,7 @@ describe("overviewHeadline", () => {
       now: NOW,
     })
     expect(text).toBe(
-      "Flat in Jan ’26: the value moved only by what you added."
+      "Flat in Jan ’26: the value moved only by what you added."
     )
   })
 
@@ -149,7 +149,7 @@ describe("overviewHeadline", () => {
       gain: 0,
       now: { year: 2026, month: 7 },
     })
-    expect(text).toContain("in Jan ’26 (6 months ago)")
+    expect(text).toContain("in Jan ’26 (6 months ago)")
   })
 
   it("UNIT-NARR-009 — combined with an incomplete newer month: says it's the last complete one", () => {
@@ -162,7 +162,7 @@ describe("overviewHeadline", () => {
       newestReported: { year: 2026, month: 2 },
     })
     expect(text).toContain(
-      "in Jan ’26 (the latest month all your accounts reported)"
+      "in Jan ’26 (the latest month all your accounts reported)"
     )
   })
 
@@ -179,7 +179,7 @@ describe("overviewHeadline", () => {
       gain: 0,
       now: { year: 2025, month: 5 },
     })
-    expect(text).toContain("over the 2 months to Apr ’25")
+    expect(text).toContain("over the 2 months to Apr ’25")
     expect(text).not.toContain("best month")
   })
 
@@ -191,7 +191,7 @@ describe("overviewHeadline", () => {
       gain: 0,
       now: { year: 2025, month: 2 },
     })
-    expect(text).toBe("Up €2.000 in Feb ’25, €1.000 of it from the market.")
+    expect(text).toBe("Up €2.000 in Feb ’25, €1.000 of it from the market.")
   })
 })
 
@@ -412,7 +412,7 @@ describe("incomeHeadline", () => {
       ...monthly(2026, [1, 2, 3, 4, 5, 6, 7], 55),
     ]
     expect(head(events)).toBe(
-      "€635 of income came in over the 12 months to Jul ’26 — up 15,5% on the 12 months before."
+      "€635 of income came in over the 12 months to Jul ’26 — up 15,5% on the 12 months before."
     )
   })
 
@@ -444,7 +444,7 @@ describe("incomeHeadline", () => {
 
   it("UNIT-NARR-027 — single payout, no baseline: the total so far", () => {
     expect(head([payout("2026-03-10", 12.5)])).toBe(
-      "€13 of income so far, since your first payout in Mar ’26 — recorded through Mar ’26."
+      "€13 of income so far, since your first payout in Mar ’26 — recorded through Mar ’26."
     )
   })
 })

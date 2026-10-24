@@ -36,10 +36,10 @@ test("E2E-D-OV-001 — Page renders the 'Overview' heading and subtitle", async 
   const subtitle = page.locator('[data-testid="overview-subtitle"]')
   await expect(subtitle).toBeVisible()
   const subtitleText = await subtitle.textContent()
-  // Subtitle uses the app-wide month format (fmtMonth → "Dec ’23"). The
+  // Subtitle uses the app-wide month format (fmtMonth → "Dec ’23"). The
   // curly apostrophe is what stops "Dec 23" reading as a day-of-month.
   expect(subtitleText).toMatch(
-    /Updated [A-Z][a-z]{2} ’\d{2} · €[\d,.]+\/month across \d+ accounts/
+    /Updated [A-Z][a-z]{2}\s’\d{2} · €[\d,.]+\/month across \d+ accounts/
   )
 })
 
@@ -295,11 +295,11 @@ test("E2E-D-OV-010 — Switching to a specific portfolio updates KPI values", as
     page.locator('[data-testid="portfolio-switcher-trigger"] .pf-dd-name')
   ).toHaveText(portfolio1Name ?? "")
 
-  // Subtitle still shows a valid "Updated ..." line (fmtMonth: "Dec ’23").
+  // Subtitle still shows a valid "Updated ..." line (fmtMonth: "Dec ’23").
   const subtitle = page.locator('[data-testid="overview-subtitle"]')
   await expect(subtitle).toBeVisible()
   const subtitleText = await subtitle.textContent()
-  expect(subtitleText).toMatch(/Updated [A-Z][a-z]{2} ’\d{2}/)
+  expect(subtitleText).toMatch(/Updated [A-Z][a-z]{2}\s’\d{2}/)
 
   // Goal progress section still shows goals (count is global, not per-portfolio).
   // Other tests in the suite may seed additional goals on the shared e2e DB,

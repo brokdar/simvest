@@ -130,7 +130,7 @@ describe("POST /api/portfolios/[id]/entries — upsert", () => {
     expect(body.invested).toBe(500)
     expect(body.value).toBe(510)
     expect(body.note).toBe("Test")
-    expect(body.label).toBe("Jan ’30")
+    expect(body.label).toBe("Jan ’30")
     const rows = db
       .select()
       .from(entries)
@@ -231,7 +231,7 @@ describe("POST /api/portfolios/[id]/entries — upsert", () => {
     expect(res.status).toBe(201)
     const body = await res.json()
     expect(body.month).toBe(12)
-    expect(body.label).toBe("Dec ’33")
+    expect(body.label).toBe("Dec ’33")
   })
 
   it("INT-ENTRIES-007 — POST upsert: January entry (month=1) is stored correctly", async () => {
@@ -240,7 +240,7 @@ describe("POST /api/portfolios/[id]/entries — upsert", () => {
     expect(res.status).toBe(201)
     const body = await res.json()
     expect(body.month).toBe(1)
-    expect(body.label).toBe("Jan ’34")
+    expect(body.label).toBe("Jan ’34")
   })
 
   it("INT-ENTRIES-008 — POST upsert: year is floored (fractional year truncated)", async () => {
@@ -345,7 +345,7 @@ describe("POST /api/portfolios/[id]/entries — upsert", () => {
     })
     const resI = await upsertEntry(reqI, ctxI)
     const bodyI = await resI.json()
-    expect(bodyI.label).toBe("Jul ’35")
+    expect(bodyI.label).toBe("Jul ’35")
     const [reqU, ctxU] = upsertReq(pid1, {
       year: 2035,
       month: 7,
@@ -353,7 +353,7 @@ describe("POST /api/portfolios/[id]/entries — upsert", () => {
     })
     const resU = await upsertEntry(reqU, ctxU)
     const bodyU = await resU.json()
-    expect(bodyU.label).toBe("Jul ’35")
+    expect(bodyU.label).toBe("Jul ’35")
   })
 
   it("INT-ENTRIES-027 — POST upsert: response includes portfolioId field", async () => {

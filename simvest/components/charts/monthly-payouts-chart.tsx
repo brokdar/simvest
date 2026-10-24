@@ -496,6 +496,14 @@ export function MonthlyPayoutsChart({
           top={tooltip.top}
           placement={tooltip.placement}
           width={TOOLTIP_WIDTH}
+          onShowMonth={
+            touchIdx !== null && hoverIdx === null
+              ? () => {
+                  onMonthSelect(activeBucket.key)
+                  setTouchIdx(null)
+                }
+              : undefined
+          }
           year={activeBucket.year}
           month={activeBucket.month}
           basis={basis}
