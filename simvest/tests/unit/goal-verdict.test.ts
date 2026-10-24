@@ -28,6 +28,7 @@ const portfolio: PortfolioDTO = {
   name: "P1",
   color: "#000",
   targetMonthlyContribution: 500,
+  contributionSet: true,
   startingValue: 0,
   startingDate: null,
   entries: Array.from({ length: 36 }, (_, i) => {

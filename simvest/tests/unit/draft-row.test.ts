@@ -39,6 +39,7 @@ function makePortfolio(entries: EntryDTO[] = []): PortfolioDTO {
     name: "Growth",
     color: "#1E40AF",
     targetMonthlyContribution: 500,
+    contributionSet: true,
     startingValue: 0,
     startingDate: null,
     entries,

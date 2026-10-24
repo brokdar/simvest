@@ -5,9 +5,9 @@ import { Icon } from "@/components/icon"
 import { useMilestones } from "@/components/use-milestones"
 
 /**
- * Overview: recent milestones (T4), said calmly — one line each, a link to
+ * Overview: active milestones (T4), said calmly — one line each, a link to
  * where it happened and a way to put it away. Renders nothing when there's
- * nothing recent, so it never becomes a permanent fixture.
+ * nothing active, so it never becomes a permanent fixture.
  */
 export function MilestonesCard() {
   const { milestones, dismiss } = useMilestones()

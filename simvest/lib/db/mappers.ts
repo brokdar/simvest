@@ -23,6 +23,7 @@ export function portfolioRowToDTO(
     name: p.name,
     color: p.color,
     targetMonthlyContribution: p.targetMonthlyContribution,
+    contributionSet: p.contributionSet,
     startingValue: p.startingValue,
     startingDate: p.startingDate,
     entries: entryRows

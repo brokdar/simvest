@@ -8,6 +8,7 @@ import {
   settings,
   holdings,
   dividendEvents,
+  milestoneDismissals,
 } from "./schema"
 import { ensureSeeded } from "./seed"
 import { portfolioRowToDTO } from "./mappers"
@@ -196,16 +197,46 @@ export async function getAllIncomeEvents(): Promise<IncomeEventDTO[]> {
   }))
 }
 
+/** Ids of the milestones the user has dismissed, oldest dismissal first. */
+export async function getDismissedMilestones(): Promise<string[]> {
+  await ensureSeeded()
+  return db
+    .select({ id: milestoneDismissals.id })
+    .from(milestoneDismissals)
+    .orderBy(asc(milestoneDismissals.dismissedAt), asc(milestoneDismissals.id))
+    .all()
+    .map((r) => r.id)
+}
+
+/** Idempotent: dismissing an already-dismissed milestone keeps its first date. */
+export async function dismissMilestones(ids: string[]): Promise<void> {
+  await ensureSeeded()
+  if (ids.length === 0) return
+  const now = Date.now()
+  db.insert(milestoneDismissals)
+    .values(ids.map((id) => ({ id, dismissedAt: now })))
+    .onConflictDoNothing()
+    .run()
+}
+
 export async function getInitialData() {
-  const [portfolios, goals, settings, holdings, incomeEvents, selectedId] =
-    await Promise.all([
-      getPortfolios(),
-      getGoals(),
-      getSettings(),
-      getAllHoldings(),
-      getAllIncomeEvents(),
-      readSelectedPortfolioCookie(),
-    ])
+  const [
+    portfolios,
+    goals,
+    settings,
+    holdings,
+    incomeEvents,
+    dismissedMilestones,
+    selectedId,
+  ] = await Promise.all([
+    getPortfolios(),
+    getGoals(),
+    getSettings(),
+    getAllHoldings(),
+    getAllIncomeEvents(),
+    getDismissedMilestones(),
+    readSelectedPortfolioCookie(),
+  ])
   // SSR-anchored "today" so client and server agree on the trailing-12mo
   // cutoff. Consumers should treat it as the cutoff for any date math that
   // would otherwise call `new Date()` in render.
@@ -216,6 +247,7 @@ export async function getInitialData() {
     settings,
     holdings,
     incomeEvents,
+    dismissedMilestones,
     selectedPortfolioId: selectedId,
     today,
   }
