@@ -73,7 +73,7 @@ export function IncomeCalendarHeatmap({
     if (touchKey === null) return
     const onDocTouch = (ev: Event) => {
       const target = ev.target as Element | null
-      if (target?.closest?.("[data-heatmap-cell]")) return
+      if (target?.closest?.("[data-heatmap-cell], [data-month-detail]")) return
       setTouchKey(null)
     }
     document.addEventListener("touchstart", onDocTouch, true)
@@ -325,6 +325,14 @@ export function IncomeCalendarHeatmap({
           top={pos.y}
           placement={pos.placement}
           width={POPOVER_WIDTH}
+          onShowMonth={
+            touchKey !== null && hoverKey === null
+              ? () => {
+                  onMonthSelect(touchKey)
+                  setTouchKey(null)
+                }
+              : undefined
+          }
           year={activeParts[0]}
           month={activeParts[1]}
           basis={basis}

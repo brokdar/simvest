@@ -64,9 +64,10 @@ export function fmtYearShort(year: number): string {
   return `’${String(year).slice(-2).padStart(2, "0")}`
 }
 
-/** Month + short year: (2026, 4) → "Apr ’26". `month` is 1-12. */
+/** Month + short year: (2026, 4) → "Apr ’26". `month` is 1-12. A non-breaking
+ *  space (U+00A0) keeps the pair on one line when used inline in prose. */
 export function fmtMonth(year: number, month: number): string {
-  return `${MONTH_SHORT[month - 1]} ${fmtYearShort(year)}`
+  return `${MONTH_SHORT[month - 1]}\u00A0${fmtYearShort(year)}`
 }
 
 /** Month key ("2026-04", or a longer ISO date) → "Apr ’26". Unparseable

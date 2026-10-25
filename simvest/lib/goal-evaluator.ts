@@ -33,6 +33,8 @@ export type GoalEvaluatorContext = {
   incomeEvents: IncomeEventDTO[]
   settings: SettingsDTO
   monthlySaving: (portfolioId: number) => number
+  /** Whether the scope's contribution was ever set; defaults to true. */
+  contributionSet?: (portfolioId: number) => boolean
 }
 
 /** Scope sentinel used by `estimateYield`. */
@@ -89,16 +91,17 @@ function resolveScopedPortfolio(
 export function createGoalEvaluator(ctx: GoalEvaluatorContext): GoalEvaluator {
   return {
     evaluate(goal) {
-      const monthlySaving = ctx.monthlySaving(
+      const scopeId =
         goal.scope === "portfolio" && goal.portfolioId != null
           ? goal.portfolioId
           : COMBINED_PORTFOLIO_ID
-      )
+      const monthlySaving = ctx.monthlySaving(scopeId)
       return evaluateGoal(goal, {
         portfolios: ctx.portfolios,
         incomeEvents: ctx.incomeEvents,
         settings: ctx.settings,
         monthlySaving,
+        contributionSet: ctx.contributionSet?.(scopeId) ?? true,
       })
     },
     estimateYield({ scope, override }) {
@@ -177,7 +180,7 @@ export function goalVerdict(
   const text = ev.onTrack
     ? `${label} · ${reach}`
     : fix
-      ? `${fix} · at today’s pace, ${ev.projectedYear !== null ? `it ${reach}` : reach}`
+      ? `${fix} · ${ev.contributionSet ? "at today’s pace" : "with no contribution set"}, ${ev.projectedYear !== null ? `it ${reach}` : reach}`
       : `${label} · ${reach}`
   return {
     onTrack: ev.onTrack,

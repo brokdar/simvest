@@ -10,7 +10,7 @@ describe("nonCollidingTicks", () => {
   })
 
   it("UNIT-XTICK-002 — the last label wins over a stride label it would hit", () => {
-    // "Aug ’26" at 250 and the always-drawn "Oct ’26" at 270 collided (M4).
+    // "Aug ’26" at 250 and the always-drawn "Oct ’26" at 270 collided (M4).
     const got = nonCollidingTicks([
       at(0, 20),
       at(6, 130),
@@ -41,9 +41,9 @@ describe("nonCollidingTicks", () => {
   })
 
   it("UNIT-XTICK-006 — label width scales with length and font size", () => {
-    expect(estimateLabelWidth("Sep ’25", 11)).toBeGreaterThan(40)
-    expect(estimateLabelWidth("Sep ’25", 10)).toBeLessThan(
-      estimateLabelWidth("Sep ’25", 11)
+    expect(estimateLabelWidth("Sep ’25", 11)).toBeGreaterThan(40)
+    expect(estimateLabelWidth("Sep ’25", 10)).toBeLessThan(
+      estimateLabelWidth("Sep ’25", 11)
     )
   })
 })

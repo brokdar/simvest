@@ -87,7 +87,7 @@ test("E2E-D-P7-001 — Overview, Goals and Income each open with one plain sente
   const overview = page.getByTestId("overview-headline")
   await expect(overview).toBeVisible()
   await expect(overview).toHaveText(/^(Up €|The market |Flat )/)
-  await expect(overview).toHaveText(/[A-Z][a-z]{2} ’\d\d/)
+  await expect(overview).toHaveText(/[A-Z][a-z]{2}\s’\d\d/)
   await expect(overview).not.toHaveText(/NaN|undefined|null/)
 
   await page.goto("/goals")
@@ -126,7 +126,7 @@ test("E2E-D-P7-002 — a milestone shows on the Overview and in the bell, and di
   await page.getByTestId(`dismiss-milestone-${milestoneId}`).click()
   await expect(item).toHaveCount(0)
 
-  // Remembered in this browser: still gone after a reload, and in the bell.
+  // Remembered by the server: still gone after a reload, and in the bell.
   await page.reload()
   await expect(page.getByTestId("overview-headline")).toBeVisible()
   await expect(page.getByTestId(`milestone-${milestoneId}`)).toHaveCount(0)

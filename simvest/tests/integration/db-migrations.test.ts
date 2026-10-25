@@ -3,6 +3,7 @@ import Database from "better-sqlite3"
 import { drizzle } from "drizzle-orm/better-sqlite3"
 import { migrate } from "drizzle-orm/better-sqlite3/migrator"
 import fs from "node:fs"
+import os from "node:os"
 import path from "node:path"
 import * as schema from "@/lib/db/schema"
 
@@ -42,6 +43,8 @@ const HASH_0010 =
   "1600895fb6ca84e713de51ca32a8b751c5e847c5e073d0e7935ff479645aa12d"
 const HASH_0011 =
   "4d398a5dd4d6e9e4349e0b131ede407b84f1938cac446bc3b48342f06a5bf6c6"
+const HASH_0012 =
+  "714e98dfe0f409961a1ef6451688c223067c5eae4b72daef1301190aa04eb77e"
 
 describe("DB Migrations Integration Tests", () => {
   describe("INT-MIGRATIONS-001 — migrate() applies both migrations without throwing", () => {
@@ -67,14 +70,14 @@ describe("DB Migrations Integration Tests", () => {
     })
   })
 
-  describe("INT-MIGRATIONS-003 — __drizzle_migrations contains exactly twelve entries", () => {
-    it("INT-MIGRATIONS-003 — exactly twelve migration rows recorded", () => {
+  describe("INT-MIGRATIONS-003 — __drizzle_migrations contains exactly thirteen entries", () => {
+    it("INT-MIGRATIONS-003 — exactly thirteen migration rows recorded", () => {
       const { db, sqlite } = freshDb()
       migrate(db, { migrationsFolder })
       const row = sqlite
         .prepare("SELECT COUNT(*) as c FROM __drizzle_migrations")
         .get() as { c: number }
-      expect(row.c).toBe(12)
+      expect(row.c).toBe(13)
       sqlite.close()
     })
   })
@@ -86,7 +89,7 @@ describe("DB Migrations Integration Tests", () => {
       const rows = sqlite
         .prepare("SELECT * FROM __drizzle_migrations ORDER BY created_at")
         .all() as Array<{ hash: string; created_at: number }>
-      expect(rows).toHaveLength(12)
+      expect(rows).toHaveLength(13)
       expect(rows[0].hash).toBe(HASH_0000)
       expect(rows[1].hash).toBe(HASH_0001)
       expect(rows[2].hash).toBe(HASH_0002)
@@ -99,6 +102,7 @@ describe("DB Migrations Integration Tests", () => {
       expect(rows[9].hash).toBe(HASH_0009)
       expect(rows[10].hash).toBe(HASH_0010)
       expect(rows[11].hash).toBe(HASH_0011)
+      expect(rows[12].hash).toBe(HASH_0012)
       for (const r of rows) expect(r.created_at).toBeTruthy()
       sqlite.close()
     })
@@ -372,8 +376,69 @@ describe("DB Migrations Integration Tests", () => {
       const row = sqlite
         .prepare("SELECT COUNT(*) as c FROM __drizzle_migrations")
         .get() as { c: number }
-      expect(row.c).toBe(12)
+      expect(row.c).toBe(13)
       sqlite.close()
+    })
+  })
+
+  describe("INT-MIGRATIONS-LO-A — 0012 adds contribution_set and milestone_dismissals without touching data", () => {
+    it("INT-MIGRATIONS-LO-A-001 — upgrading keeps portfolios and entries and marks existing contributions as set", () => {
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "simvest-mig-"))
+      fs.cpSync(migrationsFolder, tmp, { recursive: true })
+      const journalPath = path.join(tmp, "meta", "_journal.json")
+      const journal = JSON.parse(fs.readFileSync(journalPath, "utf8")) as {
+        entries: Array<{ tag: string }>
+      }
+      const full = journal.entries
+      fs.writeFileSync(
+        journalPath,
+        JSON.stringify({ ...journal, entries: full.slice(0, 12) })
+      )
+
+      const { db, sqlite } = freshDb()
+      migrate(db, { migrationsFolder: tmp })
+      sqlite
+        .prepare(
+          "INSERT INTO portfolios (name, color, target_monthly_contribution, created_at) VALUES ('Old', '#000', 0, 0)"
+        )
+        .run()
+      const pid = (
+        sqlite.prepare("SELECT id FROM portfolios").get() as { id: number }
+      ).id
+      sqlite
+        .prepare(
+          "INSERT INTO entries (portfolio_id, year, month, invested, value, note) VALUES (?, 2024, 1, 100, 100, '')"
+        )
+        .run(pid)
+
+      migrate(db, { migrationsFolder })
+
+      const p = sqlite
+        .prepare(
+          "SELECT id, name, contribution_set FROM portfolios WHERE name = 'Old'"
+        )
+        .get() as { id: number; contribution_set: number }
+      expect(p.id).toBe(pid)
+      expect(p.contribution_set).toBe(1)
+      const e = sqlite
+        .prepare("SELECT COUNT(*) as c FROM entries WHERE portfolio_id = ?")
+        .get(pid) as { c: number }
+      expect(e.c).toBe(1)
+
+      sqlite
+        .prepare("INSERT INTO portfolios (name, created_at) VALUES ('New', 0)")
+        .run()
+      const fresh = sqlite
+        .prepare("SELECT contribution_set FROM portfolios WHERE name = 'New'")
+        .get() as { contribution_set: number }
+      expect(fresh.contribution_set).toBe(0)
+
+      const cols = sqlite
+        .prepare("PRAGMA table_info(milestone_dismissals)")
+        .all() as Array<{ name: string; pk: number }>
+      expect(cols.map((c) => c.name).sort()).toEqual(["dismissed_at", "id"])
+      sqlite.close()
+      fs.rmSync(tmp, { recursive: true, force: true })
     })
   })
 
