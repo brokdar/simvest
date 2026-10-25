@@ -20,7 +20,7 @@
   "dependencies": {
     "@hugeicons/core-free-icons": "^4.2.2",
     "@hugeicons/react": "^1.1.6",
-    "better-sqlite3": "^13.0.3",
+    "better-sqlite3": "^12.11.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.4",
@@ -38,7 +38,7 @@
     "@next/env": "^16.2.6",
     "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4.3.1",
-    "@types/better-sqlite3": "^9.6.0",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^26.0.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.2.3",
