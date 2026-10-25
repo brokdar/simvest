@@ -9,7 +9,7 @@ updates:
   - package-ecosystem: "bun"
     directory: "/simvest"
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       next-ecosystem:
         patterns:
@@ -31,4 +31,4 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: weekly
+      interval: monthly
