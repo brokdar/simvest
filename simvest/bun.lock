@@ -7,7 +7,7 @@
       "dependencies": {
         "@hugeicons/core-free-icons": "^4.3.5",
         "@hugeicons/react": "^1.1.6",
-        "better-sqlite3": "12.11.1",
+        "better-sqlite3": "^12.11.1",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "drizzle-orm": "^0.45.4",
@@ -25,7 +25,7 @@
         "@next/env": "^16.2.6",
         "@playwright/test": "^1.64.1",
         "@tailwindcss/postcss": "^4.3.1",
-        "@types/better-sqlite3": "7.6.13",
+        "@types/better-sqlite3": "^7.6.13",
         "@types/node": "^26.0.1",
         "@types/react": "^19.3.0",
         "@types/react-dom": "^19.2.3",
@@ -37,7 +37,7 @@
         "prettier": "^3.8.1",
         "prettier-plugin-tailwindcss": "^0.7.2",
         "tailwindcss": "^4.2.1",
-        "tsx": "^4.22.4",
+        "tsx": "^4.23.15",
         "typescript": "^6.0.3",
         "vitest": "^5.0.5",
       },
@@ -1501,7 +1501,7 @@
 
     "tslib": ["tslib@2.8.1", "", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
 
-    "tsx": ["tsx@4.22.4", "", { "dependencies": { "esbuild": "~0.28.0" }, "optionalDependencies": { "fsevents": "~2.3.3" }, "bin": "dist/cli.mjs" }, "sha512-X8EX+XV4QR5xCsrgxaED954zTDfY8KqlDtskKEL0cHhyS/P8b4IFOvGDQpsC9Q1XnLq915wEfwwY/zzskCtmhg=="],
+    "tsx": ["tsx@4.23.15", "", { "dependencies": { "esbuild": "~0.28.0" }, "optionalDependencies": { "fsevents": "~2.3.3" }, "bin": { "tsx": "dist/cli.mjs" } }, "sha512-Yiex1Ovn8z2xPpOWckIiysV1SSyRMY9BkLF++q0yKiDxCqRhosKfMg3janKkiLBwZ5c/YryloKwGZcrEmtwxKw=="],
 
     "tunnel-agent": ["tunnel-agent@0.6.0", "", { "dependencies": { "safe-buffer": "^5.0.1" } }, "sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w=="],
 
